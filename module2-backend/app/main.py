@@ -35,6 +35,9 @@ async def health_check():
 # =============================================================================
 # TODO: Implement the following endpoints
 # =============================================================================
+# All paths are relative to the /api/v1 prefix (GET /users/me is served at
+# GET /api/v1/users/me). This list mirrors docs/API-SPECIFICATION.md; if the
+# two ever disagree, the specification (and tests/public/) is authoritative.
 
 # -----------------------------------------------------------------------------
 # Authentication Endpoints (auth.py)
@@ -42,46 +45,86 @@ async def health_check():
 # POST /auth/register - User registration
 # POST /auth/login - JWT token generation
 # POST /auth/refresh - Token refresh
-# POST /auth/logout - Logout
-# GET /auth/me - Current user info
-# PATCH /auth/me - Update user consent
 
 # -----------------------------------------------------------------------------
-# User Management Endpoints (users.py)
+# User Endpoints (users.py)
 # -----------------------------------------------------------------------------
-# GET /users - List users (admin only)
-# GET /users/{id} - User details
-# DELETE /users/{id} - Delete user
+# GET /users/me - Current user info
+# PUT /users/me - Update profile / consent flags
+# POST /users/me/face/enroll - Enroll face (proxies to the face service)
+# GET /users/ - List users (admin only)
+# GET /users/{user_id} - User details (admin only)
+# PATCH /users/{user_id} - Update user (admin only)
 
 # -----------------------------------------------------------------------------
-# Course Management Endpoints (courses.py)
+# Course Endpoints (courses.py)
 # -----------------------------------------------------------------------------
-# GET /courses - List courses
-# GET /courses/{id} - Course details
-# PATCH /courses/{id} - Update course
+# GET /courses/ - List courses
+# GET /courses/{course_id} - Course details
+# POST /courses/ - Create course (admin only)
+# PUT /courses/{course_id} - Update course (admin only)
+# DELETE /courses/{course_id} - Soft-delete course (admin only)
 
 # -----------------------------------------------------------------------------
-# Session Management Endpoints (sessions.py)
+# Session Endpoints (sessions.py)
 # -----------------------------------------------------------------------------
-# POST /sessions - Create session (instructor)
-# GET /sessions - List sessions
-# GET /sessions/{id} - Session details
-# PATCH /sessions/{id} - Update session
-# DELETE /sessions/{id} - Delete session
+# GET /sessions/ - List sessions (instructor/admin)
+# GET /sessions/active - Currently open sessions (public, no auth)
+# GET /sessions/my-sessions - Sessions relevant to the current user
+# GET /sessions/{session_id} - Session details
+# POST /sessions/ - Create session (instructor)
+# PATCH /sessions/{session_id} - Update session
+# DELETE /sessions/{session_id} - Delete session
 
 # -----------------------------------------------------------------------------
 # Check-in Endpoints (checkins.py)
 # -----------------------------------------------------------------------------
-# POST /checkins - Submit check-in
-# GET /checkins - List check-ins (with filters)
-# GET /checkins/me - Student's own check-ins
-# GET /checkins/{id} - Check-in details
+# POST /checkins/ - Submit check-in
+# GET /checkins/ - List check-ins (with filters)
+# GET /checkins/my-checkins - Student's own check-ins
+# GET /checkins/session/{session_id} - Check-ins for a session
+# GET /checkins/flagged - Flagged check-ins
+# GET /checkins/{checkin_id} - Check-in details
+# POST /checkins/{checkin_id}/appeal - Student appeals a check-in
+# POST /checkins/{checkin_id}/review - Instructor reviews an appeal
+
+# -----------------------------------------------------------------------------
+# Statistics Endpoints (stats.py)
+# -----------------------------------------------------------------------------
+# GET /stats/overview - System overview
+# GET /stats/sessions/{session_id} - Session statistics
+# GET /stats/courses/{course_id} - Course statistics
+# GET /stats/students/{student_id} - Student statistics
+
+# -----------------------------------------------------------------------------
+# Device Endpoints (devices.py)
+# -----------------------------------------------------------------------------
+# POST /devices/register - Register device
+# GET /devices/my-devices - Current user's devices
+# PATCH /devices/{device_id} - Update device
+# DELETE /devices/{device_id} - Remove device
+
+# -----------------------------------------------------------------------------
+# Enrollment Endpoints (enrollments.py)
+# -----------------------------------------------------------------------------
+# GET /enrollments/my-enrollments - Student's enrollments
+# GET /enrollments/course/{course_id} - Students enrolled in a course
+# POST /enrollments/ - Enroll a student
+# POST /enrollments/bulk - Bulk enroll
+# DELETE /enrollments/{enrollment_id} - Drop enrollment
 
 # -----------------------------------------------------------------------------
 # Audit Log Endpoints (audit.py)
 # -----------------------------------------------------------------------------
-# GET /audit/logs - Retrieve audit logs
-# POST /audit/logs - Create audit entry
+# GET /audit/ - Query audit logs (admin only)
+# Audit logs are append-only: there is no create/update/delete endpoint.
+# Entries are written internally by the other endpoints.
+
+# -----------------------------------------------------------------------------
+# Export Endpoints (export.py)
+# -----------------------------------------------------------------------------
+# GET /export/attendance/{course_id} - CSV attendance export for a course
+# GET /export/session/{session_id} - CSV export for a session
 
 # -----------------------------------------------------------------------------
 # Admin Endpoints (admin.py) - Required for automated testing
@@ -93,7 +136,7 @@ async def health_check():
 # POST /admin/enrollments/ - Admin enrollment creation (admin only)
 
 # =============================================================================
-# Database Models to Implement (see DATABASE-SCHEMA.md)
+# Database Models to Implement (see docs/recommended_design/DATABASE-SCHEMA.md)
 # =============================================================================
 # - users
 # - courses
@@ -101,8 +144,8 @@ async def health_check():
 # - sessions
 # - checkins
 # - devices
-# - risksignals
-# - auditlogs
+# - risk_signals
+# - audit_logs
 
 # =============================================================================
 # Security Requirements
