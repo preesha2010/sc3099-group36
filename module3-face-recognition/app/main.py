@@ -121,7 +121,10 @@ class RiskAssessResponse(BaseModel):
 @app.get("/health")
 async def health_check():
     """Basic health check endpoint."""
-    return {"status": "healthy"}
+    return {
+        "status": "healthy",
+        "service": "face-recognition"
+    }
 
 
 @app.get("/")
@@ -131,12 +134,12 @@ async def root():
         "service": "SAIV Face Recognition & Risk Service",
         "version": "1.0.0",
         "endpoints": [
-            "GET /health - Health check",
-            "POST /face/enroll - Enroll a face for verification",
-            "POST /face/verify - Verify a face against enrolled template",
-            "POST /face/match - Legacy face matching (use /face/verify)",
-            "POST /liveness/check - Perform liveness detection",
-            "POST /risk/assess - Multi-signal risk assessment"
+            "/health",
+            "/face/enroll",
+            "/face/verify",
+            "/face/match",
+            "/liveness/check",
+            "/risk/assess"
         ]
     }
 
