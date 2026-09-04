@@ -3,57 +3,30 @@
 /**
  * LivenessChallenge
  *
- * Guides the user through a fixed sequence of simple prompts (look
- * straight, turn left, turn right) and collects one capture per prompt
- * for later backend verification. This component does NOT verify
- * liveness itself — no computer vision, no head-pose estimation, no
- * timers or randomness intended to prove anything. It only manages the
- * challenge/progress UI and tells the parent when to capture.
+ * A small instructional component for the check-in flow's liveness
+ * step. Per the documented backend contract (docs/API-SPECIFICATION.md's
+ * `POST /liveness/check`, which the backend calls internally when
+ * processing `POST /checkins/`'s optional `liveness_challenge_response`
+ * field — this frontend never calls Module 3 directly), liveness
+ * verification here means exactly ONE passive photo, analyzed
+ * server-side with no user action required. There is no multi-step
+ * challenge sequence to guide the user through.
  *
- * Camera access stays entirely with CameraCapture: this component never
- * calls getUserMedia and never touches a MediaStream. It's a controlled
- * component — `captures` and `currentChallengeIndex` are owned and
- * advanced by the parent (presumably by wiring CameraCapture's
- * `onCapture` to append to `captures` and advance the index once
- * `onRequestCapture` fires here).
- *
- * Captures exist only as props passed straight through to `onComplete`
- * once collection is done — this component never uploads, persists,
- * logs, or otherwise touches localStorage/the network with them; it
- * also has no dependency on auth, tokens, geolocation, or check-in
- * submission. It has no browser-only API usage at all, so it's
- * inherently SSR-safe.
+ * This component does NOT touch the camera, does NOT verify liveness,
+ * and does NOT call any API — it only explains what's about to happen
+ * and tells the parent when the user is ready via `onRequestCapture`.
+ * The parent owns the actual capture (via CameraCapture) and whatever
+ * "captured" state exists; this component just reflects that state back
+ * (`hasCaptured`) for display purposes.
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react'
-
-const CHALLENGES: readonly string[] = [
-  'Look straight at the camera',
-  'Turn your head slightly to the left',
-  'Turn your head slightly to the right',
-]
-
-const TOTAL_CHALLENGES = CHALLENGES.length
+import { useCallback, useEffect, useState } from 'react'
 
 export interface LivenessChallengeProps {
-  /** Captures collected so far (one data URL per completed challenge, in order). Owned by the parent. */
-  captures: string[]
-  /** Index (0-based) of the challenge currently being attempted. Owned by the parent. */
-  currentChallengeIndex: number
-  /**
-   * Called when the user explicitly requests a capture for the current
-   * challenge. This component does not capture anything itself — the
-   * parent is expected to trigger CameraCapture and, on success, append
-   * to `captures` and advance `currentChallengeIndex`.
-   */
+  /** True once the parent holds a captured liveness photo. */
+  hasCaptured: boolean
+  /** Called when the user is ready to have the single capture requested. */
   onRequestCapture: () => void
-  /**
-   * Called exactly once, with all collected captures, once every
-   * challenge has a capture. This only signals that data collection is
-   * complete — no verification is performed here, and nothing is sent
-   * to any API.
-   */
-  onComplete: (captures: string[]) => void
   /**
    * Optional, already-sanitized error message from the parent (e.g. a
    * failed capture attempt) to display. This component never generates
@@ -62,80 +35,35 @@ export interface LivenessChallengeProps {
   error?: string | null
 }
 
-function clampChallengeIndex(index: number): number {
-  if (!Number.isFinite(index)) return 0
-  if (index < 0) return 0
-  if (index > TOTAL_CHALLENGES - 1) return TOTAL_CHALLENGES - 1
-  return index
-}
-
 export default function LivenessChallenge({
-  captures,
-  currentChallengeIndex,
+  hasCaptured,
   onRequestCapture,
-  onComplete,
   error = null,
 }: LivenessChallengeProps) {
-  const safeCaptures = Array.isArray(captures) ? captures : []
-  const safeIndex = clampChallengeIndex(currentChallengeIndex)
-  const isComplete = safeCaptures.length >= TOTAL_CHALLENGES
-  const currentChallengeText = CHALLENGES[safeIndex] ?? ''
-
   const [awaitingCapture, setAwaitingCapture] = useState(false)
-  const hasCompletedRef = useRef(false)
 
-  // Whenever the parent moves the flow forward (progress or capture
-  // count changed) or reports a new/cleared error, this challenge's
-  // "waiting for a capture" latch is stale — clear it so the button
-  // becomes clickable again.
+  // Clears the double-click guard whenever the parent's outcome
+  // (captured, or a new/cleared error) changes.
   useEffect(() => {
     setAwaitingCapture(false)
-  }, [currentChallengeIndex, safeCaptures.length, error])
+  }, [hasCaptured, error])
 
-  // Fires onComplete exactly once when enough captures have arrived.
-  useEffect(() => {
-    if (safeCaptures.length >= TOTAL_CHALLENGES) {
-      if (!hasCompletedRef.current) {
-        hasCompletedRef.current = true
-        onComplete(safeCaptures)
-      }
-    } else {
-      hasCompletedRef.current = false
-    }
-  }, [safeCaptures, onComplete])
-
-  const handleCaptureClick = useCallback(() => {
-    // Guards against accidental double-clicks: once a request is in
-    // flight, further clicks are ignored until the parent's response
-    // changes progress/captures/error (see the effect above).
-    if (awaitingCapture || isComplete) {
+  const handleRequestCapture = useCallback(() => {
+    if (awaitingCapture || hasCaptured) {
       return
     }
     setAwaitingCapture(true)
     onRequestCapture()
-  }, [awaitingCapture, isComplete, onRequestCapture])
+  }, [awaitingCapture, hasCaptured, onRequestCapture])
 
   return (
     <div className="max-w-md mx-auto p-6 bg-white rounded-lg shadow">
       <h2 className="text-2xl font-bold mb-2">Liveness Check</h2>
-      <p className="text-gray-600 mb-4">
-        Follow each prompt below and capture a photo for it. These photos will be used
-        to verify your check-in.
+      <p className="text-gray-600 mb-4" aria-live="polite">
+        {hasCaptured
+          ? 'Liveness photo captured.'
+          : 'Position your face clearly in the camera and stay still. Only one photo is needed — no head movement or other action is required.'}
       </p>
-
-      <p className="text-sm text-gray-500 mb-2" aria-live="polite">
-        {isComplete
-          ? `All ${TOTAL_CHALLENGES} challenges complete`
-          : `Challenge ${safeIndex + 1} of ${TOTAL_CHALLENGES}`}
-      </p>
-
-      {!isComplete && (
-        <div className="mb-4 p-4 rounded border border-gray-200 bg-gray-50">
-          <p className="text-lg font-semibold" aria-live="polite">
-            {currentChallengeText}
-          </p>
-        </div>
-      )}
 
       {error && (
         <div
@@ -147,27 +75,25 @@ export default function LivenessChallenge({
         </div>
       )}
 
-      {isComplete ? (
+      {hasCaptured ? (
         <div
           role="status"
           className="p-3 rounded border-l-4 border-green-500 bg-green-50 text-sm text-green-700"
         >
-          All challenges complete. Continuing…
+          Liveness photo captured.
         </div>
       ) : (
         <button
           type="button"
-          onClick={handleCaptureClick}
+          onClick={handleRequestCapture}
           disabled={awaitingCapture}
           aria-busy={awaitingCapture}
           aria-label={
-            awaitingCapture
-              ? 'Waiting for capture to finish'
-              : `Capture photo for challenge ${safeIndex + 1} of ${TOTAL_CHALLENGES}`
+            awaitingCapture ? 'Waiting for capture to finish' : 'Take liveness photo'
           }
           className="w-full py-2 px-4 rounded bg-blue-600 text-white font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-700"
         >
-          {awaitingCapture ? 'Capturing…' : error ? 'Try Again' : 'Capture'}
+          {awaitingCapture ? 'Capturing…' : error ? 'Try Again' : 'Take Photo'}
         </button>
       )}
     </div>
