@@ -6,7 +6,9 @@ redis==5.0.1
 httpx==0.26.0
 
 # Face recognition & CV
-mediapipe>=0.10.9
+# The implementation uses the documented mp.solutions FaceDetection/FaceMesh API.
+# MediaPipe 1.x removed this API surface, so keep the compatible 0.10 release line.
+mediapipe>=0.10.9,<0.11
 opencv-python>=4.9.0.80
 numpy>=1.24.3
 pillow>=10.2.0
