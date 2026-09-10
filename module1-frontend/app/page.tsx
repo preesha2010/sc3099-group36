@@ -1,12 +1,12 @@
 'use client'
 
 /**
- * SAIV Student Frontend — auth gate (Milestone 3A)
+ * SAIV Student Frontend — auth gate + session selection (Milestone 3B)
  *
- * Minimal authenticated/unauthenticated shell:
+ * Shell flow:
  *
  *   unauthenticated -> LoginForm <-> RegisterForm
- *   authenticated    -> simple placeholder (Logout only)
+ *   authenticated    -> SessionSelector -> CheckInFlow
  *
  * Auth status is read through lib/auth.ts's `isAuthenticated()` — never
  * localStorage directly — and only inside a `useEffect`, so the very
@@ -21,11 +21,15 @@
  * lib/auth.ts). This page only reacts to their success callbacks to
  * flip its own status state; it never touches tokens directly.
  *
- * The previous consent -> camera -> liveness -> complete prototype that
- * used to live here has been relocated, unchanged, to
- * components/CheckInFlow.tsx — preserved for a future milestone to wire
- * back in behind the authenticated placeholder below, once session
- * selection exists to feed it a real session.
+ * Once authenticated, SessionSelector fetches and displays the user's
+ * active session(s) via the existing `api.getMySessions()`; picking one
+ * hands a `Session` object to this page's state, which then renders the
+ * previously-relocated consent -> camera -> liveness -> complete
+ * prototype (components/CheckInFlow.tsx) below it. CheckInFlow itself
+ * stays unmodified/prop-less this milestone — it still doesn't call the
+ * backend, request permissions on its own, or know which session is
+ * active; the selected session is only tracked here, ready for a future
+ * milestone that actually submits `POST /checkins/`.
  */
 
 import { useCallback, useEffect, useState } from 'react'
@@ -33,14 +37,20 @@ import * as auth from '@/lib/auth'
 import * as api from '@/lib/api'
 import LoginForm from '@/components/LoginForm'
 import RegisterForm from '@/components/RegisterForm'
+import SessionSelector from '@/components/SessionSelector'
+import CheckInFlow from '@/components/CheckInFlow'
+import type { Session } from '@/types/api'
 
 type AuthStatus = 'loading' | 'authenticated' | 'unauthenticated'
 type AuthView = 'login' | 'register'
+type PostAuthView = 'session-select' | 'check-in'
 
 export default function Home() {
   const [authStatus, setAuthStatus] = useState<AuthStatus>('loading')
   const [authView, setAuthView] = useState<AuthView>('login')
   const [registerNotice, setRegisterNotice] = useState<string | null>(null)
+  const [postAuthView, setPostAuthView] = useState<PostAuthView>('session-select')
+  const [selectedSession, setSelectedSession] = useState<Session | null>(null)
 
   // Client-only: reads through auth.ts, never localStorage directly.
   // Runs after the first render/hydration, so the initial paint is
@@ -72,6 +82,18 @@ export default function Home() {
     setAuthStatus('unauthenticated')
     setAuthView('login')
     setRegisterNotice(null)
+    setPostAuthView('session-select')
+    setSelectedSession(null)
+  }, [])
+
+  const handleSessionSelected = useCallback((session: Session) => {
+    setSelectedSession(session)
+    setPostAuthView('check-in')
+  }, [])
+
+  const handleChangeSession = useCallback(() => {
+    setPostAuthView('session-select')
+    setSelectedSession(null)
   }, [])
 
   // Decoded, UNVERIFIED claim used only to display which account is
@@ -106,22 +128,42 @@ export default function Home() {
       )}
 
       {authStatus === 'authenticated' && (
-        <div className="max-w-md mx-auto p-6 bg-white rounded-lg shadow text-center">
-          <h2 className="text-2xl font-bold mb-2">You&rsquo;re signed in</h2>
-          {signedInEmail && (
-            <p className="text-gray-600 mb-4">Signed in as {signedInEmail}</p>
+        <>
+          <div className="max-w-md mx-auto mb-4 flex items-center justify-between text-sm">
+            <span className="text-gray-600">
+              {signedInEmail ? `Signed in as ${signedInEmail}` : null}
+            </span>
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="text-blue-600 hover:underline focus:outline-none focus:ring-2 focus:ring-blue-500 rounded"
+            >
+              Log Out
+            </button>
+          </div>
+
+          {postAuthView === 'session-select' && (
+            <SessionSelector onSessionSelected={handleSessionSelected} />
           )}
-          <p className="text-gray-500 text-sm mb-6">
-            Session selection will be added in the next milestone.
-          </p>
-          <button
-            type="button"
-            onClick={handleLogout}
-            className="py-2 px-4 rounded bg-blue-600 text-white font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-          >
-            Log Out
-          </button>
-        </div>
+
+          {postAuthView === 'check-in' && selectedSession && (
+            <div className="max-w-md mx-auto">
+              <div className="mb-4 p-3 rounded border-l-4 border-blue-500 bg-blue-50 text-sm text-blue-700 flex items-center justify-between gap-3">
+                <span>
+                  Checking in to: <strong>{selectedSession.name}</strong>
+                </span>
+                <button
+                  type="button"
+                  onClick={handleChangeSession}
+                  className="text-blue-600 hover:underline whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-blue-500 rounded"
+                >
+                  Change Session
+                </button>
+              </div>
+              <CheckInFlow />
+            </div>
+          )}
+        </>
       )}
     </main>
   )
