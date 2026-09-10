@@ -1,134 +1,125 @@
 'use client'
 
 /**
- * SAIV Student Frontend — check-in preparation flow (Module 1)
+ * SAIV Student Frontend — auth gate (Milestone 3A)
  *
- * Composes the three existing step components into a simple,
- * entirely client-side flow:
+ * Minimal authenticated/unauthenticated shell:
  *
- *   ConsentPrompt -> CameraCapture -> LivenessChallenge -> complete
+ *   unauthenticated -> LoginForm <-> RegisterForm
+ *   authenticated    -> simple placeholder (Logout only)
  *
- * This page ONLY orchestrates state between the existing components.
- * It does not call the backend, does not touch auth/tokens, does not
- * perform any verification, and does not persist anything. Every
- * captured image lives in React state only, for the lifetime of this
- * page, and is discarded on refresh or restart.
+ * Auth status is read through lib/auth.ts's `isAuthenticated()` — never
+ * localStorage directly — and only inside a `useEffect`, so the very
+ * first render (both server-rendered and the client's first hydration
+ * pass) always shows the same neutral 'loading' state. The real,
+ * localStorage-derived status is only known after mount, client-side,
+ * which avoids a hydration mismatch between server and client output.
  *
- * The liveness step captures exactly ONE photo (matching the documented
- * backend contract — see LivenessChallenge's own doc comment): the page
- * only mounts CameraCapture for that step once a capture has been
- * explicitly requested via LivenessChallenge's `onRequestCapture`, and
- * hides it again immediately once `onCapture` fires. CameraCapture
- * already stops its own MediaStream before calling `onCapture`, and
- * stops it again on unmount, so this never leaves a camera running.
+ * Login/registration themselves are fully handled by LoginForm/
+ * RegisterForm, which call the existing `api.login()`/`api.register()`
+ * — token persistence happens entirely inside those calls (via
+ * lib/auth.ts). This page only reacts to their success callbacks to
+ * flip its own status state; it never touches tokens directly.
+ *
+ * The previous consent -> camera -> liveness -> complete prototype that
+ * used to live here has been relocated, unchanged, to
+ * components/CheckInFlow.tsx — preserved for a future milestone to wire
+ * back in behind the authenticated placeholder below, once session
+ * selection exists to feed it a real session.
  */
 
-import { useCallback, useState } from 'react'
-import ConsentPrompt from '@/components/ConsentPrompt'
-import CameraCapture from '@/components/CameraCapture'
-import LivenessChallenge from '@/components/LivenessChallenge'
+import { useCallback, useEffect, useState } from 'react'
+import * as auth from '@/lib/auth'
+import * as api from '@/lib/api'
+import LoginForm from '@/components/LoginForm'
+import RegisterForm from '@/components/RegisterForm'
 
-type FlowStep = 'consent' | 'camera' | 'liveness' | 'complete'
-
-const STEP_ORDER: FlowStep[] = ['consent', 'camera', 'liveness']
-const STEP_LABELS: Record<FlowStep, string> = {
-  consent: 'Consent',
-  camera: 'Camera',
-  liveness: 'Liveness Check',
-  complete: 'Complete',
-}
+type AuthStatus = 'loading' | 'authenticated' | 'unauthenticated'
+type AuthView = 'login' | 'register'
 
 export default function Home() {
-  const [step, setStep] = useState<FlowStep>('consent')
+  const [authStatus, setAuthStatus] = useState<AuthStatus>('loading')
+  const [authView, setAuthView] = useState<AuthView>('login')
+  const [registerNotice, setRegisterNotice] = useState<string | null>(null)
 
-  // Step 2's single photo.
-  const [capturedImage, setCapturedImage] = useState<string | null>(null)
-
-  // Step 3's single liveness photo. Kept separate from capturedImage —
-  // the two steps collect distinct images.
-  const [livenessImage, setLivenessImage] = useState<string | null>(null)
-  const [isLivenessCaptureRequested, setIsLivenessCaptureRequested] = useState(false)
-
-  const handleConsentGranted = useCallback(() => {
-    setStep('camera')
+  // Client-only: reads through auth.ts, never localStorage directly.
+  // Runs after the first render/hydration, so the initial paint is
+  // always the neutral 'loading' state on both server and client.
+  useEffect(() => {
+    setAuthStatus(auth.isAuthenticated() ? 'authenticated' : 'unauthenticated')
   }, [])
 
-  const handleCameraCapture = useCallback((imageData: string) => {
-    setCapturedImage(imageData)
-    setStep('liveness')
+  const handleLoginSuccess = useCallback(() => {
+    setAuthStatus('authenticated')
   }, [])
 
-  const handleLivenessRequestCapture = useCallback(() => {
-    setIsLivenessCaptureRequested(true)
+  const handleRegisterSuccess = useCallback((email: string) => {
+    setRegisterNotice(`Account created for ${email}. Please log in.`)
+    setAuthView('login')
   }, [])
 
-  const handleLivenessCameraCapture = useCallback((imageData: string) => {
-    setLivenessImage(imageData)
-    setIsLivenessCaptureRequested(false)
-    setStep('complete')
+  const handleSwitchToRegister = useCallback(() => {
+    setRegisterNotice(null)
+    setAuthView('register')
   }, [])
 
-  const handleRestart = useCallback(() => {
-    setStep('consent')
-    setCapturedImage(null)
-    setLivenessImage(null)
-    setIsLivenessCaptureRequested(false)
+  const handleSwitchToLogin = useCallback(() => {
+    setAuthView('login')
   }, [])
 
-  const stepNumber = STEP_ORDER.indexOf(step) + 1
+  const handleLogout = useCallback(() => {
+    api.logout()
+    setAuthStatus('unauthenticated')
+    setAuthView('login')
+    setRegisterNotice(null)
+  }, [])
+
+  // Decoded, UNVERIFIED claim used only to display which account is
+  // signed in — never used for any authorization decision.
+  const signedInEmail =
+    authStatus === 'authenticated' ? auth.decodeAccessTokenClaims()?.email ?? null : null
 
   return (
     <main className="min-h-screen p-8">
       <h1 className="text-3xl font-bold mb-1 text-center">
         SAIV - Secure Attendance System
       </h1>
-      <p className="text-gray-600 mb-6 text-center">Check-in Preparation</p>
+      <p className="text-gray-600 mb-8 text-center">Student Check-in</p>
 
-      <p className="text-center text-sm font-medium text-gray-500 mb-8">
-        {step === 'complete'
-          ? 'All steps complete'
-          : `Step ${stepNumber} of ${STEP_ORDER.length}: ${STEP_LABELS[step]}`}
-      </p>
-
-      {step === 'consent' && <ConsentPrompt onConsentGranted={handleConsentGranted} />}
-
-      {step === 'camera' && <CameraCapture onCapture={handleCameraCapture} />}
-
-      {step === 'liveness' && (
-        <div className="space-y-6">
-          <LivenessChallenge
-            hasCaptured={livenessImage !== null}
-            onRequestCapture={handleLivenessRequestCapture}
-          />
-
-          {isLivenessCaptureRequested && (
-            <CameraCapture onCapture={handleLivenessCameraCapture} />
-          )}
-        </div>
+      {authStatus === 'loading' && (
+        <p className="text-center text-sm text-gray-400">Loading…</p>
       )}
 
-      {step === 'complete' && (
+      {authStatus === 'unauthenticated' && authView === 'login' && (
+        <LoginForm
+          onLoginSuccess={handleLoginSuccess}
+          onSwitchToRegister={handleSwitchToRegister}
+          notice={registerNotice}
+        />
+      )}
+
+      {authStatus === 'unauthenticated' && authView === 'register' && (
+        <RegisterForm
+          onRegisterSuccess={handleRegisterSuccess}
+          onSwitchToLogin={handleSwitchToLogin}
+        />
+      )}
+
+      {authStatus === 'authenticated' && (
         <div className="max-w-md mx-auto p-6 bg-white rounded-lg shadow text-center">
-          {capturedImage && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={capturedImage}
-              alt="Captured verification photo"
-              className="w-24 h-24 object-cover rounded-full mx-auto mb-4"
-            />
+          <h2 className="text-2xl font-bold mb-2">You&rsquo;re signed in</h2>
+          {signedInEmail && (
+            <p className="text-gray-600 mb-4">Signed in as {signedInEmail}</p>
           )}
-          <h2 className="text-2xl font-bold mb-2">Ready</h2>
-          <p className="text-gray-600 mb-1">Camera photo and liveness photo captured.</p>
           <p className="text-gray-500 text-sm mb-6">
-            These images are held in memory for this session only and haven&rsquo;t
-            been sent anywhere.
+            Session selection will be added in the next milestone.
           </p>
           <button
             type="button"
-            onClick={handleRestart}
-            className="py-2 px-4 rounded bg-blue-600 text-white font-medium hover:bg-blue-700"
+            onClick={handleLogout}
+            className="py-2 px-4 rounded bg-blue-600 text-white font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
           >
-            Start Over
+            Log Out
           </button>
         </div>
       )}
