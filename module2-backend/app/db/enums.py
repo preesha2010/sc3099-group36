@@ -1,91 +1,82 @@
-"""
-enums.py should hold values reused across modules, for example:
-- UserRole: student, ta, instructor, admin
-- SessionStatus: scheduled, active, closed, cancelled
-- SessionType: lecture, tutorial, lab, exam
-- CheckinStatus: pending, approved, flagged, rejected
-- RiskLevel: low, medium, high, critical
-Then import them in your models and Pydantic schemas:
-"""
-
-import enum
+from enum import Enum
 
 
-class UserRole(str, enum.Enum):
-    student = "student"
-    instructor = "instructor"
-    ta = "ta"
-    admin = "admin"
+class UserRole(str, Enum):
+    STUDENT = "student"
+    TA = "ta"
+    INSTRUCTOR = "instructor"
+    ADMIN = "admin"
 
 
-class SessionStatus(str, enum.Enum):
-    scheduled = "scheduled"
-    active = "active"
-    closed = "closed"
-    cancelled = "cancelled"
+class SessionStatus(str, Enum):
+    SCHEDULED = "scheduled"
+    ACTIVE = "active"
+    CLOSED = "closed"
+    CANCELLED = "cancelled"
 
 
-class CheckinStatus(str, enum.Enum):
-    pending = "pending"
-    approved = "approved"
-    flagged = "flagged"
-    rejected = "rejected"
-    appealed = "appealed"
+class CheckinStatus(str, Enum):
+    PENDING = "pending"
+    APPROVED = "approved"
+    FLAGGED = "flagged"
+    REJECTED = "rejected"
+    APPEALED = "appealed"
 
 
-class RiskSeverity(str, enum.Enum):
-    low = "low"
-    medium = "medium"
-    high = "high"
-    critical = "critical"
+class SignalType(str, Enum):
+    # Geo
+    GEO_OUT_OF_BOUNDS = "geo_out_of_bounds"
+    IMPOSSIBLE_TRAVEL = "impossible_travel"
+    GEO_ACCURACY_LOW = "geo_accuracy_low"
+    # Network
+    VPN_DETECTED = "vpn_detected"
+    PROXY_DETECTED = "proxy_detected"
+    TOR_DETECTED = "tor_detected"
+    SUSPICIOUS_IP = "suspicious_ip"
+    # Device
+    DEVICE_UNKNOWN = "device_unknown"
+    DEVICE_EMULATOR = "device_emulator"
+    DEVICE_ROOTED = "device_rooted"
+    ATTESTATION_FAILED = "attestation_failed"
+    # Behavioral
+    RAPID_SUCCESSION = "rapid_succession"
+    UNUSUAL_TIME = "unusual_time"
+    PATTERN_ANOMALY = "pattern_anomaly"
+    # Liveness
+    LIVENESS_FAILED = "liveness_failed"
+    LIVENESS_LOW_CONFIDENCE = "liveness_low_confidence"
+    DEEPFAKE_SUSPECTED = "deepfake_suspected"
+    REPLAY_SUSPECTED = "replay_suspected"
+    # Face
+    FACE_MATCH_FAILED = "face_match_failed"
+    FACE_MATCH_LOW_CONFIDENCE = "face_match_low_confidence"
 
 
-class RiskSignalType(str, enum.Enum):
-    # Geo signal types
-    geo_out_of_bounds = "geo_out_of_bounds"
-    impossible_travel = "impossible_travel"
-    geo_accuracy_low = "geo_accuracy_low"
-
-    # Network signal types
-    vpn_detected = "vpn_detected"
-    proxy_detected = "proxy_detected"
-    tor_detected = "tor_detected"
-    suspicious_ip = "suspicious_ip"
-
-    # Device signal types
-    device_unknown = "device_unknown"
-    device_emulator = "device_emulator"
-    device_rooted = "device_rooted"
-    attestation_failed = "attestation_failed"
-
-    # Behavioral signal types
-    rapid_succession = "rapid_succession"
-    unusual_time = "unusual_time"
-    pattern_anomaly = "pattern_anomaly"
-
-    # Liveness signal types
-    liveness_failed = "liveness_failed"
-    liveness_low_confidence = "liveness_low_confidence"
-    deepfake_suspected = "deepfake_suspected"
-    replay_suspected = "replay_suspected"
-
-    # Face signal types
-    face_match_failed = "face_match_failed"
-    face_match_low_confidence = "face_match_low_confidence"
+class SignalSeverity(str, Enum):
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+    CRITICAL = "critical"
 
 
-class AuditAction(str, enum.Enum):
-    login_success = "login_success"
-    login_failed = "login_failed"
-    logout = "logout"
-    user_created = "user_created"
-
-    checkin_attempted = "checkin_attempted"
-    checkin_approved = "checkin_approved"
-    checkin_flagged = "checkin_flagged"
-    checkin_rejected = "checkin_rejected"
-
-    face_enrolled = "face_enrolled"
-    device_registered = "device_registered"
-    data_exported = "data_exported"
-    security_violation = "security_violation"
+class AuditAction(str, Enum):
+    LOGIN_SUCCESS = "login_success"
+    LOGIN_FAILED = "login_failed"
+    LOGOUT = "logout"
+    USER_CREATED = "user_created"
+    USER_UPDATED = "user_updated"
+    CHECKIN_ATTEMPTED = "checkin_attempted"
+    CHECKIN_APPROVED = "checkin_approved"
+    CHECKIN_FLAGGED = "checkin_flagged"
+    CHECKIN_REJECTED = "checkin_rejected"
+    CHECKIN_APPEALED = "checkin_appealed"
+    CHECKIN_REVIEWED = "checkin_reviewed"
+    SESSION_CREATED = "session_created"
+    SESSION_UPDATED = "session_updated"
+    SESSION_DELETED = "session_deleted"
+    ENROLLMENT_ADDED = "enrollment_added"
+    ENROLLMENT_REMOVED = "enrollment_removed"
+    DEVICE_REGISTERED = "device_registered"
+    FACE_ENROLLED = "face_enrolled"
+    DATA_EXPORTED = "data_exported"
+    SECURITY_VIOLATION = "security_violation"
