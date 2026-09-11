@@ -41,3 +41,27 @@ class SessionUpdate(BaseModel):
 
 class SessionStatusUpdate(BaseModel):
     status: SessionStatus
+
+
+class SessionResponse(BaseModel):
+    id: str
+    course_id: str
+    instructor_id: Optional[str] = None
+    name: str
+    session_type: str = "lecture"
+    description: Optional[str] = None
+    status: str
+    scheduled_start: datetime
+    scheduled_end: datetime
+    checkin_opens_at: datetime
+    checkin_closes_at: datetime
+    venue_latitude: Optional[float] = None
+    venue_longitude: Optional[float] = None
+    venue_name: Optional[str] = None
+    geofence_radius_meters: Optional[float] = None
+    require_liveness_check: bool = True
+    require_face_match: bool = False
+    risk_threshold: Optional[float] = None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}

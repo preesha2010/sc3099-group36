@@ -59,6 +59,17 @@ def list_sessions(
     return items, total, limit, offset
 
 
+def list_for_courses(db: Session, course_ids: Sequence[str]) -> Sequence[ClassSession]:
+    if not course_ids:
+        return []
+    return (
+        db.query(ClassSession)
+        .filter(ClassSession.course_id.in_(list(course_ids)))
+        .order_by(ClassSession.scheduled_start.desc())
+        .all()
+    )
+
+
 def list_active(db: Session) -> Sequence[ClassSession]:
     now = utcnow_naive()
     return (
