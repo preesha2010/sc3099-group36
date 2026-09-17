@@ -9,6 +9,8 @@ from app.modules.users.model import User
 
 router = APIRouter(prefix="/devices", tags=["devices"])
 
+# TODO: GET /devices/ admin paginated list (test_list_all_devices_admin; not in API spec body).
+
 
 @router.post("/register", status_code=status.HTTP_201_CREATED)
 def register_device(

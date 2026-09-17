@@ -11,6 +11,8 @@ from app.modules.users.model import User
 
 router = APIRouter(prefix="/audit", tags=["audit"])
 
+# TODO: GET /audit/summary?days= (test_audit_summary; not listed in API-SPECIFICATION.md).
+
 
 @router.get("/")
 def list_audit_logs(

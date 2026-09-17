@@ -52,6 +52,8 @@ def update_me(db: Session, current_user: User, payload: UserUpdate, request: Req
 def enroll_face(
     db: Session, current_user: User, payload: FaceEnrollRequest, request: Request
 ) -> dict[str, Any]:
+    # TODO: Call FaceClient /face/enroll; require camera_consent; store hash only
+    # (API spec; 400 no consent/no face, 503 if Module 3 is down).
     not_implemented("POST /users/me/face/enroll")
 
 
