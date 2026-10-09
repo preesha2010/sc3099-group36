@@ -19,6 +19,9 @@ def detect_face(image_array: np.ndarray) -> Optional[Dict[str, Any]]:
     if not result.detections:
         return None
 
+    if len(result.detections) > 1:
+        raise HTTPException(status_code=400, detail="Exactly one face is required")
+
     detection = max(result.detections, key=lambda item: item.score[0])
     confidence = float(detection.score[0])
     if confidence < 0.7:

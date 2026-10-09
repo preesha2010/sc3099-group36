@@ -1,14 +1,18 @@
 """Pydantic request and response contracts for the face recognition service."""
 
-from typing import Any, Dict, List, Optional
+from typing import Annotated, Any, Dict, List, Literal, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, StrictBool
+
+
+Score = Annotated[float, Field(ge=0.0, le=1.0, allow_inf_nan=False)]
+TemplateHash = Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
 
 
 class FaceEnrollRequest(BaseModel):
-    user_id: str
+    user_id: str = Field(min_length=1, max_length=128)
     image: str
-    camera_consent: bool = False
+    camera_consent: StrictBool = False
 
 
 class FaceEnrollResponse(BaseModel):
@@ -20,7 +24,7 @@ class FaceEnrollResponse(BaseModel):
 
 class FaceVerifyRequest(BaseModel):
     image: str
-    reference_template_hash: str
+    reference_template_hash: TemplateHash
 
 
 class FaceVerifyResponse(BaseModel):
@@ -33,12 +37,12 @@ class FaceVerifyResponse(BaseModel):
 
 class FaceMatchRequest(BaseModel):
     image: str
-    reference_hash: str
+    reference_hash: TemplateHash
 
 
 class LivenessRequest(BaseModel):
     challenge_response: str
-    challenge_type: str = "blink"
+    challenge_type: Literal["passive", "blink", "head_turn"] = "passive"
 
 
 class LivenessResponse(BaseModel):
@@ -51,18 +55,18 @@ class LivenessResponse(BaseModel):
 
 
 class GeolocationData(BaseModel):
-    latitude: float
-    longitude: float
-    accuracy: float
+    latitude: float = Field(ge=-90, le=90, allow_inf_nan=False)
+    longitude: float = Field(ge=-180, le=180, allow_inf_nan=False)
+    accuracy: float = Field(ge=0, allow_inf_nan=False)
 
 
 class RiskAssessRequest(BaseModel):
-    liveness_score: Optional[float] = None
-    face_match_score: Optional[float] = None
-    device_signature: Optional[str] = None
-    device_public_key: Optional[str] = None
-    ip_address: Optional[str] = None
-    user_agent: Optional[str] = None
+    liveness_score: Optional[Score] = None
+    face_match_score: Optional[Score] = None
+    device_signature: Optional[str] = Field(default=None, max_length=8192)
+    device_public_key: Optional[str] = Field(default=None, max_length=8192)
+    ip_address: Optional[str] = Field(default=None, max_length=64)
+    user_agent: Optional[str] = Field(default=None, max_length=1024)
     geolocation: Optional[GeolocationData] = None
 
 

@@ -1,9 +1,15 @@
 """Documented multi-signal attendance-risk calculation."""
 
+import base64
+import binascii
 import ipaddress
+import re
+from decimal import Decimal
 from typing import Dict, List, Tuple
 
 from fastapi import HTTPException
+from cryptography.exceptions import UnsupportedAlgorithm
+from cryptography.hazmat.primitives.serialization import load_pem_public_key
 
 from app.schemas import RiskAssessRequest
 
@@ -14,14 +20,37 @@ WEIGHTS = {"liveness": 0.25, "face_match": 0.25, "device": 0.20, "network": 0.15
 def detect_vpn_proxy(ip_address: str, user_agent: str) -> Tuple[bool, float]:
     """Flag documented private/loopback IPs and common VPN/proxy client labels."""
     reasons = []
+    if not ip_address and not user_agent:
+        return False, 0.5
     try:
-        if ip_address and (ipaddress.ip_address(ip_address).is_private or ipaddress.ip_address(ip_address).is_loopback):
-            reasons.append("private_or_loopback_ip")
+        if ip_address:
+            address = ipaddress.ip_address(ip_address)
+            if address.is_private or address.is_loopback:
+                reasons.append("private_or_loopback_ip")
     except ValueError:
         reasons.append("invalid_ip")
-    if user_agent and any(keyword in user_agent.lower() for keyword in ("vpn", "proxy", "tor")):
+    if user_agent and re.search(r"\b(?:vpn|proxy|tor)\b", user_agent, flags=re.IGNORECASE):
         reasons.append("vpn_or_proxy_user_agent")
     return bool(reasons), min(1.0, 0.5 * len(reasons))
+
+
+def device_risk(signature: str | None, public_key: str | None) -> float:
+    """Reject malformed evidence; well-formed evidence is still unverified.
+
+    The documented risk request has no signed message or server challenge.
+    Merely receiving a signature and PEM key cannot establish device trust.
+    """
+    if signature is None and public_key is None:
+        return 0.5
+    if not signature or not public_key:
+        return 1.0
+    try:
+        load_pem_public_key(public_key.encode("ascii"))
+        if not base64.b64decode(signature, validate=True):
+            return 1.0
+    except (ValueError, TypeError, UnicodeError, binascii.Error, UnsupportedAlgorithm):
+        return 1.0
+    return 0.5
 
 
 def assess_risk(request: RiskAssessRequest) -> Tuple[float, str, Dict[str, float], List[str]]:
@@ -33,19 +62,18 @@ def assess_risk(request: RiskAssessRequest) -> Tuple[float, str, Dict[str, float
             return 0.5
         if not 0.0 <= score <= 1.0:
             raise HTTPException(status_code=400, detail=f"{name} must be between 0 and 1")
-        risk = round(1.0 - score, 3)
+        risk = float(Decimal("1") - Decimal(str(score)))
         if risk >= 0.5:
             recommendations.append(recommendation)
         return risk
 
     liveness_risk = inverted_score(request.liveness_score, "liveness_score", "Improve lighting and face visibility")
     face_risk = inverted_score(request.face_match_score, "face_match_score", "Re-enroll face or improve image quality")
-    device_risk = 0.0 if request.device_signature and request.device_public_key else 0.5
-    if device_risk:
-        recommendations.append("Use a registered and trusted device")
+    device_score = device_risk(request.device_signature, request.device_public_key)
+    recommendations.append("Device trust is unverified; verify a signed server challenge")
     is_vpn, network_risk = detect_vpn_proxy(request.ip_address or "", request.user_agent or "")
     if is_vpn:
-        recommendations.append("Disable VPN or proxy for check-in")
+        recommendations.append("Review network signals; private IP or client labels do not prove VPN use")
 
     geolocation_risk = 0.5
     if request.geolocation is not None:
@@ -61,7 +89,11 @@ def assess_risk(request: RiskAssessRequest) -> Tuple[float, str, Dict[str, float
         else:
             geolocation_risk = 0.0
 
-    signals = {"liveness": liveness_risk, "face_match": face_risk, "device": device_risk, "network": network_risk, "geolocation": geolocation_risk}
-    risk_score = round(sum(signals[name] * WEIGHTS[name] for name in WEIGHTS), 3)
+    raw_signals = {"liveness": liveness_risk, "face_match": face_risk, "device": device_score, "network": network_risk, "geolocation": geolocation_risk}
+    # API specification defines these values as weighted contributions, so they
+    # must add up to risk_score rather than exposing unweighted probabilities.
+    signals = {name: float(Decimal(str(risk)) * Decimal(str(WEIGHTS[name])))
+               for name, risk in raw_signals.items()}
+    risk_score = float(sum(Decimal(str(value)) for value in signals.values()))
     risk_level = "LOW" if risk_score < 0.3 else "MEDIUM" if risk_score < 0.5 else "HIGH" if risk_score < 0.7 else "CRITICAL"
     return risk_score, risk_level, signals, recommendations

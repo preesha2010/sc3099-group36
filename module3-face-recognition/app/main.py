@@ -1,7 +1,13 @@
 """SAIV Module 3 HTTP API: face enrollment, verification, liveness, and risk."""
 
-from fastapi import FastAPI, HTTPException
+import os
+
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+
+from app.middleware import BodySizeLimitMiddleware
 
 from app.schemas import (
     FaceEnrollRequest,
@@ -28,11 +34,23 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=[origin.strip() for origin in os.getenv(
+        "CORS_ORIGINS", "http://localhost:3000,http://localhost:8501"
+    ).split(",") if origin.strip() and origin.strip() != "*"],
+    allow_credentials=False,
+    allow_methods=["GET", "POST"],
+    allow_headers=["Content-Type"],
 )
+app.add_middleware(BodySizeLimitMiddleware)
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_error_handler(_: Request, exc: RequestValidationError):
+    # Pydantic normally echoes the rejected input, which may contain biometric
+    # base64 or a public key. Return only field locations and safe error metadata.
+    errors = [{key: error[key] for key in ("loc", "msg", "type")}
+              for error in exc.errors()]
+    return JSONResponse(status_code=422, content={"detail": errors})
 
 
 @app.get("/health")
@@ -59,7 +77,7 @@ async def root():
 
 
 @app.post("/face/enroll", response_model=FaceEnrollResponse, status_code=201)
-async def enroll_face(request: FaceEnrollRequest):
+def enroll_face(request: FaceEnrollRequest):
     """Create the privacy-preserving face-template hash for one enrolled user."""
     if not request.camera_consent:
         raise HTTPException(status_code=400, detail="Camera consent is required for face enrollment")
@@ -89,7 +107,7 @@ async def enroll_face(request: FaceEnrollRequest):
 
 
 @app.post("/face/verify", response_model=FaceVerifyResponse)
-async def verify_face(request: FaceVerifyRequest):
+def verify_face(request: FaceVerifyRequest):
     """Compare a submitted image against the hash previously returned at enrollment."""
     image_array = decode_base64_image(request.image)
     detection = detect_face(image_array)
@@ -116,9 +134,9 @@ async def verify_face(request: FaceVerifyRequest):
 
 
 @app.post("/face/match")
-async def match_face(request: FaceMatchRequest):
+def match_face(request: FaceMatchRequest):
     """Preserve the documented legacy request and response format."""
-    result = await verify_face(
+    result = verify_face(
         FaceVerifyRequest(image=request.image, reference_template_hash=request.reference_hash)
     )
     return {
@@ -129,10 +147,13 @@ async def match_face(request: FaceMatchRequest):
 
 
 @app.post("/liveness/check", response_model=LivenessResponse)
-async def check_liveness(request: LivenessRequest):
+def check_liveness(request: LivenessRequest):
     """Perform the documented single-image passive liveness check."""
-    if request.challenge_type not in {"passive", "blink", "head_turn"}:
-        raise HTTPException(status_code=400, detail="Unsupported liveness challenge type")
+    if request.challenge_type != "passive":
+        raise HTTPException(
+            status_code=400,
+            detail="Motion challenges require multiple frames; this endpoint supports passive single-image checks only",
+        )
 
     image_array = decode_base64_image(request.challenge_response)
     detection = detect_face(image_array)
@@ -159,7 +180,7 @@ async def check_liveness(request: LivenessRequest):
 
 
 @app.post("/risk/assess", response_model=RiskAssessResponse)
-async def assess_checkin_risk(request: RiskAssessRequest):
+def assess_checkin_risk(request: RiskAssessRequest):
     """Apply the documented weighted multi-signal risk policy."""
     risk_score, risk_level, signal_breakdown, recommendations = assess_risk(request)
     return RiskAssessResponse(
