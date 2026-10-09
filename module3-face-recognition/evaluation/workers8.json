@@ -1,0 +1,98 @@
+{
+  "timestamp_utc": "2026-10-09T03:46:26.024456+00:00",
+  "python": "3.12.10",
+  "platform": "Windows",
+  "opencv": "4.11.0",
+  "model_workers": 8,
+  "template_mode": "simhash",
+  "liveness_backend": "minifasnet",
+  "identity": [
+    {
+      "image": "obama.jpg",
+      "expected_match": true,
+      "actual_match": true,
+      "score": 1.0
+    },
+    {
+      "image": "obama2.jpg",
+      "expected_match": true,
+      "actual_match": true,
+      "score": 0.777785
+    },
+    {
+      "image": "obama3.jpg",
+      "expected_match": true,
+      "actual_match": true,
+      "score": 0.817197
+    },
+    {
+      "image": "biden.jpg",
+      "expected_match": false,
+      "actual_match": false,
+      "score": 0.37851
+    }
+  ],
+  "pad": [
+    {
+      "image": "image_F1.jpg",
+      "expected_live": false,
+      "actual_live": false,
+      "score": 0.072331,
+      "neural_score": 0.072331
+    },
+    {
+      "image": "image_F2.jpg",
+      "expected_live": false,
+      "actual_live": false,
+      "score": 0.181286,
+      "neural_score": 0.181286
+    },
+    {
+      "image": "image_T1.jpg",
+      "expected_live": true,
+      "actual_live": true,
+      "score": 0.993568,
+      "neural_score": 0.993568
+    }
+  ],
+  "load": {
+    "/face/verify": [
+      {
+        "clients": 100,
+        "successful": 100,
+        "http_status_counts": {
+          "200": 100
+        },
+        "elapsed_seconds": 8.297,
+        "p50_seconds": 6.984,
+        "p95_seconds": 7.531,
+        "maximum_seconds": 7.578,
+        "health_maximum_seconds": 0.391,
+        "health_failures": 0
+      }
+    ],
+    "/liveness/check": [
+      {
+        "clients": 100,
+        "successful": 100,
+        "http_status_counts": {
+          "200": 100
+        },
+        "elapsed_seconds": 14.813,
+        "p50_seconds": 13.938,
+        "p95_seconds": 14.188,
+        "maximum_seconds": 14.469,
+        "health_maximum_seconds": 0.344,
+        "health_failures": 0
+      }
+    ]
+  },
+  "limitations": [
+    "Identity corpus has only two people; no general FAR/FRR claim.",
+    "PAD samples are three publisher demos, not independent camera/attack validation.",
+    "These are local process timings, not Docker or full-system performance."
+  ],
+  "public_test_exit_code": 0,
+  "functional_checks_passed": true,
+  "server_exit_before_cleanup": null
+}

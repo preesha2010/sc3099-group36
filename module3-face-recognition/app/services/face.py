@@ -1,4 +1,4 @@
-"""Face detection, deterministic feature extraction, and hash generation."""
+"""SHA-256 compatibility and optional local SFace/SimHash recognition."""
 
 import hashlib
 from typing import Any, Dict, Optional
@@ -7,10 +7,14 @@ import cv2
 import mediapipe as mp
 import numpy as np
 from fastapi import HTTPException
+from app.services.templates import template_mode, encode_simhash
 
 
 def detect_face(image_array: np.ndarray) -> Optional[Dict[str, Any]]:
     """Detect the highest-confidence face and return its bounded pixel box."""
+    if template_mode() == "simhash":
+        from app.services.neural import detect_neural_face
+        return detect_neural_face(image_array)
     with mp.solutions.face_detection.FaceDetection(
         model_selection=0,
         min_detection_confidence=0.5,
@@ -39,7 +43,10 @@ def detect_face(image_array: np.ndarray) -> Optional[Dict[str, Any]]:
 
 
 def extract_face_embedding(image_array: np.ndarray, detection: Dict[str, Any]) -> np.ndarray:
-    """Create the documented simple fixed-size face representation for hashing."""
+    """Extract transient legacy pixels or aligned neural identity features."""
+    if template_mode() == "simhash":
+        from app.services.neural import neural_embedding
+        return neural_embedding(image_array, detection)
     x1, y1, x2, y2 = detection["bbox"]
     face_crop = image_array[y1:y2, x1:x2]
     if face_crop.size == 0:
@@ -49,5 +56,7 @@ def extract_face_embedding(image_array: np.ndarray, detection: Dict[str, Any]) -
 
 
 def generate_face_hash(embedding: np.ndarray) -> str:
-    """Return the required 64-character SHA-256 hash; do not persist the embedding."""
+    """Return the selected 64-hex template; never persist the feature vector."""
+    if template_mode() == "simhash":
+        return encode_simhash(embedding)
     return hashlib.sha256(embedding.tobytes()).hexdigest()

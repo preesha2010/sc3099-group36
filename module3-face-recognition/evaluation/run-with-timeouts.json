@@ -1,0 +1,151 @@
+{
+  "timestamp_utc": "2026-10-09T03:05:09.708918+00:00",
+  "python": "3.12.10",
+  "platform": "Windows",
+  "opencv": "4.11.0",
+  "model_workers": 4,
+  "template_mode": "simhash",
+  "liveness_backend": "minifasnet",
+  "identity": [
+    {
+      "image": "obama.jpg",
+      "expected_match": true,
+      "actual_match": true,
+      "score": 1.0
+    },
+    {
+      "image": "obama2.jpg",
+      "expected_match": true,
+      "actual_match": true,
+      "score": 0.777785
+    },
+    {
+      "image": "obama3.jpg",
+      "expected_match": true,
+      "actual_match": true,
+      "score": 0.817197
+    },
+    {
+      "image": "biden.jpg",
+      "expected_match": false,
+      "actual_match": false,
+      "score": 0.37851
+    }
+  ],
+  "pad": [
+    {
+      "image": "image_F1.jpg",
+      "expected_live": false,
+      "actual_live": false,
+      "score": 0.072331,
+      "neural_score": 0.072331
+    },
+    {
+      "image": "image_F2.jpg",
+      "expected_live": false,
+      "actual_live": false,
+      "score": 0.181286,
+      "neural_score": 0.181286
+    },
+    {
+      "image": "image_T1.jpg",
+      "expected_live": true,
+      "actual_live": true,
+      "score": 0.993568,
+      "neural_score": 0.993568
+    }
+  ],
+  "load": {
+    "/face/verify": [
+      {
+        "clients": 10,
+        "successful": 10,
+        "http_status_counts": {
+          "200": 10
+        },
+        "elapsed_seconds": 1.39,
+        "p50_seconds": 0.953,
+        "p95_seconds": 1.297,
+        "maximum_seconds": 1.297,
+        "health_maximum_seconds": 0.094,
+        "health_failures": 0
+      },
+      {
+        "clients": 50,
+        "successful": 50,
+        "http_status_counts": {
+          "200": 50
+        },
+        "elapsed_seconds": 4.86,
+        "p50_seconds": 2.313,
+        "p95_seconds": 3.797,
+        "maximum_seconds": 3.985,
+        "health_maximum_seconds": 0.578,
+        "health_failures": 0
+      },
+      {
+        "clients": 100,
+        "successful": 10,
+        "http_status_counts": {
+          "200": 10,
+          "ReadTimeout": 90
+        },
+        "elapsed_seconds": 2081.531,
+        "p50_seconds": 2080.188,
+        "p95_seconds": 2081.266,
+        "maximum_seconds": 2081.406,
+        "health_maximum_seconds": 2076.75,
+        "health_failures": 0
+      }
+    ],
+    "/liveness/check": [
+      {
+        "clients": 10,
+        "successful": 10,
+        "http_status_counts": {
+          "200": 10
+        },
+        "elapsed_seconds": 16.579,
+        "p50_seconds": 15.578,
+        "p95_seconds": 15.875,
+        "maximum_seconds": 15.875,
+        "health_maximum_seconds": 0.656,
+        "health_failures": 0
+      },
+      {
+        "clients": 50,
+        "successful": 50,
+        "http_status_counts": {
+          "200": 50
+        },
+        "elapsed_seconds": 8.281,
+        "p50_seconds": 6.672,
+        "p95_seconds": 7.5,
+        "maximum_seconds": 7.547,
+        "health_maximum_seconds": 4.281,
+        "health_failures": 0
+      },
+      {
+        "clients": 100,
+        "successful": 100,
+        "http_status_counts": {
+          "200": 100
+        },
+        "elapsed_seconds": 9.344,
+        "p50_seconds": 6.61,
+        "p95_seconds": 7.125,
+        "maximum_seconds": 7.797,
+        "health_maximum_seconds": 4.125,
+        "health_failures": 0
+      }
+    ]
+  },
+  "limitations": [
+    "Identity corpus has only two people; no general FAR/FRR claim.",
+    "PAD samples are three publisher demos, not independent camera/attack validation.",
+    "These are local process timings, not Docker or full-system performance."
+  ],
+  "public_test_exit_code": 0,
+  "functional_checks_passed": false,
+  "server_exit_before_cleanup": null
+}

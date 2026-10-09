@@ -1,0 +1,6 @@
+# Optional OFFLINE conversion tools; do not install these in the API runtime.
+# Install CPU torch first from https://download.pytorch.org/whl/cpu
+torch==2.5.1
+onnx==1.17.0
+numpy==1.26.4
+httpx==0.26.0

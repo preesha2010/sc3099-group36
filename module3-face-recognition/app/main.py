@@ -1,6 +1,10 @@
 """SAIV Module 3 HTTP API: face enrollment, verification, liveness, and risk."""
 
 import os
+import cv2
+from contextlib import asynccontextmanager
+
+import anyio.to_thread
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
@@ -24,12 +28,30 @@ from app.services.face import detect_face, extract_face_embedding, generate_face
 from app.services.image import calculate_quality_score, decode_base64_image
 from app.services.liveness import assess_passive_liveness
 from app.services.risk import assess_risk
+from app.services.templates import match_templates, template_mode, validate_reference
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    # Bound the whole synchronous pipeline, not just individual neural models:
+    # queued callers must not all decode and hold full-sized images in memory.
+    concurrency = int(os.getenv("INFERENCE_CONCURRENCY", "8"))
+    if not 1 <= concurrency <= 16:
+        raise ValueError("INFERENCE_CONCURRENCY must be between 1 and 16")
+    limiter = anyio.to_thread.current_default_thread_limiter()
+    previous = limiter.total_tokens
+    limiter.total_tokens = concurrency
+    try:
+        yield
+    finally:
+        limiter.total_tokens = previous
 
 
 app = FastAPI(
     title="SAIV Face Recognition Service",
     description="Face enrollment, verification, liveness detection, and risk assessment service",
     version="1.0.0",
+    lifespan=lifespan,
 )
 
 app.add_middleware(
@@ -53,6 +75,11 @@ async def validation_error_handler(_: Request, exc: RequestValidationError):
     return JSONResponse(status_code=422, content={"detail": errors})
 
 
+@app.exception_handler(cv2.error)
+async def inference_error_handler(_: Request, exc: cv2.error):
+    return JSONResponse(status_code=503, content={"detail": "Local model inference is unavailable"})
+
+
 @app.get("/health")
 async def health_check():
     """Return the minimal service-health contract used by Docker and public tests."""
@@ -65,6 +92,7 @@ async def root():
     return {
         "service": "SAIV Face Recognition & Risk Service",
         "version": "1.0.0",
+        "template_mode": template_mode(),
         "endpoints": [
             "/health",
             "/face/enroll",
@@ -102,6 +130,7 @@ def enroll_face(request: FaceEnrollRequest):
             "face_detected": True,
             "face_detection_confidence": float(detection["confidence"]),
             "image_quality": image_quality,
+            "template_mode": template_mode(),
         },
     )
 
@@ -109,6 +138,7 @@ def enroll_face(request: FaceEnrollRequest):
 @app.post("/face/verify", response_model=FaceVerifyResponse)
 def verify_face(request: FaceVerifyRequest):
     """Compare a submitted image against the hash previously returned at enrollment."""
+    validate_reference(request.reference_template_hash)
     image_array = decode_base64_image(request.image)
     detection = detect_face(image_array)
     if detection is None:
@@ -122,7 +152,7 @@ def verify_face(request: FaceVerifyRequest):
 
     embedding = extract_face_embedding(image_array, detection)
     current_template_hash = generate_face_hash(embedding)
-    match_score = 1.0 if current_template_hash == request.reference_template_hash else 0.0
+    match_score = match_templates(current_template_hash, request.reference_template_hash)
     del image_array, embedding
     return FaceVerifyResponse(
         match_passed=match_score >= 0.70,
