@@ -8,12 +8,15 @@
  *   unauthenticated -> LoginForm <-> RegisterForm
  *   authenticated    -> SessionSelector -> CheckInFlow
  *
- * Auth status is read through lib/auth.ts's `isAuthenticated()` — never
+ * Auth status is resolved by `api.restoreSession()` — never by touching
  * localStorage directly — and only inside a `useEffect`, so the very
  * first render (both server-rendered and the client's first hydration
  * pass) always shows the same neutral 'loading' state. The real,
  * localStorage-derived status is only known after mount, client-side,
  * which avoids a hydration mismatch between server and client output.
+ * If the access token has expired but a refresh token exists,
+ * `restoreSession()` silently refreshes before deciding, so the status
+ * stays 'loading' (no Sign In flash) until that settles.
  *
  * Login/registration themselves are fully handled by LoginForm/
  * RegisterForm, which call the existing `api.login()`/`api.register()`
@@ -52,11 +55,21 @@ export default function Home() {
   const [postAuthView, setPostAuthView] = useState<PostAuthView>('session-select')
   const [selectedSession, setSelectedSession] = useState<Session | null>(null)
 
-  // Client-only: reads through auth.ts, never localStorage directly.
-  // Runs after the first render/hydration, so the initial paint is
-  // always the neutral 'loading' state on both server and client.
+  // Client-only: restores the session through lib/api.ts (which reads tokens
+  // via auth.ts, never localStorage directly). If the access token has
+  // expired but a refresh token exists, it silently refreshes first. Runs
+  // after the first render/hydration, and the status stays 'loading' until
+  // it settles, so there is no premature flash of the Sign In screen.
   useEffect(() => {
-    setAuthStatus(auth.isAuthenticated() ? 'authenticated' : 'unauthenticated')
+    let cancelled = false
+    void api.restoreSession().then((restored) => {
+      if (!cancelled) {
+        setAuthStatus(restored ? 'authenticated' : 'unauthenticated')
+      }
+    })
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   const handleLoginSuccess = useCallback(() => {

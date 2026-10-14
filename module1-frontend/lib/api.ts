@@ -9,7 +9,7 @@
  */
 
 import axios, { type AxiosError, type InternalAxiosRequestConfig } from 'axios'
-import { toApiError } from './errors'
+import { ApiError, toApiError } from './errors'
 import * as auth from './auth'
 import * as mockApi from './mockApi'
 import type {
@@ -318,6 +318,64 @@ export const deleteDevice = (deviceId: string): Promise<void> =>
 
 export const getMyEnrollments = (): Promise<Enrollment[]> =>
   USE_MOCKS ? mockApi.getMyEnrollments() : realGetMyEnrollments()
+
+// ---------------------------------------------------------------------------
+// Startup session restore
+// ---------------------------------------------------------------------------
+
+// Shared so concurrent callers (e.g. React Strict Mode running the startup
+// effect twice in dev) trigger ONE refresh request, not two — the backend may
+// rotate refresh tokens, so a second concurrent call could invalidate the first.
+let inFlightRestore: Promise<boolean> | null = null
+
+async function doRestoreSession(): Promise<boolean> {
+  // Access token still valid: nothing to do, no network call.
+  if (auth.isAuthenticated()) return true
+
+  const storedRefreshToken = auth.getRefreshToken()
+  if (!storedRefreshToken) {
+    // Nothing to refresh with; drop any stale (expired) access token.
+    auth.clearTokens()
+    return false
+  }
+
+  try {
+    // Goes through the existing refresh path (mock or real), which also
+    // persists the new tokens via lib/auth.ts on success.
+    await refreshToken(storedRefreshToken)
+    return true
+  } catch (error) {
+    // Clear tokens only when the server definitively rejected the refresh
+    // token. Network errors, 5xx and rate limits are transient: keep the
+    // tokens so a later load can retry instead of wiping a valid session.
+    if (
+      error instanceof ApiError &&
+      (error.kind === 'authentication' ||
+        error.kind === 'authorization' ||
+        error.kind === 'client' ||
+        error.kind === 'validation')
+    ) {
+      auth.clearTokens()
+    }
+    return false
+  }
+}
+
+/**
+ * Restores the signed-in state at app startup. Resolves `true` if the user is
+ * (or has just been silently made) authenticated, `false` otherwise. Never
+ * rejects, so callers can't get stuck waiting on it.
+ */
+export function restoreSession(): Promise<boolean> {
+  if (!inFlightRestore) {
+    inFlightRestore = doRestoreSession()
+      .catch(() => false)
+      .finally(() => {
+        inFlightRestore = null
+      })
+  }
+  return inFlightRestore
+}
 
 /** Clears the local session. No backend logout endpoint is documented in the API spec. */
 export function logout(): void {
