@@ -19,6 +19,7 @@
  */
 
 import * as api from './api'
+import * as auth from './auth'
 import { getDeviceBindingStore } from './storage'
 import type {
   DevicePlatform,
@@ -133,7 +134,7 @@ export async function getOrCreateDeviceKeyPair(): Promise<CryptoKeyPair> {
  * un-hashed — deliberately not a canvas/browser fingerprint, per the
  * architecture decision to avoid invasive fingerprinting techniques.
  */
-async function getOrCreateDeviceId(): Promise<string> {
+async function loadOrCreateDeviceId(): Promise<string> {
   const store = getDeviceBindingStore<string>()
 
   const existing = await store.getItem(DEVICE_ID_STORAGE_KEY)
@@ -144,6 +145,21 @@ async function getOrCreateDeviceId(): Promise<string> {
   const id = window.crypto.randomUUID()
   await store.setItem(DEVICE_ID_STORAGE_KEY, id)
   return id
+}
+
+// Shared so concurrent first-time callers (background device registration and
+// a check-in submission, say) all get the SAME id. Without this, two callers
+// could each find no stored id and each generate a different one.
+let deviceIdPromise: Promise<string> | null = null
+
+function getOrCreateDeviceId(): Promise<string> {
+  if (!deviceIdPromise) {
+    deviceIdPromise = loadOrCreateDeviceId().catch((error: unknown) => {
+      deviceIdPromise = null
+      throw error
+    })
+  }
+  return deviceIdPromise
 }
 
 function bufferToHex(buffer: ArrayBuffer): string {
@@ -231,4 +247,168 @@ export async function registerDevice(
   }
 
   return api.registerDevice(payload)
+}
+
+// ---------------------------------------------------------------------------
+// Best-effort, per-user registration
+// ---------------------------------------------------------------------------
+
+/**
+ * `registered`           — this call registered the device successfully.
+ * `previously-registered` — a local success marker for this user already exists
+ *                          and matches this device's current fingerprint and key.
+ * `not-registered`       — registration failed, was already attempted during
+ *                          this page load, or isn't possible here. Never fatal.
+ */
+export type DeviceRegistrationStatus =
+  | 'registered'
+  | 'previously-registered'
+  | 'not-registered'
+
+/**
+ * Records which device identity was registered for one user on this browser.
+ * Contains no secrets: the fingerprint is already sent to the server, and the
+ * key digest is a SHA-256 hash of the PEM *public* key. Binding the marker to
+ * both means it can never make a different fingerprint or a regenerated
+ * keypair skip registration.
+ *
+ * No key rotation is implemented and the backend is NOT assumed to support
+ * updating a registered public key (PATCH /devices has no `public_key`). If
+ * the key was regenerated, the fingerprint is unchanged and registration is
+ * attempted again; the backend will likely reject that (fingerprint is UNIQUE
+ * and re-registration behaviour is undocumented), which simply surfaces as
+ * `not-registered`. Resolving that needs a rotation contract from the backend.
+ */
+interface DeviceRegistrationMarker {
+  registeredAt: string
+  deviceFingerprint: string
+  publicKeySha256: string
+}
+
+type DeviceRegistrationIdentity = Pick<
+  DeviceRegistrationMarker,
+  'deviceFingerprint' | 'publicKeySha256'
+>
+
+const REGISTRATION_MARKER_KEY_PREFIX = 'device-registered:'
+
+// Generic label only — deliberately not derived from the user agent, to avoid
+// fingerprinting. The schema allows a NULL name, but the spec's example and the
+// only test request body always include one, so we send one.
+const DEFAULT_DEVICE_NAME = 'Web Browser'
+
+// One attempt per user per page load, and concurrent callers (e.g. React
+// Strict Mode running an effect twice in dev) share one in-flight request.
+// The API contract doesn't say whether registering the same fingerprint twice
+// is safe, so we never retry in a loop.
+const attemptedUserIds = new Set<string>()
+const inFlightRegistrations = new Map<string, Promise<DeviceRegistrationStatus>>()
+
+/** The identity (fingerprint + public-key digest) this browser would register right now. */
+async function getCurrentRegistrationIdentity(): Promise<DeviceRegistrationIdentity> {
+  const [deviceFingerprint, publicKeyPem] = await Promise.all([
+    getDeviceFingerprint(),
+    getDevicePublicKeyPem(),
+  ])
+  const digest = await window.crypto.subtle.digest(
+    'SHA-256',
+    new TextEncoder().encode(publicKeyPem),
+  )
+  return { deviceFingerprint, publicKeySha256: bufferToHex(digest) }
+}
+
+/** True only if the stored marker is well-formed AND matches the current device identity. */
+function markerMatchesIdentity(
+  value: unknown,
+  identity: DeviceRegistrationIdentity,
+): boolean {
+  if (typeof value !== 'object' || value === null) return false
+  const marker = value as Partial<DeviceRegistrationMarker>
+  return (
+    typeof marker.registeredAt === 'string' &&
+    marker.deviceFingerprint === identity.deviceFingerprint &&
+    marker.publicKeySha256 === identity.publicKeySha256
+  )
+}
+
+async function runEnsureDeviceRegistered(
+  userId: string,
+): Promise<DeviceRegistrationStatus> {
+  // Scoped to the server-provided user id (from GET /users/me, never JWT
+  // claims), so another account on this browser never inherits this marker.
+  // Logout deliberately leaves markers in place: registration belongs to the
+  // device + user pair, not to a login session.
+  const store = getDeviceBindingStore<DeviceRegistrationMarker>()
+  const markerKey = `${REGISTRATION_MARKER_KEY_PREFIX}${userId}`
+
+  // Whose token is in use when we start. The request below reads the token at
+  // send time, so if the signed-in user changes while it is in flight we must
+  // not record a marker under the user we started with.
+  const tokenAtStart = auth.getAccessToken()
+
+  let identity: DeviceRegistrationIdentity
+  try {
+    identity = await getCurrentRegistrationIdentity()
+  } catch {
+    // Web Crypto / storage unavailable: nothing we can register.
+    return 'not-registered'
+  }
+
+  try {
+    if (markerMatchesIdentity(await store.getItem(markerKey), identity)) {
+      return 'previously-registered'
+    }
+  } catch {
+    // Unreadable marker: treat as absent.
+  }
+
+  if (attemptedUserIds.has(userId)) return 'not-registered'
+  attemptedUserIds.add(userId)
+
+  try {
+    await registerDevice({ platform: 'web', deviceName: DEFAULT_DEVICE_NAME })
+  } catch {
+    // Best-effort: any failure (unsupported browser, network, backend
+    // rejecting a duplicate, ...) is non-fatal and sets no marker.
+    return 'not-registered'
+  }
+
+  // The user (or just their token, via a refresh) changed mid-flight: we can't
+  // be sure which account this registration belongs to, so record nothing. A
+  // later load simply attempts again.
+  if (auth.getAccessToken() !== tokenAtStart) return 'registered'
+
+  try {
+    await store.setItem(markerKey, {
+      registeredAt: new Date().toISOString(),
+      ...identity,
+    })
+  } catch {
+    // Registered server-side; failing to persist the marker only means a
+    // later page load may attempt again.
+  }
+  return 'registered'
+}
+
+/**
+ * Registers this device for `userId` at most once per page load, and skips
+ * entirely when a success marker for that user already exists. Never throws
+ * and never blocks the caller's flow on failure.
+ */
+export function ensureDeviceRegistered(
+  userId: string,
+): Promise<DeviceRegistrationStatus> {
+  if (typeof userId !== 'string' || userId.length === 0) {
+    return Promise.resolve('not-registered')
+  }
+  const existing = inFlightRegistrations.get(userId)
+  if (existing) return existing
+
+  const attempt = runEnsureDeviceRegistered(userId)
+    .catch((): DeviceRegistrationStatus => 'not-registered')
+    .finally(() => {
+      inFlightRegistrations.delete(userId)
+    })
+  inFlightRegistrations.set(userId, attempt)
+  return attempt
 }

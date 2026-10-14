@@ -26,13 +26,11 @@
  *
  * Once authenticated, SessionSelector fetches and displays the user's
  * active session(s) via the existing `api.getMySessions()`; picking one
- * hands a `Session` object to this page's state, which then renders the
- * previously-relocated consent -> camera -> liveness -> complete
- * prototype (components/CheckInFlow.tsx) below it. CheckInFlow itself
- * stays unmodified/prop-less this milestone — it still doesn't call the
- * backend, request permissions on its own, or know which session is
- * active; the selected session is only tracked here, ready for a future
- * milestone that actually submits `POST /checkins/`.
+ * hands a `Session` object to this page's state, which is then passed to
+ * components/CheckInFlow.tsx. That flow runs a preflight, consent, a single
+ * photo (when the session needs one), and then submits the check-in and shows
+ * its result. It can hand control back here to leave the flow (`onExit`) or to
+ * sign out when the session has expired (`onAuthExpired`).
  */
 
 import { useCallback, useEffect, useState } from 'react'
@@ -173,7 +171,11 @@ export default function Home() {
                   Change Session
                 </button>
               </div>
-              <CheckInFlow />
+              <CheckInFlow
+                session={selectedSession}
+                onExit={handleChangeSession}
+                onAuthExpired={handleLogout}
+              />
             </div>
           )}
         </>

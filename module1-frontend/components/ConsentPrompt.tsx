@@ -16,8 +16,9 @@
  *   - No location coordinates are stored or displayed — `getCurrentLocation()`
  *     (lib/geolocation.ts) is used only to confirm the permission was
  *     granted; its result is discarded.
- *   - Consent is not persisted (no `PUT /users/me` call) — that's an
- *     explicit non-goal for this milestone.
+ *   - Consent is not persisted here. The parent can pass `onBeforeRequest`
+ *     to record it; it runs on the click, BEFORE any camera or location
+ *     request, and a rejection stops the flow before any data is collected.
  *   - Nothing here touches auth tokens or localStorage directly.
  *
  * All browser APIs (`navigator.mediaDevices`, `lib/geolocation.ts`) are
@@ -30,16 +31,35 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { getCurrentLocation } from '@/lib/geolocation'
 
 type ConsentStatus = 'idle' | 'requesting' | 'error' | 'granted'
-type ConsentStep = 'camera' | 'location'
+type ConsentStep = 'consent' | 'camera' | 'location'
 
 interface ConsentFailure {
   step: ConsentStep
   message: string
 }
 
+const FAILURE_TITLES: Record<ConsentStep, string> = {
+  consent: 'Consent could not be saved',
+  camera: 'Camera access failed',
+  location: 'Location access failed',
+}
+
 export interface ConsentPromptProps {
-  /** Called once camera and location permissions have both been granted. */
+  /** Called once the needed permissions (camera, if required, and location) have been granted. */
   onConsentGranted: () => void
+  /**
+   * Runs when the user clicks "Allow & Continue", before the camera or location
+   * is requested — used to record consent first. If it rejects, nothing is
+   * requested and the rejection's `message` (which must be safe to display) is
+   * shown with a retry.
+   */
+  onBeforeRequest?: () => Promise<void>
+  /**
+   * Whether this check-in needs the camera. Defaults to true. When false (the
+   * session needs no photo), camera permission is neither explained nor
+   * requested — only location — so we don't ask for access we won't use.
+   */
+  requireCamera?: boolean
 }
 
 function isCameraSupported(): boolean {
@@ -97,7 +117,11 @@ async function requestCameraPermission(): Promise<void> {
   }
 }
 
-export default function ConsentPrompt({ onConsentGranted }: ConsentPromptProps) {
+export default function ConsentPrompt({
+  onConsentGranted,
+  onBeforeRequest,
+  requireCamera = true,
+}: ConsentPromptProps) {
   const [status, setStatus] = useState<ConsentStatus>('idle')
   const [failure, setFailure] = useState<ConsentFailure | null>(null)
   const isMountedRef = useRef(true)
@@ -113,17 +137,35 @@ export default function ConsentPrompt({ onConsentGranted }: ConsentPromptProps) 
     setStatus('requesting')
     setFailure(null)
 
-    try {
-      await requestCameraPermission()
-    } catch (error) {
-      if (isMountedRef.current) {
-        setFailure({
-          step: 'camera',
-          message: error instanceof Error ? error.message : 'Unable to access the camera.',
-        })
-        setStatus('error')
+    if (onBeforeRequest) {
+      try {
+        await onBeforeRequest()
+      } catch (error) {
+        if (isMountedRef.current) {
+          setFailure({
+            step: 'consent',
+            message:
+              error instanceof Error ? error.message : 'We couldn’t save your consent. Please try again.',
+          })
+          setStatus('error')
+        }
+        return
       }
-      return
+    }
+
+    if (requireCamera) {
+      try {
+        await requestCameraPermission()
+      } catch (error) {
+        if (isMountedRef.current) {
+          setFailure({
+            step: 'camera',
+            message: error instanceof Error ? error.message : 'Unable to access the camera.',
+          })
+          setStatus('error')
+        }
+        return
+      }
     }
 
     try {
@@ -148,27 +190,32 @@ export default function ConsentPrompt({ onConsentGranted }: ConsentPromptProps) 
       setStatus('granted')
     }
     onConsentGranted()
-  }, [onConsentGranted])
+  }, [onBeforeRequest, onConsentGranted, requireCamera])
 
   const isRequesting = status === 'requesting'
   const isGranted = status === 'granted'
 
   return (
     <div className="max-w-md mx-auto p-6 bg-white rounded-lg shadow">
-      <h2 className="text-2xl font-bold mb-2">Camera &amp; Location Access</h2>
+      <h2 className="text-2xl font-bold mb-2">
+        {requireCamera ? 'Camera & Location Access' : 'Location Access'}
+      </h2>
       <p className="text-gray-600 mb-4">
-        To check in, SAIV needs permission to use your camera and location for this
-        session.
+        {requireCamera
+          ? 'To check in, SAIV needs permission to use your camera and location for this session.'
+          : 'To check in, SAIV needs permission to use your location for this session.'}
       </p>
 
       <ul className="mb-6 space-y-3 text-sm text-gray-700">
-        <li className="flex gap-2">
-          <span aria-hidden="true">📷</span>
-          <span>
-            <strong>Camera</strong> — used to verify it&rsquo;s really you (face
-            verification).
-          </span>
-        </li>
+        {requireCamera && (
+          <li className="flex gap-2">
+            <span aria-hidden="true">📷</span>
+            <span>
+              <strong>Camera</strong> — used to verify it&rsquo;s really you (face
+              verification).
+            </span>
+          </li>
+        )}
         <li className="flex gap-2">
           <span aria-hidden="true">📍</span>
           <span>
@@ -183,7 +230,7 @@ export default function ConsentPrompt({ onConsentGranted }: ConsentPromptProps) 
           role="alert"
           className="mb-4 p-3 rounded border-l-4 border-red-500 bg-red-50 text-sm text-red-700"
         >
-          <p className="font-semibold capitalize">{failure.step} access failed</p>
+          <p className="font-semibold">{FAILURE_TITLES[failure.step]}</p>
           <p>{failure.message}</p>
         </div>
       )}
