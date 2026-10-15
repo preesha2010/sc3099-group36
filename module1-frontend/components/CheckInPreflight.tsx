@@ -30,6 +30,7 @@ import {
   ensureDeviceRegistered,
   type DeviceRegistrationStatus,
 } from '@/lib/deviceBinding'
+import { useOnlineStatus } from '@/lib/useOnlineStatus'
 import type { Session, SessionDetail, UserResponse } from '@/types/api'
 
 type PreflightStatus = 'loading' | 'error' | 'ready'
@@ -97,6 +98,7 @@ export default function CheckInPreflight({ session, onReady }: CheckInPreflightP
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [result, setResult] = useState<CheckInPreflightResult | null>(null)
   const [deviceStatus, setDeviceStatus] = useState<DeviceStatus>('checking')
+  const isOnline = useOnlineStatus()
   const isMountedRef = useRef(true)
 
   useEffect(() => {
@@ -231,10 +233,16 @@ export default function CheckInPreflight({ session, onReady }: CheckInPreflightP
             )}
           </div>
 
+          {!isOnline && (
+            <p role="status" className="mb-2 text-sm text-amber-800">
+              You’re offline. Reconnect to start checking in.
+            </p>
+          )}
           <button
             type="button"
             onClick={handleStart}
-            className="w-full py-2 px-4 rounded bg-blue-600 text-white font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+            disabled={!isOnline}
+            className="w-full py-2 px-4 rounded bg-blue-600 text-white font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
           >
             Start check-in
           </button>

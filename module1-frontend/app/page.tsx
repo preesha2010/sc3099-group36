@@ -40,9 +40,14 @@ import LoginForm from '@/components/LoginForm'
 import RegisterForm from '@/components/RegisterForm'
 import SessionSelector from '@/components/SessionSelector'
 import CheckInFlow from '@/components/CheckInFlow'
+import OfflineBanner from '@/components/OfflineBanner'
+import { useOnlineStatus } from '@/lib/useOnlineStatus'
 import type { Session } from '@/types/api'
 
-type AuthStatus = 'loading' | 'authenticated' | 'unauthenticated'
+// 'unavailable': the session couldn't be restored because the server couldn't
+// be reached (offline, timeout, 5xx). Tokens were kept, so this is a "try again"
+// state, not a signed-out one.
+type AuthStatus = 'loading' | 'authenticated' | 'unauthenticated' | 'unavailable'
 type AuthView = 'login' | 'register'
 type PostAuthView = 'session-select' | 'check-in'
 
@@ -53,22 +58,27 @@ export default function Home() {
   const [postAuthView, setPostAuthView] = useState<PostAuthView>('session-select')
   const [selectedSession, setSelectedSession] = useState<Session | null>(null)
 
+  const isOnline = useOnlineStatus()
+
   // Client-only: restores the session through lib/api.ts (which reads tokens
   // via auth.ts, never localStorage directly). If the access token has
   // expired but a refresh token exists, it silently refreshes first. Runs
   // after the first render/hydration, and the status stays 'loading' until
-  // it settles, so there is no premature flash of the Sign In screen.
-  useEffect(() => {
+  // it settles, so there is no premature flash of the Sign In screen. If the
+  // server can't be reached the status becomes 'unavailable' (not
+  // 'unauthenticated'), and the user can retry once they're back online.
+  const restore = useCallback(() => {
+    setAuthStatus('loading')
     let cancelled = false
     void api.restoreSession().then((restored) => {
-      if (!cancelled) {
-        setAuthStatus(restored ? 'authenticated' : 'unauthenticated')
-      }
+      if (!cancelled) setAuthStatus(restored)
     })
     return () => {
       cancelled = true
     }
   }, [])
+
+  useEffect(() => restore(), [restore])
 
   const handleLoginSuccess = useCallback(() => {
     setAuthStatus('authenticated')
@@ -119,8 +129,28 @@ export default function Home() {
       </h1>
       <p className="text-gray-600 mb-8 text-center">Student Check-in</p>
 
+      <OfflineBanner />
+
       {authStatus === 'loading' && (
         <p className="text-center text-sm text-gray-400">Loading…</p>
+      )}
+
+      {authStatus === 'unavailable' && (
+        <div className="max-w-md mx-auto p-6 bg-white rounded-lg shadow text-center">
+          <h2 className="text-xl font-bold mb-2">Can’t reach the server</h2>
+          <p className="text-sm text-gray-600 mb-4">
+            {isOnline
+              ? 'We couldn’t reach the server to restore your session. You’re still signed in — please try again.'
+              : 'You’re offline, so we can’t restore your session yet. You’re still signed in — reconnect and try again.'}
+          </p>
+          <button
+            type="button"
+            onClick={restore}
+            className="w-full py-2 px-4 rounded bg-blue-600 text-white font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+          >
+            Try again
+          </button>
+        </div>
       )}
 
       {authStatus === 'unauthenticated' && authView === 'login' && (

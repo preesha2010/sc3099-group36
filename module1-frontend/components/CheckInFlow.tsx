@@ -43,6 +43,7 @@ import CheckInPreflight, {
   type CheckInPreflightResult,
 } from '@/components/CheckInPreflight'
 import CheckInResult, { type CheckInOutcome } from '@/components/CheckInResult'
+import { useOnlineStatus } from '@/lib/useOnlineStatus'
 import type { Session } from '@/types/api'
 
 export interface CheckInFlowProps {
@@ -186,6 +187,8 @@ function describeConsentFailure(error: unknown): Failure {
 interface FailureNoticeProps {
   failure: Failure
   disabled?: boolean
+  /** Disables only the retry button (e.g. while offline); going back stays available. */
+  retryDisabled?: boolean
   retryLabel: string
   onRetry: () => void
   onLogin: () => void
@@ -196,6 +199,7 @@ interface FailureNoticeProps {
 function FailureNotice({
   failure,
   disabled = false,
+  retryDisabled = false,
   retryLabel,
   onRetry,
   onLogin,
@@ -211,7 +215,12 @@ function FailureNotice({
       </div>
       <div className="space-y-2">
         {failure.action === 'retry' && (
-          <button type="button" onClick={onRetry} disabled={disabled} className={PRIMARY_BUTTON}>
+          <button
+            type="button"
+            onClick={onRetry}
+            disabled={disabled || retryDisabled}
+            className={PRIMARY_BUTTON}
+          >
             {retryLabel}
           </button>
         )}
@@ -247,6 +256,7 @@ export default function CheckInFlow({ session, onExit, onAuthExpired }: CheckInF
   const [submitFailure, setSubmitFailure] = useState<Failure | null>(null)
   const [outcome, setOutcome] = useState<CheckInOutcome | null>(null)
 
+  const isOnline = useOnlineStatus()
   const isMountedRef = useRef(true)
   // A ref (not just state) so two rapid clicks can't both start a submission
   // before React has re-rendered the disabled button.
@@ -371,6 +381,10 @@ export default function CheckInFlow({ session, onExit, onAuthExpired }: CheckInF
   const stepNumber = step === 'result' ? 0 : stepOrder.indexOf(step) + 1
   const isSubmitting = submitPhase !== null
   const canSubmit = !submitFailure || submitFailure.action === 'retry'
+  // A hint only (see useOnlineStatus): offline reliably blocks submitting, but
+  // "online" never skips the real error handling in handleSubmit. An attempt
+  // already in flight is left to finish and report its own result.
+  const submitBlockedOffline = !isOnline && !isSubmitting
 
   return (
     <div>
@@ -440,10 +454,19 @@ export default function CheckInFlow({ session, onExit, onAuthExpired }: CheckInF
             </p>
           )}
 
+          {submitBlockedOffline && (
+            <p role="status" className="text-sm text-amber-800 mb-4">
+              You’re offline. Check-in needs a connection — reconnect to submit.
+              {needsPhoto &&
+                ' Keep this page open — your photo isn’t saved anywhere else.'}
+            </p>
+          )}
+
           {submitFailure ? (
             <FailureNotice
               failure={submitFailure}
               disabled={isSubmitting}
+              retryDisabled={submitBlockedOffline}
               retryLabel={isSubmitting ? 'Submitting…' : 'Try again'}
               onRetry={() => void handleSubmit()}
               onLogin={onAuthExpired}
@@ -454,7 +477,7 @@ export default function CheckInFlow({ session, onExit, onAuthExpired }: CheckInF
               <button
                 type="button"
                 onClick={() => void handleSubmit()}
-                disabled={isSubmitting}
+                disabled={isSubmitting || submitBlockedOffline}
                 aria-busy={isSubmitting}
                 className={PRIMARY_BUTTON}
               >
