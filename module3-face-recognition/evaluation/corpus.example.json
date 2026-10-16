@@ -1,0 +1,12 @@
+{
+  "authorized": false,
+  "identity": [
+    {"enroll": "images/person-a-enroll.jpg", "probe": "images/person-a-probe.jpg", "same_person": true},
+    {"enroll": "images/person-a-enroll.jpg", "probe": "images/person-b-probe.jpg", "same_person": false}
+  ],
+  "pad": [
+    {"image": "images/bona-fide.jpg", "live": true},
+    {"image": "images/print-attack.jpg", "live": false},
+    {"image": "images/screen-attack.jpg", "live": false}
+  ]
+}

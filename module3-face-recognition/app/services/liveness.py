@@ -10,11 +10,13 @@ import numpy as np
 
 from app.services.face import extract_face_embedding, generate_face_hash
 from app.services.image import calculate_quality_score
+from app.observability import timed
 
 
 _mesh_slots = BoundedSemaphore(4)
 
 
+@timed("mesh")
 def analyze_face_mesh(image_array: np.ndarray) -> Dict[str, Any]:
     """Return documented Face Mesh depth and completeness metadata."""
     # Each graph is request-local and closed before releasing its slot.

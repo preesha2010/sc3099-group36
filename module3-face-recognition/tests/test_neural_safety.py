@@ -43,7 +43,8 @@ def test_identity_model_buffers_are_overwritten_after_inference(monkeypatch):
             yield recognizer
 
     monkeypatch.setattr(neural, "pool", lambda _: Pool())
-    embedding = neural.neural_embedding(np.full((128, 128, 3), 77, dtype=np.uint8), {"alignment": None})
+    embedding = neural.neural_embedding(np.full((128, 128, 3), 77, dtype=np.uint8), {
+        "alignment": np.array([20, 20, 60, 60, 35, 40, 65, 40, 50, 55, 35, 70, 65, 70, .99], dtype=np.float32)})
     assert np.linalg.norm(embedding) == pytest.approx(1)
     assert not recognizer.last_input.any()
 

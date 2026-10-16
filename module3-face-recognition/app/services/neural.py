@@ -12,6 +12,7 @@ import numpy as np
 from fastapi import HTTPException
 
 from app.model_assets import ASSETS, FAS_COMMIT, model_directory
+from app.observability import metrics
 
 _pools = {}
 _pool_lock = Lock()
@@ -39,33 +40,86 @@ class ModelPool:
         self.factory = factory
         self.available = LifoQueue()
         try:
-            count = int(os.getenv("FACE_MODEL_WORKERS", "4"))
-            if not 1 <= count <= 8:
+            self.count = int(os.getenv("FACE_MODEL_WORKERS", "4"))
+            if not 1 <= self.count <= 8:
                 raise ValueError
         except ValueError as exc:
             raise HTTPException(status_code=503, detail="FACE_MODEL_WORKERS must be between 1 and 8") from exc
         cv2.setNumThreads(1)
-        for _ in range(count):
+        self._state_lock = Lock()
+        self._repair_lock = Lock()
+        self._broken = 0
+        for _ in range(self.count):
             self.available.put(factory())
+
+    @property
+    def healthy(self):
+        with self._state_lock:
+            return self._broken == 0
+
+    @property
+    def degraded_slots(self):
+        with self._state_lock:
+            return self._broken
+
+    def repair(self):
+        """Non-blocking token inspection; only recreate failed/blank slots."""
+        if not self._repair_lock.acquire(blocking=False):
+            return
+        held = []
+        try:
+            for _ in range(self.count):
+                try:
+                    model = self.available.get_nowait()
+                except Empty:
+                    break
+                if model is None:
+                    try:
+                        with metrics.stage("model_rebuild"):
+                            model = self.factory()
+                    except Exception:
+                        pass
+                    else:
+                        with self._state_lock:
+                            self._broken -= 1
+                held.append(model)
+        finally:
+            for model in held:
+                self.available.put(model)
+            self._repair_lock.release()
 
     @contextmanager
     def borrow(self):
         try:
-            model = self.available.get(timeout=20)
+            with metrics.stage("model_wait"):
+                model = self.available.get(timeout=2)
         except Empty as exc:
             raise HTTPException(status_code=503, detail="Inference capacity is busy; retry later") from exc
         try:
+            if model is None:
+                try:
+                    with metrics.stage("model_rebuild"):
+                        model = self.factory()
+                except Exception as exc:
+                    raise HTTPException(status_code=503, detail="Local model recovery is unavailable; retry later") from exc
+                with self._state_lock:
+                    self._broken -= 1
             yield model
         except BaseException:
             # A failed inference/wipe must not return a dirty model to the pool.
+            if model is not None:
+                with self._state_lock:
+                    self._broken += 1
             model = None
             raise
         finally:
-            self.available.put(model if model is not None else self.factory())
+            # Preserve a capacity token even when reconstruction fails. Retry on
+            # a future borrow; never mask the original inference exception.
+            self.available.put(model)
 
 
 def pool(kind: str) -> ModelPool:
-    identity = (kind, str(model_directory()))
+    identity = (kind, str(model_directory()), os.getenv("FACE_MODEL_WORKERS", "4"))
     with _pool_lock:
         if identity not in _pools:
             if kind == "yunet":
@@ -89,8 +143,8 @@ def detect_neural_face(rgb: np.ndarray):
     # YuNet is designed for 320-sized detection input; alignment is applied to
     # the original-resolution image after mapping landmarks back to pixels.
     scale = min(1.0, 320.0 / max(width, height))
-    bgr = cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
-    resized = cv2.resize(bgr, (max(32, int(width * scale)), max(32, int(height * scale))))
+    # Convert only the small detector input, not the full camera frame.
+    resized = cv2.cvtColor(cv2.resize(rgb, (max(32, int(width * scale)), max(32, int(height * scale)))), cv2.COLOR_RGB2BGR)
     sx, sy = resized.shape[1] / width, resized.shape[0] / height
     with pool("yunet").borrow() as detector:
         detector.setInputSize((resized.shape[1], resized.shape[0]))
@@ -99,7 +153,8 @@ def detect_neural_face(rgb: np.ndarray):
             faces = None if faces is None else faces.copy()
         finally:
             # Overwrite persistent DNN input/intermediate buffers with blank data.
-            detector.detect(np.zeros_like(resized))
+            with metrics.stage("detector_cleanup"):
+                detector.detect(np.zeros_like(resized))
     if faces is None or len(faces) == 0:
         return None
     if len(faces) != 1:
@@ -115,13 +170,22 @@ def detect_neural_face(rgb: np.ndarray):
 
 
 def neural_embedding(rgb: np.ndarray, detection: dict) -> np.ndarray:
-    bgr = cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
+    # Alignment needs only the face neighborhood. Translate landmarks into a
+    # padded crop, preserving their geometry and original pixel resolution.
+    row = detection["alignment"].copy()
+    x, y, width, height = row[:4]
+    left, top = max(0, int(x - width)), max(0, int(y - height))
+    right, bottom = min(rgb.shape[1], int(x + 2 * width)), min(rgb.shape[0], int(y + 2 * height))
+    bgr = cv2.cvtColor(rgb[top:bottom, left:right], cv2.COLOR_RGB2BGR)
+    row[[0, 4, 6, 8, 10, 12]] -= left
+    row[[1, 5, 7, 9, 11, 13]] -= top
     with pool("sface").borrow() as recognizer:
         try:
-            aligned = recognizer.alignCrop(bgr, detection["alignment"])
+            aligned = recognizer.alignCrop(bgr, row)
             features = recognizer.feature(aligned).reshape(-1).copy()
         finally:
-            recognizer.feature(np.zeros((112, 112, 3), dtype=np.uint8))
+            with metrics.stage("embedding_cleanup"):
+                recognizer.feature(np.zeros((112, 112, 3), dtype=np.uint8))
     norm = np.linalg.norm(features)
     if not np.isfinite(features).all() or norm < 1e-8:
         raise HTTPException(status_code=400, detail="Could not extract face identity features")

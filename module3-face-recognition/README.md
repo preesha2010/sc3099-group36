@@ -12,7 +12,7 @@ cd module3-face-recognition
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install -r requirements.txt
-python -m uvicorn app.main:app --host 127.0.0.1 --port 8001
+python -m uvicorn app.main:app --host 127.0.0.1 --port 8001 --no-access-log
 ```
 
 Open `http://localhost:8001/docs` for executable API examples. In Docker,
@@ -37,7 +37,8 @@ python scripts/bootstrap_models.py --pad
 python scripts/run_enhanced.py
 ```
 
-The enhanced launcher validates and loads the model assets before serving, sets
+Every launch method now validates configuration and preloads/warmups required
+model assets in the app lifespan before accepting requests. The enhanced launcher sets
 `FACE_TEMPLATE_MODE=simhash`, `LIVENESS_BACKEND=minifasnet`, four bounded model
 slots, and single-thread native kernels. API paths and field names are unchanged.
 The entire synchronous pipeline is also limited to eight concurrent handlers
@@ -113,6 +114,8 @@ publisher examples are not an independent attack-validation dataset.
 | Endpoint | Request fields | Result |
 | --- | --- | --- |
 | `GET /health` | None | `status`, `service` |
+| `GET /ready` | None | 200 ready / 503 not ready; no paths, keys or model internals |
+| `GET /metrics` | None | Process-local Prometheus text metrics; internal use only |
 | `GET /` | None | `service`, `version`, endpoint paths |
 | `POST /face/enroll` | `user_id`, `image`, `camera_consent: true` | 201; template hash, quality, details |
 | `POST /face/verify` | `image`, `reference_template_hash` | 200; match boolean/score, threshold, current hash |
@@ -229,3 +232,154 @@ cleanup. See `evaluation/latest.json` for the full measured report.
   Its cause was not established. Subsequent bounded-pipeline runs passed,
   which is evidence of those runs, not proof that every failure is eliminated.
 - Docker was not started, built or tested during this enhancement phase.
+
+## Standalone hardening and handoff (2026-10-16)
+
+See `HANDOFF.md` for operational checks and the remaining team decisions. Docker
+and every other module remain out of scope for this phase. Existing business
+endpoints, thresholds, risk weights and the default SHA-256 profile are unchanged.
+
+### Configuration, readiness and overload
+
+| Variable | Default | Allowed range / meaning |
+| --- | --- | --- |
+| `FACE_TEMPLATE_MODE` | `sha256` | `sha256` or explicit `simhash` |
+| `LIVENESS_BACKEND` | `heuristic` | `heuristic` or explicit `minifasnet` |
+| `FACE_MODEL_WORKERS` | `4` | 1-8 model slots, not server processes |
+| `INFERENCE_CONCURRENCY` | `8` | 1-16 admitted visual pipelines |
+| `INFERENCE_PENDING` | `32` | 0-128 additional waiting requests |
+| `INFERENCE_QUEUE_SECONDS` | `2` | 0.01-30 seconds of admission wait |
+
+Invalid configuration, missing/wrong-sized keys, bad checksums or model warmup
+failure prevent startup. `/health` retains its original process-health response;
+`/ready` additionally checks startup configuration, immutable asset fingerprints,
+the key and degraded model pools. Replacing files/configuration in a running
+process marks it not ready; stop traffic and restart to re-verify checksums.
+Readiness is not per-request rehashing or continuous tamper-proof attestation.
+
+Admission runs before request-body buffering and JSON/image decoding. Overflow
+or admission timeout returns 503 with `Retry-After: 1`. A running native inference
+is NOT forcibly cancelled when its caller disconnects. Request bodies still have
+the original 10 MiB cap. Queue deadlines do not guarantee end-to-end deadlines:
+upload time, inference and network time also matter. Upstream proxy/server body
+timeouts and fleet-wide connection limits belong to deployment configuration.
+
+Failed inference/blank-buffer cleanup discards the instance. Reconstruction is
+retried using the same capacity token; failures cannot silently shrink the pool
+or overwrite the original inference error. A two-second background recovery loop
+also retries degraded slots, so recovery does not depend on user traffic. Asset
+or key changes are not repaired in place. Persistent recovery failure keeps the
+pool not ready and requires operator attention; `/health` alone is insufficient.
+
+Image preparation now resizes before detector color conversion and converts
+only an original-resolution face neighborhood for SFace alignment. Landmark
+translation preserves geometry; regression tests retain cross-photo results.
+Blank inference cleanup and the prohibition on caching biometric inputs remain.
+
+### Internal monitoring
+
+`/metrics` exposes fixed-label request status counters, cumulative stage latency
+histograms, admitted/waiting counts, overload rejections and current resident
+memory on supported Windows/Linux hosts. Stages include decode, face detection,
+embedding, cleanup, mesh, PAD, template generation and queue wait. Stage durations
+are nested, so they must NOT all be summed as exclusive CPU time. Metrics reset
+on restart and are process-local, not fleet aggregates or distributed traces.
+
+Every response gets a newly generated `X-Request-ID`. Client-supplied IDs and
+unknown URL segments are never metric labels. No photos, image base64, identity,
+template, key, IP or user-agent is logged/exported by this instrumentation. Keep
+this internal unauthenticated service and `/metrics` off the public internet;
+Module 4 can scrape it later without any Module 4 configuration change here.
+
+### Repeatable independent acceptance
+
+```powershell
+# Each starts and stops its OWN ephemeral loopback server, with no backend/DB.
+python scripts/acceptance.py --profile sha256 --soak-seconds 120 --report evaluation/acceptance-sha256.json
+python scripts/acceptance.py --profile enhanced --soak-seconds 120 --report evaluation/acceptance-enhanced.json
+
+# Separate all-success throughput comparison, deliberately NOT production queue settings.
+python scripts/evaluate.py --pending 128 --queue-seconds 30 --report evaluation/throughput.json
+```
+
+Acceptance checks real HTTP enrollment -> verification -> liveness -> risk score
+propagation, legacy matching, invalid inputs, blank images, process restarts with
+the same key, repeated mixed workloads, health responsiveness, overload/retry
+semantics and recovery after the burst. Default client HTTP timeout is 5 seconds.
+Successful inference, 503 rejection and transport errors are reported separately.
+A two-minute soak is a finite observation, not proof of long-term leak freedom.
+The memory check defaults to a 128 MiB end-minus-warm-baseline budget, configurable
+with `--max-rss-growth-mib`; it is not a guaranteed fleet memory envelope.
+
+`evaluate.py` deliberately allows a 128-request queue and 30-second queue wait
+for all-success 10/50/100-client throughput comparisons. Its results MUST NOT be
+presented as measurements of the default 32-waiter/2-second overload policy.
+It still fetches only the original pinned publisher demos to RAM. Rerun on the
+actual deployment host; older and newer runs are not controlled benchmarks.
+
+### Authorized corpus evaluation
+
+```powershell
+python scripts/evaluate_corpus.py C:\private-dataset\manifest.json --report evaluation/corpus.json
+```
+
+Use `evaluation/corpus.example.json` as a format reference. Keep real manifests
+and images OUT of Git. Use an authorized existing local dataset; the tool never
+collects camera footage, downloads images or writes copies. Only acknowledge
+`authorized: true` after verifying permission. Each JPEG/PNG must be inside the
+manifest's directory. Labels must be real JSON booleans. The example is disabled
+and intentionally has no images. Do not change its authorization flag in Git.
+
+Reports contain aggregate counts/rates and Wilson 95% intervals, never per-person
+scores, paths, templates or identities. FAR/FRR use impostor/genuine comparisons;
+APCER/BPCER use attack/bona-fide presentations. HTTP/quality failures are reported
+separately with requested/evaluated counts, not scored as correct rejections.
+An absent denominator produces null, NOT zero error. Same-file identity pairs are
+counted so they cannot be mistaken for cross-photo validation. Threshold sweeps
+are descriptive and do not change the API's 0.70/0.60 decision thresholds.
+
+Use distinct subjects for calibration and held-out evaluation, varied cameras,
+lighting/poses and separately designed print/screen/replay attacks. Repeated
+comparisons of one subject are correlated; the simple binomial intervals do not
+correct that dependence. The existing two identities and three publisher demos
+remain smoke tests, not a representative security evaluation. Larger authorized
+data and a final template-policy decision are still external dependencies.
+
+### Measured verification record (2026-10-16)
+
+- Module-local regression: **81 passed**, model-backed tests included, no skips.
+- Unchanged public HTTP suite: **15/15 in each profile**; `pip check` passed.
+- Existing enhanced cross-photo and publisher PAD smoke decisions/scores stayed
+  unchanged after the image-preparation optimization.
+- Both acceptance profiles passed two process restarts, score propagation,
+  negative inputs, two-minute repeated workloads and recovery after overload.
+
+| Profile, four simultaneous callers per wave | Successful sustained requests per endpoint | Verify maximum | Liveness maximum | End-minus-baseline RSS |
+| --- | --- | --- | --- | --- |
+| SHA-256 | 1020 / 1020 | 0.157 s | 0.422 s | +23.137 MiB |
+| Enhanced | 660 / 660 | 0.313 s | 0.609 s | -48.250 MiB |
+
+These two-minute RSS observations do not prove leak freedom. Under the default
+admission policy, enhanced 100-request bursts produced **48 successful + 52
+rejected** verifications and **39 successful + 61 rejected** liveness calls.
+Rejections were explicit 503/Retry-After responses, not successful inferences;
+health checks and subsequent normal requests succeeded. Counts depend on timing.
+
+A separate final enhanced throughput run with 128 waiters / 30-second queue
+deadline processed all 10/50/100 requests successfully on each endpoint:
+
+| Concurrent requests | Verify P95 | Liveness P95 |
+| --- | --- | --- |
+| 10 | 0.641 s | 0.984 s |
+| 50 | 2.125 s | 3.187 s |
+| 100 | 4.125 s | 6.313 s |
+
+At 100 requests, maximum verify/liveness latency was 4.469/6.625 seconds.
+**100-client liveness still exceeds the current backend's five-second timeout.**
+No universal five-second guarantee is claimed, and overload rejection is not a
+substitute for successful processing. These are local observations, not a
+controlled before/after comparison or a deployment capacity certification.
+Raw aggregate records: `evaluation/acceptance-sha256-20261016.json`,
+`evaluation/acceptance-enhanced-20261016.json`, and
+`evaluation/throughput-20261016.json`. Older reports, including the unresolved
+prolonged-stall failure, are retained as historical evidence.

@@ -9,6 +9,7 @@ from typing import Any, Dict, Tuple
 import numpy as np
 from fastapi import HTTPException
 from PIL import Image, ImageOps, UnidentifiedImageError
+from app.observability import timed
 
 
 MAX_IMAGE_BYTES = 6 * 1024 * 1024
@@ -17,6 +18,7 @@ MAX_IMAGE_SIDE = 4096
 MAX_BASE64_CHARACTERS = 4 * ((MAX_IMAGE_BYTES + 2) // 3)
 
 
+@timed("image_decode")
 def decode_base64_image(base64_string: str) -> np.ndarray:
     """Decode a PNG/JPEG base64 payload without ever writing it to disk."""
     if not isinstance(base64_string, str) or not base64_string.strip():

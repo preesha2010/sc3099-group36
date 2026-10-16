@@ -23,7 +23,9 @@ import cv2
 import httpx
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from app.model_assets import FAS, model_directory
+from app.model_assets import FAS
+from app.evaluation import summarize
+from support import report_target
 
 MODULE = Path(__file__).resolve().parents[1]
 REPO = MODULE.parent
@@ -83,12 +85,17 @@ def main():
     parser.add_argument("--report", default="evaluation/latest.json")
     parser.add_argument("--workers", type=int, default=4, choices=range(1, 9))
     parser.add_argument("--clients", type=int, nargs="+", default=[10, 50, 100])
+    parser.add_argument("--pending", type=int, default=128, choices=range(129), help="Queue capacity for the all-success throughput experiment; production default is 32")
+    parser.add_argument("--queue-seconds", type=float, default=30, help="Queue deadline for throughput comparison; production default is 2 seconds")
     args = parser.parse_args()
     if not all(1 <= count <= 100 for count in args.clients):
         parser.error("Client counts must be between 1 and 100")
-    report_path = (MODULE / args.report).resolve()
-    if not report_path.is_relative_to(MODULE):
-        parser.error("Report must stay inside Module 3")
+    if not .01 <= args.queue_seconds <= 30:
+        parser.error("Queue deadline must be between 0.01 and 30")
+    try:
+        report_path = report_target(args.report)
+    except ValueError as exc:
+        parser.error(str(exc))
     with httpx.Client(timeout=60, follow_redirects=True) as fetch:
         pad_images = {}
         for name, (_, expected) in PAD_SAMPLES.items():
@@ -99,6 +106,7 @@ def main():
             pad_images[name] = base64.b64encode(data.content).decode("ascii")
     environment = os.environ.copy()
     environment.update(FACE_TEMPLATE_MODE="simhash", LIVENESS_BACKEND="minifasnet", FACE_MODEL_WORKERS=str(args.workers),
+                       INFERENCE_PENDING=str(args.pending), INFERENCE_QUEUE_SECONDS=str(args.queue_seconds),
                        OPENBLAS_NUM_THREADS="1", OMP_NUM_THREADS="1", GLOG_minloglevel="2", TF_CPP_MIN_LOG_LEVEL="2")
     with socket.socket() as listener:
         listener.bind(("127.0.0.1", 0))
@@ -115,6 +123,7 @@ def main():
         "timestamp_utc": datetime.now(timezone.utc).isoformat(), "python": platform.python_version(),
         "platform": platform.system(), "opencv": cv2.__version__, "model_workers": args.workers,
         "template_mode": "simhash", "liveness_backend": "minifasnet", "identity": [], "pad": [], "load": {},
+        "inference_pending": args.pending, "inference_queue_seconds": args.queue_seconds,
         "limitations": ["Identity corpus has only two people; no general FAR/FRR claim.",
                         "PAD samples are three publisher demos, not independent camera/attack validation.",
                         "These are local process timings, not Docker or full-system performance."],
@@ -126,7 +135,7 @@ def main():
                 if server.poll() is not None:
                     raise RuntimeError("Evaluation server failed to start")
                 try:
-                    if client.get("/health").status_code == 200:
+                    if client.get("/ready").status_code == 200:
                         break
                 except httpx.HTTPError:
                     pass
@@ -161,6 +170,9 @@ def main():
                 ("/liveness/check", {"challenge_response": pad_images["image_T1.jpg"]}, "liveness_passed"),
             ):
                 record["load"][path] = [load_measurement(client, path, payload, count, field) for count in args.clients]
+            record["final_metrics"] = client.get("/metrics").text
+            record["identity_statistics"] = summarize([(row["expected_match"], row["score"], True) for row in record["identity"]], .7, "identity")
+            record["pad_statistics"] = summarize([(row["expected_live"], row["score"], True) for row in record["pad"]], .6, "pad")
         success = (not record["public_test_exit_code"]
                    and all(row["actual_match"] == row["expected_match"] for row in record["identity"])
                    and all(row["actual_live"] == row["expected_live"] for row in record["pad"])

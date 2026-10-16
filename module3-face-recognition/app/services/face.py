@@ -8,8 +8,10 @@ import mediapipe as mp
 import numpy as np
 from fastapi import HTTPException
 from app.services.templates import template_mode, encode_simhash
+from app.observability import timed
 
 
+@timed("face_detect")
 def detect_face(image_array: np.ndarray) -> Optional[Dict[str, Any]]:
     """Detect the highest-confidence face and return its bounded pixel box."""
     if template_mode() == "simhash":
@@ -42,6 +44,7 @@ def detect_face(image_array: np.ndarray) -> Optional[Dict[str, Any]]:
     return {"confidence": confidence, "bbox": (x1, y1, x2, y2)}
 
 
+@timed("embedding")
 def extract_face_embedding(image_array: np.ndarray, detection: Dict[str, Any]) -> np.ndarray:
     """Extract transient legacy pixels or aligned neural identity features."""
     if template_mode() == "simhash":
@@ -55,6 +58,7 @@ def extract_face_embedding(image_array: np.ndarray, detection: Dict[str, Any]) -
     return cv2.cvtColor(normalized, cv2.COLOR_RGB2GRAY).astype(np.uint8)
 
 
+@timed("template")
 def generate_face_hash(embedding: np.ndarray) -> str:
     """Return the selected 64-hex template; never persist the feature vector."""
     if template_mode() == "simhash":

@@ -1,6 +1,7 @@
 """SAIV Module 3 HTTP API: face enrollment, verification, liveness, and risk."""
 
 import os
+import asyncio
 import cv2
 from contextlib import asynccontextmanager
 
@@ -9,9 +10,12 @@ import anyio.to_thread
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, PlainTextResponse
 
-from app.middleware import BodySizeLimitMiddleware
+from app.middleware import BodySizeLimitMiddleware, ServiceMiddleware
+from app.config import Settings
+from app.observability import metrics
+from app.runtime import Runtime
 
 from app.schemas import (
     FaceEnrollRequest,
@@ -32,18 +36,34 @@ from app.services.templates import match_templates, template_mode, validate_refe
 
 
 @asynccontextmanager
-async def lifespan(_: FastAPI):
+async def lifespan(application: FastAPI):
     # Bound the whole synchronous pipeline, not just individual neural models:
     # queued callers must not all decode and hold full-sized images in memory.
-    concurrency = int(os.getenv("INFERENCE_CONCURRENCY", "8"))
-    if not 1 <= concurrency <= 16:
-        raise ValueError("INFERENCE_CONCURRENCY must be between 1 and 16")
+    settings = Settings.load()
+    runtime = Runtime(settings)
+    await anyio.to_thread.run_sync(runtime.start)
+    application.state.settings = settings
+    application.state.runtime = runtime
+    application.state.inference_slots = asyncio.Semaphore(settings.concurrency)
+    application.state.admitted = 0
     limiter = anyio.to_thread.current_default_thread_limiter()
     previous = limiter.total_tokens
-    limiter.total_tokens = concurrency
+    limiter.total_tokens = settings.concurrency
+
+    async def recovery_loop():
+        while True:
+            await asyncio.sleep(2)
+            await anyio.to_thread.run_sync(runtime.recover)
+
+    recovery = asyncio.create_task(recovery_loop())
     try:
         yield
     finally:
+        recovery.cancel()
+        try:
+            await recovery
+        except asyncio.CancelledError:
+            pass
         limiter.total_tokens = previous
 
 
@@ -64,6 +84,7 @@ app.add_middleware(
     allow_headers=["Content-Type"],
 )
 app.add_middleware(BodySizeLimitMiddleware)
+app.add_middleware(ServiceMiddleware)
 
 
 @app.exception_handler(RequestValidationError)
@@ -86,6 +107,22 @@ async def health_check():
     return {"status": "healthy", "service": "face-recognition"}
 
 
+@app.get("/ready")
+async def readiness():
+    ready = app.state.runtime.ready()
+    return JSONResponse({"status": "ready" if ready else "not_ready", "service": "face-recognition"},
+                        status_code=200 if ready else 503)
+
+
+@app.get("/metrics", response_class=PlainTextResponse)
+async def service_metrics():
+    text = metrics.render() + "# TYPE module3_model_degraded_slots gauge\n# TYPE module3_model_slots gauge\n"
+    for name, instance in app.state.runtime.pool_names.items():
+        text += f'module3_model_degraded_slots{{model="{name}"}} {instance.degraded_slots}\n'
+        text += f'module3_model_slots{{model="{name}"}} {instance.count}\n'
+    return PlainTextResponse(text, media_type="text/plain; version=0.0.4")
+
+
 @app.get("/")
 async def root():
     """List the public endpoints exposed by this internal microservice."""
@@ -95,6 +132,8 @@ async def root():
         "template_mode": template_mode(),
         "endpoints": [
             "/health",
+            "/ready",
+            "/metrics",
             "/face/enroll",
             "/face/verify",
             "/face/match",

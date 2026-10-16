@@ -6,6 +6,7 @@ import cv2
 import numpy as np
 
 from app.services.neural import pool
+from app.observability import timed
 
 
 def expanded_crop(bgr: np.ndarray, bbox: tuple, scale: float) -> np.ndarray:
@@ -32,6 +33,7 @@ def expanded_crop(bgr: np.ndarray, bbox: tuple, scale: float) -> np.ndarray:
     return cv2.resize(crop, (80, 80), interpolation=cv2.INTER_LINEAR)
 
 
+@timed("anti_spoof")
 def assess_presentation(rgb: np.ndarray) -> tuple[float, dict]:
     """Return real-class probability. Missing/weak detections cannot pass."""
     bgr = cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)

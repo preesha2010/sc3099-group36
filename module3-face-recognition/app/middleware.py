@@ -2,9 +2,72 @@
 
 from starlette.responses import JSONResponse
 from starlette.types import ASGIApp, Receive, Scope, Send
+import asyncio
+import time
+import uuid
+
+from app.observability import metrics
 
 
 MAX_REQUEST_BYTES = 10 * 1024 * 1024
+
+
+class ServiceMiddleware:
+    """Admission precedes body buffering; no cancellation of running inference."""
+
+    VISUAL = {"/face/enroll", "/face/verify", "/face/match", "/liveness/check"}
+
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            return await self.app(scope, receive, send)
+        started = time.perf_counter()
+        status = 500
+        request_id = uuid.uuid4().hex
+
+        async def observed_send(message):
+            nonlocal status
+            if message["type"] == "http.response.start":
+                status = message["status"]
+                message = dict(message, headers=list(message.get("headers", [])) + [(b"x-request-id", request_id.encode())])
+            await send(message)
+
+        acquired = False
+        waiting = False
+        state = scope["app"].state
+        try:
+            if scope["method"] == "POST" and scope["path"] in self.VISUAL:
+                settings = state.settings
+                # All modifications here are on the event loop, without awaits.
+                if state.admitted >= settings.concurrency + settings.pending:
+                    metrics.rejected += 1
+                    return await JSONResponse({"detail": "Inference capacity is busy; retry later"}, 503,
+                                              headers={"Retry-After": "1"})(scope, receive, observed_send)
+                state.admitted += 1
+                waiting = True
+                metrics.pending += 1
+                begin = time.perf_counter()
+                try:
+                    await asyncio.wait_for(state.inference_slots.acquire(), timeout=settings.queue_seconds)
+                    acquired = True
+                except asyncio.TimeoutError:
+                    metrics.rejected += 1
+                    return await JSONResponse({"detail": "Inference queue deadline exceeded; retry later"}, 503,
+                                              headers={"Retry-After": "1"})(scope, receive, observed_send)
+                finally:
+                    metrics.observe("admission_wait", time.perf_counter() - begin)
+                    metrics.pending -= 1
+                metrics.active += 1
+            await self.app(scope, receive, observed_send)
+        finally:
+            if acquired:
+                metrics.active -= 1
+                state.inference_slots.release()
+            if waiting:
+                state.admitted -= 1
+            metrics.request(scope["path"], status, time.perf_counter() - started)
 
 
 class BodySizeLimitMiddleware:
