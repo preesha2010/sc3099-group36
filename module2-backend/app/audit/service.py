@@ -1,11 +1,12 @@
 import json
-from datetime import datetime
-from typing import Optional
+from datetime import datetime, timedelta
+from typing import Any, Optional
 
 from sqlalchemy.orm import Session
 
 from app.audit import repository
 from app.core.pagination import page_of
+from app.core.utils import utcnow_naive
 
 
 def list_audit_logs(
@@ -57,3 +58,13 @@ def list_audit_logs(
             }
         )
     return page_of(payload, total, limit, offset)
+
+
+def audit_summary(db: Session, *, days: int) -> dict[str, Any]:
+    start = utcnow_naive() - timedelta(days=days)
+    total_logs, by_action = repository.summarize_logs(db, start_date=start)
+    return {
+        "period_days": days,
+        "total_logs": total_logs,
+        "by_action": by_action,
+    }

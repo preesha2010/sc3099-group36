@@ -3,6 +3,7 @@ from datetime import datetime
 from typing import Any, Optional, Sequence
 
 from fastapi import Request
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.audit.model import AuditLog
@@ -78,3 +79,17 @@ def list_logs(
     total = query.count()
     items = query.order_by(AuditLog.timestamp.desc()).offset(offset).limit(limit).all()
     return items, total, limit, offset
+
+
+def summarize_logs(db: Session, *, start_date: datetime) -> tuple[int, dict[str, int]]:
+    """Count logs since start_date, grouped by action. Read-only."""
+    query = db.query(AuditLog).filter(AuditLog.timestamp >= start_date)
+    total = query.count()
+    rows = (
+        db.query(AuditLog.action, func.count(AuditLog.id))
+        .filter(AuditLog.timestamp >= start_date)
+        .group_by(AuditLog.action)
+        .all()
+    )
+    by_action = {action: int(count) for action, count in rows}
+    return total, by_action

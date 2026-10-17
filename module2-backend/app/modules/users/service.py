@@ -4,9 +4,11 @@ from fastapi import Request
 from sqlalchemy.orm import Session
 
 from app.audit.repository import append_audit
-from app.core.exceptions import forbidden, not_found, not_implemented
+from app.core.exceptions import bad_request, forbidden, not_found, service_unavailable
 from app.core.pagination import page_of
+from app.integrations.face_client import face_client
 from app.db.enums import AuditAction, UserRole
+from app.modules.enrollments import repository as enrollments_repo
 from app.modules.users import repository as users_repo
 from app.modules.users.model import User
 from app.modules.users.schemas import AdminUserUpdate, FaceEnrollRequest, UserUpdate
@@ -52,9 +54,41 @@ def update_me(db: Session, current_user: User, payload: UserUpdate, request: Req
 def enroll_face(
     db: Session, current_user: User, payload: FaceEnrollRequest, request: Request
 ) -> dict[str, Any]:
-    # TODO: Call FaceClient /face/enroll; require camera_consent; store hash only
-    # (API spec; 400 no consent/no face, 503 if Module 3 is down).
-    not_implemented("POST /users/me/face/enroll")
+    if not current_user.camera_consent:
+        raise bad_request("Camera consent not given")
+    result = face_client.enroll(current_user.id, payload.image, True)
+    if result is None:
+        raise service_unavailable("Face recognition service unavailable")
+    status_code = int(result.get("_status") or 200)
+    if status_code >= 500:
+        raise service_unavailable("Face recognition service unavailable")
+    if status_code >= 400:
+        raise bad_request("No face detected")
+    hash_value = result.get("face_template_hash") or result.get("face_embedding_hash")
+    if not result.get("enrollment_successful") and not hash_value:
+        raise bad_request("No face detected")
+    if not hash_value:
+        raise bad_request("No face detected")
+    current_user.face_embedding_hash = str(hash_value)
+    current_user.face_enrolled = True
+    users_repo.save(db, current_user)
+    append_audit(
+        db,
+        AuditAction.FACE_ENROLLED.value,
+        user_id=current_user.id,
+        resource_type="user",
+        resource_id=current_user.id,
+        request=request,
+    )
+    db.commit()
+    db.refresh(current_user)
+    quality = result.get("quality_score")
+    return {
+        "success": True,
+        "message": "Face enrolled successfully",
+        "face_enrolled": True,
+        "quality_score": float(quality) if quality is not None else None,
+    }
 
 
 def list_users(
@@ -73,16 +107,19 @@ def list_users(
 
 
 def get_user(db: Session, user_id: str, current_user: User) -> dict[str, Any]:
+    """Admin, or an instructor viewing a student enrolled in a course they teach."""
     user = users_repo.get_by_id(db, user_id)
     if user is None:
         raise not_found()
-    if current_user.id != user.id and current_user.role not in {
-        UserRole.ADMIN.value,
-        UserRole.INSTRUCTOR.value,
-        UserRole.TA.value,
-    }:
-        raise forbidden()
-    return to_user_response(user)
+    if current_user.role == UserRole.ADMIN.value:
+        return to_user_response(user)
+    if (
+        current_user.role == UserRole.INSTRUCTOR.value
+        and user.role == UserRole.STUDENT.value
+        and enrollments_repo.instructor_teaches_enrolled_student(db, current_user.id, user.id)
+    ):
+        return to_user_response(user)
+    raise forbidden()
 
 
 def admin_update_user(

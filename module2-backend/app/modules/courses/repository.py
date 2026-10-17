@@ -48,5 +48,10 @@ def list_courses(
     if semester:
         query = query.filter(Course.semester == semester)
     total = query.count()
-    items = query.order_by(Course.code.asc()).offset(offset).limit(limit).all()
+    items = (
+        query.order_by(Course.created_at.desc(), Course.id.desc())
+        .offset(offset)
+        .limit(limit)
+        .all()
+    )
     return items, total, limit, offset

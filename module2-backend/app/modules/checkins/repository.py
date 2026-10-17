@@ -52,8 +52,22 @@ def list_for_session(db: Session, session_id: str) -> Sequence[CheckIn]:
     return db.query(CheckIn).filter(CheckIn.session_id == session_id).all()
 
 
-def list_flagged(db: Session) -> Sequence[CheckIn]:
-    return db.query(CheckIn).filter(CheckIn.status == "flagged").all()
+def list_flagged(
+    db: Session,
+    *,
+    course_id: Optional[str] = None,
+    session_id: Optional[str] = None,
+    limit: int = 50,
+    offset: int = 0,
+) -> tuple[Sequence[CheckIn], int, int, int]:
+    return list_checkins(
+        db,
+        course_id=course_id,
+        session_id=session_id,
+        statuses=("flagged", "appealed"),
+        limit=limit,
+        offset=offset,
+    )
 
 
 def list_checkins(
@@ -63,6 +77,7 @@ def list_checkins(
     course_id: Optional[str] = None,
     student_id: Optional[str] = None,
     status: Optional[str] = None,
+    statuses: Optional[Sequence[str]] = None,
     min_risk_score: Optional[float] = None,
     max_risk_score: Optional[float] = None,
     start_date: Optional[datetime] = None,
@@ -82,6 +97,8 @@ def list_checkins(
         query = query.filter(CheckIn.student_id == student_id)
     if status:
         query = query.filter(CheckIn.status == status)
+    elif statuses:
+        query = query.filter(CheckIn.status.in_(list(statuses)))
     if min_risk_score is not None:
         query = query.filter(CheckIn.risk_score >= min_risk_score)
     if max_risk_score is not None:

@@ -23,3 +23,7 @@ def not_found(detail: str = "Resource not found") -> HTTPException:
 
 def bad_request(detail: str = "Invalid input data") -> HTTPException:
     return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=detail)
+
+
+def service_unavailable(detail: str = "Service unavailable") -> HTTPException:
+    return HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=detail)

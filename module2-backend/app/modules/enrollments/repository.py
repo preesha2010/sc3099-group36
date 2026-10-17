@@ -46,3 +46,20 @@ def save(db: Session, enrollment: Enrollment) -> Enrollment:
 def is_enrolled(db: Session, student_id: str, course_id: str) -> bool:
     row = get_by_student_course(db, student_id, course_id)
     return bool(row and row.is_active)
+
+
+def instructor_teaches_enrolled_student(db: Session, instructor_id: str, student_id: str) -> bool:
+    """True when the student has an active enrollment in a course this instructor teaches."""
+    from app.modules.sessions.model import ClassSession
+
+    row = (
+        db.query(Enrollment.id)
+        .join(ClassSession, ClassSession.course_id == Enrollment.course_id)
+        .filter(
+            Enrollment.student_id == student_id,
+            Enrollment.is_active.is_(True),
+            ClassSession.instructor_id == instructor_id,
+        )
+        .first()
+    )
+    return row is not None

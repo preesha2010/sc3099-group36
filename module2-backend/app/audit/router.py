@@ -11,7 +11,14 @@ from app.modules.users.model import User
 
 router = APIRouter(prefix="/audit", tags=["audit"])
 
-# TODO: GET /audit/summary?days= (test_audit_summary; not listed in API-SPECIFICATION.md).
+
+@router.get("/summary")
+def audit_summary(
+    days: int = Query(default=7, ge=1, le=365),
+    db: Session = Depends(get_db),
+    _: User = Depends(require_roles("admin")),
+):
+    return service.audit_summary(db, days=days)
 
 
 @router.get("/")
