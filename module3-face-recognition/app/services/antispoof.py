@@ -4,6 +4,7 @@ import math
 
 import cv2
 import numpy as np
+from fastapi import HTTPException
 
 from app.services.neural import pool
 from app.observability import timed
@@ -43,7 +44,12 @@ def assess_presentation(rgb: np.ndarray) -> tuple[float, dict]:
     with pool("pad").borrow() as (detector, nets):
         try:
             detector.setInput(cv2.dnn.blobFromImage(reduced, 1, mean=(104, 117, 123)), "data")
-            detections = detector.forward("detection_out").reshape(-1, 7).copy()
+            output = detector.forward("detection_out")
+            if output.size % 7 or not np.isfinite(output).all():
+                raise HTTPException(status_code=503, detail="Invalid local anti-spoof model output")
+            detections = output.reshape(-1, 7).copy()
+            if not len(detections):
+                return 0.0, {"anti_spoof_model": "MiniFASNetV2+V1SE", "anti_spoof_face_detected": False}
             best = detections[np.argmax(detections[:, 2])]
             if best[2] < .6:
                 return 0.0, {"anti_spoof_model": "MiniFASNetV2+V1SE", "anti_spoof_face_detected": False}
@@ -56,6 +62,8 @@ def assess_presentation(rgb: np.ndarray) -> tuple[float, dict]:
                 # not RGB or /255 normalization. Changing this ruins predictions.
                 net.setInput(cv2.dnn.blobFromImage(patch, 1.0, (80, 80), swapRB=False))
                 logits = net.forward().reshape(-1).copy()
+                if logits.shape != (3,) or not np.isfinite(logits).all():
+                    raise HTTPException(status_code=503, detail="Invalid local anti-spoof model output")
                 probabilities = np.exp(logits - logits.max())
                 predictions.append(probabilities / probabilities.sum())
             ensemble = np.mean(predictions, axis=0)

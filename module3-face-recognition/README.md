@@ -183,7 +183,9 @@ Legacy detectors/meshes are request-local, with at most four simultaneous mesh
 graphs. Enhanced inference models are cached in bounded exclusive pools; blank
 inputs are forwarded after every inference to overwrite internal pixel/feature
 buffers. Models with failed inference/cleanup are discarded and recreated.
-Only model weights, the private key, and projection matrices are cached. The
+Only model weights, the private key, projection matrices and validated static
+Mesh graph configuration are cached. Each Mesh execution graph is fresh and
+closed after its image; no graph that processed a face is returned to a pool. The
 pool does not cache student templates, pixels or features. Container build and
 full-system load testing must be reported separately from these local tests.
 
@@ -383,3 +385,85 @@ Raw aggregate records: `evaluation/acceptance-sha256-20261016.json`,
 `evaluation/acceptance-enhanced-20261016.json`, and
 `evaluation/throughput-20261016.json`. Older reports, including the unresolved
 prolonged-stall failure, are retained as historical evidence.
+
+## Independent validation follow-up (2026-10-18)
+
+Read `VALIDATION-20261018.md` before treating this branch as production-ready.
+Expanded diagnostics found **identity false accepts and transformed attack
+acceptances**. Passing unit/public tests and operational readiness does NOT
+certify biometric accuracy. Existing thresholds/policies are unchanged; no
+parameter was fitted to the two demo identities to hide these failures.
+
+Implementation updates:
+
+- Cache only MediaPipe's immutable validated topology/options. Execute every
+  image in a new, closed graph with `use_prev_landmarks=false`, 468 landmarks and
+  no iris refinement. Real-image tests compare all coordinates to stock
+  MediaPipe at 1e-7 tolerance; separate tests cover closure on failures.
+- Reject non-finite/wrong-shaped neural outputs and invalid PAD probabilities
+  with 503. Invalid PAD values cannot fall back to a heuristic pass. Blank-buffer
+  cleanup still runs on inference failure.
+- Slow model reconstruction no longer holds healthy slots while loading a failed
+  slot. Test coverage includes continued borrowing during a blocked rebuild.
+- Pinned Windows native readers require ASCII-only runtime/resource/model paths.
+  Startup now explains this failure before serving. The Python source directory
+  itself may contain Unicode if the runtime and `FACE_MODEL_DIR` use ASCII paths.
+- `FACE_NATIVE_THREADS` is validated in 1-4, default **1**. Bigger thread counts
+  were measured and did not consistently improve the full liveness pipeline.
+  No inference engine or model-weight change is shipped by this phase.
+
+Repeat the additional checks from this module in an ASCII-path environment:
+
+```powershell
+python scripts/verify.py
+python scripts/evaluate.py --clients 100 --repeat 3 --report evaluation/repeated-throughput.json
+python scripts/evaluate_robustness.py --report evaluation/robustness.json
+python scripts/acceptance.py --profile enhanced --soak-seconds 600 --restarts 3 --report evaluation/soak-enhanced.json
+python scripts/acceptance.py --profile sha256 --soak-seconds 300 --restarts 3 --report evaluation/soak-sha256.json
+```
+
+`evaluate.py` additionally accepts `--concurrency` (1-16), `--native-threads`
+(1-4) and `--workers` (1-8). The throughput experiment still uses the explicitly
+relaxed 128-waiter/30-second queue, not default overload settings. `verify.py`
+explicitly selects its compatibility baseline rather than inheriting a caller's
+enhanced-mode variables.
+
+`evaluate_robustness.py` makes 40 identity comparisons and 24 PAD checks over
+eight conditions: original, dark/bright, low contrast, +/-10 degree rotation,
+JPEG quality 40 and resize-to-512. It uses ONLY existing repository photos and
+three checksum-pinned publisher demos. Transformations happen in RAM. One genuine
+identity pair per condition derives from its enrollment image; it is explicitly
+counted, not described as an independent capture. Reports contain aggregate
+counts/sweeps, not per-person paths, scores, images or templates.
+
+Exit status is nonzero for a failed classification gate even if every HTTP call
+succeeded. Correlated transformations of two identities/three PAD images do not
+constitute an independent population accuracy estimate. Threshold sweeps are
+descriptive only, never an automatic policy/calibration change.
+
+Acceptance report format version 2 stores aggregate counts for **all** waves,
+periodic memory samples, peak/end RSS and early/late window averages. It checks
+both final growth and windowed growth against the original 128 MiB budget; a
+single low final sample cannot conceal sustained growth. Every 30 seconds an
+atomic checkpoint replaces the previous valid report and progress is printed.
+`state=soaking` or `passed=false` is not a completed acceptance run. Finite tests
+do not prove long-term leak freedom or cross-host capacity.
+
+Completed follow-up evidence: 106 module tests passed without skips, both public
+profiles passed 15/15, SHA-256 ran five minutes (3292 successful calls per visual
+endpoint) and enhanced ran ten minutes (3676 per endpoint). Both passed three
+restart workflows and overload recovery; windowed RSS growth remained below
+the unchanged 128 MiB budget. These runs overlapped on one host and are finite
+stability observations, not isolated performance or security certification.
+
+The ASGI audit `python scripts/compare_mesh.py` compares the original attention
+mesh against the optimized graph on all 24 PAD conditions. All decisions and
+final liveness scores agreed in `evaluation/mesh-comparison-20261018.json`:
+the discovered counterexamples are not explained away as a new cache regression.
+The failed robustness classification gate remains an explicit release blocker.
+
+For fail-closed local gating, run `python scripts/release_check.py`. It executes
+regression/public checks then the robustness gate, stops on the first failure
+and propagates its exit code. A later successful soak cannot mask a prior failed
+classification gate. Even an eventual zero exit is only a smoke result, not
+permission to deploy without the external data/policy/integration approvals.

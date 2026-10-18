@@ -9,6 +9,7 @@ from app.evaluation import rate, summarize
 SCRIPTS = Path(__file__).resolve().parents[1] / "scripts"
 sys.path.insert(0, str(SCRIPTS))
 import evaluate_corpus as corpus
+from evaluate_robustness import CONDITIONS, perturb
 from support import report_target
 
 
@@ -21,6 +22,21 @@ def test_far_frr_and_pad_rates_with_no_face_rejections():
     assert pad["APCER"]["errors"] == pad["BPCER"]["errors"] == 1
     # A no-face response must never pass even at threshold zero.
     assert summarize([(True, 0, False)], 0, "identity")["FRR"]["rate"] == 1
+
+
+def test_robustness_transforms_are_bounded_jpeg_in_memory_and_original_is_unchanged():
+    from io import BytesIO
+    from PIL import Image
+    image = BytesIO()
+    Image.new("RGB", (640, 480), (100, 120, 140)).save(image, format="JPEG")
+    data = image.getvalue()
+    assert perturb(data, "original") is data
+    for condition in CONDITIONS:
+        with Image.open(BytesIO(perturb(data, condition))) as transformed:
+            assert transformed.format == "JPEG"
+            assert transformed.width <= 640 and transformed.height <= 480
+    with pytest.raises(ValueError):
+        perturb(data, "unknown")
 
 
 def test_empty_denominators_and_small_sample_intervals_are_honest():

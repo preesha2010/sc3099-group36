@@ -96,6 +96,18 @@ def test_multiple_faces_are_rejected(monkeypatch):
     assert error.value.status_code == 400
 
 
+def test_mesh_uses_468_points_without_retaining_input(monkeypatch):
+    def analyze(image):
+        assert image.shape == (256, 256, 3)
+        return [SimpleNamespace(landmark=[SimpleNamespace(z=-.06) for _ in range(468)])]
+
+    monkeypatch.setattr(liveness, "landmarks_for_image", analyze)
+    original = np.zeros((256, 256, 3), np.uint8)
+    result = liveness.analyze_face_mesh(original)
+    assert result["landmark_count"] == 468 and result["depth_quality"] == "good"
+    assert original.shape == (256, 256, 3)
+
+
 def test_health_is_not_blocked_by_visual_processing(client, monkeypatch):
     import app.main as api
     started, release = Event(), Event()

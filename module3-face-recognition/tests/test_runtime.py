@@ -13,7 +13,7 @@ from app.config import Settings
 from app.main import app
 from app.middleware import ServiceMiddleware
 from app.observability import Metrics, rss_bytes
-from app.runtime import Runtime
+from app.runtime import Runtime, require_native_paths
 from app.services.neural import ModelPool
 
 
@@ -24,12 +24,22 @@ from app.services.neural import ModelPool
     ("INFERENCE_PENDING", "-1"), ("INFERENCE_PENDING", "129"),
     ("INFERENCE_QUEUE_SECONDS", "inf"), ("INFERENCE_QUEUE_SECONDS", "nan"),
     ("INFERENCE_QUEUE_SECONDS", "0"),
+    ("FACE_NATIVE_THREADS", "0"), ("FACE_NATIVE_THREADS", "5"),
 ])
 def test_invalid_configuration_fails_at_startup(monkeypatch, name, value):
     monkeypatch.setenv(name, value)
     with pytest.raises(ValueError):
         with TestClient(app):
             pass
+
+
+def test_windows_native_path_failures_are_explained_before_serving():
+    require_native_paths("nt", "C:/runtime/mediapipe", "C:/models")
+    require_native_paths("posix", "/runtime/模型", "/data/模型")
+    with pytest.raises(ValueError, match="ASCII-only"):
+        require_native_paths("nt", "C:/用户/runtime")
+    with pytest.raises(ValueError, match="FACE_MODEL_DIR"):
+        require_native_paths("nt", "C:/runtime", "C:/模型")
 
 
 @pytest.mark.parametrize("failure", ["missing", "corrupt_model", "short_key"])

@@ -23,6 +23,7 @@ class Settings:
     concurrency: int
     pending: int
     queue_seconds: float
+    native_threads: int = 1
 
     @classmethod
     def load(cls):
@@ -40,4 +41,5 @@ class Settings:
             raise ValueError("INFERENCE_QUEUE_SECONDS must be between 0.01 and 30") from exc
         return cls(mode, backend, integer("FACE_MODEL_WORKERS", 4, 1, 8),
                    integer("INFERENCE_CONCURRENCY", 8, 1, 16),
-                   integer("INFERENCE_PENDING", 32, 0, 128), seconds)
+                   integer("INFERENCE_PENDING", 32, 0, 128), seconds,
+                   integer("FACE_NATIVE_THREADS", 1, 1, 4))

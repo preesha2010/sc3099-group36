@@ -21,8 +21,15 @@ REPO = MODULE.parent
 
 
 def main():
+    # A caller's enhanced-mode environment must not accidentally turn this
+    # compatibility verification into a different test profile.
+    baseline = os.environ.copy()
+    baseline.update(FACE_TEMPLATE_MODE="sha256", LIVENESS_BACKEND="heuristic",
+                    FACE_MODEL_WORKERS="4", FACE_NATIVE_THREADS="1", INFERENCE_CONCURRENCY="8",
+                    INFERENCE_PENDING="32", INFERENCE_QUEUE_SECONDS="2", OPENBLAS_NUM_THREADS="1",
+                    OMP_NUM_THREADS="1", GLOG_minloglevel="2", TF_CPP_MIN_LOG_LEVEL="2")
     local = subprocess.run(
-        [sys.executable, "-m", "pytest", "--confcutdir=tests", "tests", "-q"], cwd=MODULE,
+        [sys.executable, "-m", "pytest", "--confcutdir=tests", "tests", "-q"], cwd=MODULE, env=baseline,
     )
     if local.returncode:
         return local.returncode
@@ -33,7 +40,7 @@ def main():
     base_url = f"http://127.0.0.1:{port}"
     server = subprocess.Popen(
         [sys.executable, "-m", "uvicorn", "app.main:app", "--host", "127.0.0.1", "--port", str(port)],
-        cwd=MODULE, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        cwd=MODULE, env=baseline, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
     )
     try:
         deadline = time.monotonic() + 60
@@ -50,7 +57,7 @@ def main():
             else:
                 raise RuntimeError("Module 3 server startup timed out")
 
-            environment = os.environ.copy()
+            environment = baseline.copy()
             environment["TEST_FACE_URL"] = base_url
             public = subprocess.run(
                 [sys.executable, "-m", "pytest", "tests/public/test_face_recognition.py", "-q"],

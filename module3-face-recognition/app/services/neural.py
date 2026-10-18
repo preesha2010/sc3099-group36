@@ -13,6 +13,7 @@ from fastapi import HTTPException
 
 from app.model_assets import ASSETS, FAS_COMMIT, model_directory
 from app.observability import metrics
+from app.config import integer
 
 _pools = {}
 _pool_lock = Lock()
@@ -45,7 +46,7 @@ class ModelPool:
                 raise ValueError
         except ValueError as exc:
             raise HTTPException(status_code=503, detail="FACE_MODEL_WORKERS must be between 1 and 8") from exc
-        cv2.setNumThreads(1)
+        cv2.setNumThreads(integer("FACE_NATIVE_THREADS", 1, 1, 4))
         self._state_lock = Lock()
         self._repair_lock = Lock()
         self._broken = 0
@@ -68,24 +69,32 @@ class ModelPool:
             return
         held = []
         try:
+            # First inspect the currently free tokens without rebuilding. Return
+            # healthy instances before potentially slow I/O in a failed factory.
             for _ in range(self.count):
                 try:
-                    model = self.available.get_nowait()
+                    held.append(self.available.get_nowait())
                 except Empty:
                     break
-                if model is None:
-                    try:
-                        with metrics.stage("model_rebuild"):
-                            model = self.factory()
-                    except Exception:
-                        pass
-                    else:
-                        with self._state_lock:
-                            self._broken -= 1
-                held.append(model)
+            for index, model in enumerate(held):
+                if model is not None:
+                    self.available.put(model)
+                    held[index] = False  # token returned, not an OpenCV model
+            for index, model in enumerate(held):
+                if model is not None:
+                    continue
+                try:
+                    with metrics.stage("model_rebuild"):
+                        replacement = self.factory()
+                except Exception:
+                    continue
+                with self._state_lock:
+                    self._broken -= 1
+                held[index] = replacement
         finally:
             for model in held:
-                self.available.put(model)
+                if model is not False:
+                    self.available.put(model)
             self._repair_lock.release()
 
     @contextmanager
@@ -119,7 +128,8 @@ class ModelPool:
 
 
 def pool(kind: str) -> ModelPool:
-    identity = (kind, str(model_directory()), os.getenv("FACE_MODEL_WORKERS", "4"))
+    identity = (kind, str(model_directory()), os.getenv("FACE_MODEL_WORKERS", "4"),
+                os.getenv("FACE_NATIVE_THREADS", "1"))
     with _pool_lock:
         if identity not in _pools:
             if kind == "yunet":
@@ -150,6 +160,8 @@ def detect_neural_face(rgb: np.ndarray):
         detector.setInputSize((resized.shape[1], resized.shape[0]))
         try:
             _, faces = detector.detect(resized)
+            if faces is not None and (faces.ndim != 2 or faces.shape[1] != 15 or not np.isfinite(faces).all()):
+                raise HTTPException(status_code=503, detail="Invalid local face detector output")
             faces = None if faces is None else faces.copy()
         finally:
             # Overwrite persistent DNN input/intermediate buffers with blank data.

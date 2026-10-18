@@ -10,14 +10,43 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from io import BytesIO
 import math
+import os
+import platform
 import sys
 import time
 import traceback
 
 from PIL import Image
 import httpx
+import cv2
 
 from support import MODULE, checked, local_service, metric_value, report_target, save_report
+
+
+def accumulate(summary, wave_result):
+    summary["waves"] = summary.get("waves", 0) + 1
+    summary["requests"] = summary.get("requests", 0) + wave_result["clients"]
+    summary["successful_200"] = summary.get("successful_200", 0) + wave_result["successful_200"]
+    summary["health_failures"] = summary.get("health_failures", 0) + wave_result["health_failures"]
+    summary["maximum_seconds"] = max(summary.get("maximum_seconds", 0), wave_result["maximum_seconds"])
+    summary["worst_wave_p95_seconds"] = max(summary.get("worst_wave_p95_seconds", 0), wave_result["p95_all_seconds"])
+    summary["status_counts"] = counts = summary.get("status_counts", {})
+    for status, count in wave_result["status_counts"].items():
+        counts[status] = counts.get(status, 0) + count
+
+
+def memory_summary(samples, budget):
+    values = [sample["rss_bytes"] for sample in samples if sample["rss_bytes"] is not None]
+    if not values:
+        return {"available": False}
+    size = min(10, max(1, len(values) // 4))
+    start_mean = sum(values[:size]) / size
+    end_mean = sum(values[-size:]) / size
+    return {"available": True, "sample_count": len(values), "window_samples": size,
+            "initial_bytes": values[0], "final_bytes": values[-1], "peak_bytes": max(values),
+            "end_minus_initial_mib": round((values[-1] - values[0]) / 1024 ** 2, 3),
+            "window_growth_mib": round((end_mean - start_mean) / 1024 ** 2, 3),
+            "growth_within_budget": max(values[-1] - values[0], end_mean - start_mean) <= budget * 1024 ** 2}
 
 
 def percentile(values, q):
@@ -120,21 +149,33 @@ def run(args, report):
             return text
         start = time.monotonic()
         snapshot()
+        last_checkpoint = start
         while True:
             for path, payload in payloads.items():
                 measured = wave(client, path, payload, args.clients)
-                report["sustained"][path].append(measured)
+                accumulate(report["sustained"][path], measured)
                 assert measured["successful_200"] == args.clients and measured["health_failures"] == 0
             snapshot()
+            # Keep checkpoints bounded: at most one memory sample per five seconds
+            # in the report; all samples still contribute to summary calculations.
+            report["soak_actual_seconds"] = round(time.monotonic() - start, 3)
+            if time.monotonic() - last_checkpoint >= 30:
+                report["memory"] = memory_summary(samples, args.max_rss_growth_mib)
+                report["state"] = "soaking"
+                save_report(report_target(args.report), report)
+                print(f"Soak {args.profile}: {report['soak_actual_seconds']:.0f}s; "
+                      f"verify={report['sustained']['/face/verify']['successful_200']}; "
+                      f"live={report['sustained']['/liveness/check']['successful_200']}", flush=True)
+                last_checkpoint = time.monotonic()
             if time.monotonic() - start >= args.soak_seconds:
                 break
         report["soak_actual_seconds"] = round(time.monotonic() - start, 3)
-        report["memory_samples"] = samples
-        if samples[0]["rss_bytes"] is not None and samples[-1]["rss_bytes"] is not None:
-            growth = (samples[-1]["rss_bytes"] - samples[0]["rss_bytes"]) / 1024 ** 2
-            report["rss_growth_mib"] = round(growth, 3)
-            report["rss_growth_within_budget"] = growth <= args.max_rss_growth_mib
-            assert report["rss_growth_within_budget"]
+        report["memory"] = memory_summary(samples, args.max_rss_growth_mib)
+        report["memory_samples"] = [sample for index, sample in enumerate(samples)
+                                    if index == 0 or index == len(samples) - 1
+                                    or sample["elapsed_seconds"] // 5 != samples[index - 1]["elapsed_seconds"] // 5]
+        if report["memory"]["available"]:
+            assert report["memory"]["growth_within_budget"]
         for path, payload in payloads.items():
             burst = wave(client, path, payload, args.burst)
             report["burst"][path] = burst
@@ -151,7 +192,7 @@ def run(args, report):
         # Contains fixed labels, numeric aggregates and memory only.
         report["final_metrics"] = metrics_text
     report["five_second_sustained_target_met"] = all(
-        row["maximum_seconds"] < 5 for rows in report["sustained"].values() for row in rows)
+        summary["maximum_seconds"] < 5 for summary in report["sustained"].values())
 
 
 def main():
@@ -169,9 +210,14 @@ def main():
         parser.error("Invalid soak duration, client count, restart count or memory budget")
     target = report_target(args.report)
     record = {"timestamp_utc": datetime.now(timezone.utc).isoformat(), "profile": args.profile,
+              "format_version": 2, "python": platform.python_version(), "platform": platform.system(),
+              "opencv": cv2.__version__, "configuration": {
+                  name: os.getenv(name, default) for name, default in {
+                      "FACE_MODEL_WORKERS": "4", "FACE_NATIVE_THREADS": "1", "INFERENCE_CONCURRENCY": "8",
+                      "INFERENCE_PENDING": "32", "INFERENCE_QUEUE_SECONDS": "2"}.items()},
               "requested_soak_seconds": args.soak_seconds, "clients": args.clients,
               "rss_growth_budget_mib": args.max_rss_growth_mib, "restart_workflows_passed": 0,
-              "sustained": {"/face/verify": [], "/liveness/check": []}, "burst": {}, "passed": False,
+              "sustained": {"/face/verify": {}, "/liveness/check": {}}, "burst": {}, "passed": False,
               "limitations": ["Local process only; not Docker/full-system validation.",
                               "Successful overload rejection does not mean 100-client inference latency meets a target.",
                               "Finite RSS observation is not proof of absence of memory leaks.",
@@ -179,9 +225,11 @@ def main():
     try:
         run(args, record)
         record["passed"] = record["five_second_sustained_target_met"]
+        record["state"] = "complete"
     except Exception as exc:
         # Never stringify HTTP exceptions/tracebacks that might contain input.
         record["failure_type"] = type(exc).__name__
+        record["state"] = "failed"
         last = traceback.extract_tb(exc.__traceback__)[-1]
         record["failure_location"] = {"function": last.name, "line": last.lineno}
     finally:

@@ -5,12 +5,12 @@ import os
 from threading import BoundedSemaphore
 
 import cv2
-import mediapipe as mp
 import numpy as np
 
 from app.services.face import extract_face_embedding, generate_face_hash
 from app.services.image import calculate_quality_score
 from app.observability import timed
+from app.services.mesh import landmarks_for_image
 
 
 _mesh_slots = BoundedSemaphore(4)
@@ -22,17 +22,11 @@ def analyze_face_mesh(image_array: np.ndarray) -> Dict[str, Any]:
     # Each graph is request-local and closed before releasing its slot.
     # Unbounded simultaneous graph construction can exhaust native resources.
     with _mesh_slots:
-        with mp.solutions.face_mesh.FaceMesh(
-            static_image_mode=True,
-            max_num_faces=1,
-            refine_landmarks=True,
-            min_detection_confidence=0.5,
-        ) as face_mesh:
-            result = face_mesh.process(image_array)
-    if not result.multi_face_landmarks:
+        result = landmarks_for_image(image_array)
+    if not result:
         return {"face_mesh_complete": False, "landmark_count": 0, "nose_tip_z": 0.0, "depth_quality": "poor"}
 
-    landmarks = result.multi_face_landmarks[0].landmark
+    landmarks = result[0].landmark
     nose_tip_z = float(landmarks[1].z)
     landmark_count = len(landmarks)
     depth_quality = "good" if landmark_count >= 468 and nose_tip_z < -0.05 else "moderate" if landmark_count >= 468 and nose_tip_z < -0.01 else "poor"
@@ -93,6 +87,9 @@ def assess_passive_liveness(image_array: np.ndarray, detection: Dict[str, Any]) 
     if backend == "minifasnet":
         from app.services.antispoof import assess_presentation
         real_score, evidence = assess_presentation(image_array)
+        if not np.isfinite(real_score) or not 0 <= real_score <= 1:
+            from fastapi import HTTPException
+            raise HTTPException(status_code=503, detail="Invalid local anti-spoof probability")
         liveness_score = round(min(liveness_score, real_score), 6)
         details.update(evidence)
         details["method"] = "minifasnet_ensemble_with_quality_gate"

@@ -1,5 +1,12 @@
 # Module 3 handoff checklist
 
+**2026-10-18 release warning:** expanded diagnostics found wrong-person
+acceptances and transformed attack acceptances. Read `VALIDATION-20261018.md`
+and the failed `evaluation/robustness-20261018.json` classification gate before
+using this branch for automatic attendance decisions. `/ready` is operational
+readiness, not an accuracy/security approval. Thresholds were not tuned to hide
+these counterexamples.
+
 Scope: only `module3-face-recognition/`, branch `module3-face-recognition`.
 No backend/frontend/Module 4/database/shared test/Compose changes are required by
 the standalone scripts. Docker is explicitly excluded from this work phase.

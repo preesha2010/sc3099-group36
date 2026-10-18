@@ -8,6 +8,7 @@ import socket
 import subprocess
 import sys
 import time
+import tempfile
 
 import httpx
 
@@ -25,7 +26,17 @@ def report_target(value):
 
 def save_report(path, data):
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(data, indent=2, allow_nan=False), encoding="utf-8")
+    content = json.dumps(data, indent=2, allow_nan=False)
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=path.parent,
+                                         prefix=path.stem + "-", suffix=".tmp", delete=False) as stream:
+            temporary = Path(stream.name)
+            stream.write(content)
+        os.replace(temporary, path)
+    finally:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
 
 
 @contextmanager

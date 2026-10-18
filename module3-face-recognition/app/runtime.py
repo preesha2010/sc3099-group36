@@ -1,14 +1,25 @@
 """Startup preflight and local readiness; no network calls or biometric probes."""
 
 import hashlib
+import os
 
 import cv2
 import numpy as np
+import mediapipe as mp
 
 from app.config import Settings
 from app.model_assets import model_directory
 from app.services.neural import pool, verified_asset
 from app.services.templates import template_key
+from app.services.mesh import validated_config
+
+
+def require_native_paths(platform, package_path, model_path=None):
+    # The pinned Windows native readers cannot reliably open non-ASCII paths.
+    # Fail before serving instead of reporting healthy and returning late 500s.
+    if platform == "nt" and (not str(package_path).isascii()
+                              or model_path is not None and not str(model_path).isascii()):
+        raise ValueError("Use ASCII-only runtime/model paths on Windows; configure FACE_MODEL_DIR if needed")
 
 
 class Runtime:
@@ -21,6 +32,9 @@ class Runtime:
         self.key_digest = None
 
     def start(self):
+        uses_models = self.settings.template_mode == "simhash" or self.settings.liveness_backend == "minifasnet"
+        require_native_paths(os.name, mp.__file__, self.directory if uses_models else None)
+        validated_config()  # no biometric input; preflight MediaPipe's packaged graph
         required = []
         names = []
         if self.settings.template_mode == "simhash":
