@@ -1,5 +1,10 @@
 # Module 3 handoff checklist
 
+**Latest 2026-10-19 update:** `VALIDATION-20261019.md` records 128 local tests,
+both public profiles, real Module 2 client boundary checks and the still-failed
+classification gate. Read `MODULE2-INTEGRATION.md` for shared policy decisions;
+the backend currently uses its own risk aggregator rather than `/risk/assess`.
+
 **2026-10-18 release warning:** expanded diagnostics found wrong-person
 acceptances and transformed attack acceptances. Read `VALIDATION-20261018.md`
 and the failed `evaluation/robustness-20261018.json` classification gate before

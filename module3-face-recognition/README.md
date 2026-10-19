@@ -3,6 +3,11 @@
 Internal FastAPI service on port 8001. No backend, database or Redis is needed
 to run its endpoints or standalone tests. Only files in this module are modified.
 
+**Latest handoff (2026-10-19):** see `VALIDATION-20261019.md`,
+`MODULE2-INTEGRATION.md` and `TEAM-UPDATE.md`. Engineering/API checks pass;
+the separate biometric classification gate still FAILS. Do not interpret test
+counts or operational readiness as permission for automatic attendance approval.
+
 ## Run locally
 
 Use Python 3.11 (Docker runtime) or 3.12 (locally tested).
@@ -467,3 +472,34 @@ regression/public checks then the robustness gate, stops on the first failure
 and propagates its exit code. A later successful soak cannot mask a prior failed
 classification gate. Even an eventual zero exit is only a smoke result, not
 permission to deploy without the external data/policy/integration approvals.
+
+## Backend boundary and stricter latency gating (2026-10-19)
+
+The backend's actual unmodified FaceClient at commit `601b381` passed 28 live
+service-boundary checks (14 per profile) and four HTTP fault checks. Only its
+settings import is stubbed; no backend app/DB/attendance workflow is claimed.
+`MODULE2-INTEGRATION.md` records risk-policy and invalid-response handling that
+still require the backend owner. This work does not alter their branch.
+
+```powershell
+git fetch origin refs/heads/module2-backend:refs/remotes/origin/module2-backend
+python scripts/check_backend_contract.py --backend-ref origin/module2-backend
+python scripts/release_check.py --backend-ref origin/module2-backend
+```
+
+The second command tests the client/service boundary; the last also runs
+regression/public tests and then the independent classification gate. It stops
+and propagates the failed gate rather than declaring the release complete.
+
+Module regression now has **128 passing tests**, without skips. Additional
+checks cover corrupt SFace outputs evicting the borrowed model after blank
+cleanup, invalid Mesh output, redacted native Mesh failures and released slots.
+No model weights, templates, thresholds, risk weights or default policies changed.
+
+`evaluate.py` now records `successful_within_target`, all-success functional
+checks and a **separate maximum-latency** gate. P95 alone cannot hide a slow
+tail; neither a 503 nor an HTTP timeout is a successful inference. Exit 1 means
+functional/infrastructure failure; exit 2 means functional checks completed but
+the local five-second latency gate failed; exit 0 requires both. Atomic reports
+retain failed state without exception bodies. The classification security gate
+is still a separate required check, not overridden by this command.

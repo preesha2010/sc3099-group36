@@ -6,7 +6,22 @@ from acceptance import accumulate, memory_summary
 import support
 import pytest
 import release_check
+from evaluate import latency_gate
 from types import SimpleNamespace
+
+
+@pytest.mark.parametrize("changes", [{"successful": 99}, {"successful_within_target": 99},
+                                    {"health_failures": 1}, {"maximum_seconds": 5.01}])
+def test_throughput_gate_does_not_hide_rejections_or_tail_timeouts(changes):
+    row = {"clients": 100, "successful": 100, "successful_within_target": 100,
+           "health_failures": 0, "maximum_seconds": 4.9}
+    assert latency_gate({"/face/verify": [row]})
+    assert not latency_gate({"/face/verify": [row, {**row, **changes}]})
+
+
+def test_empty_throughput_observations_cannot_pass():
+    assert not latency_gate({})
+    assert not latency_gate({"/face/verify": []})
 
 
 def test_compact_soak_summary_counts_every_request_not_only_sampled_waves():

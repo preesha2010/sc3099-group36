@@ -9,7 +9,6 @@ import base64
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 import hashlib
-import json
 import math
 import os
 from pathlib import Path
@@ -25,7 +24,7 @@ import httpx
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from app.model_assets import FAS
 from app.evaluation import summarize
-from support import report_target
+from support import report_target, save_report
 
 MODULE = Path(__file__).resolve().parents[1]
 REPO = MODULE.parent
@@ -38,6 +37,19 @@ PAD_SAMPLES = {
 
 def percentile(values, quantile):
     return sorted(values)[max(0, math.ceil(len(values) * quantile) - 1)]
+
+
+def latency_gate(load, target=5.):
+    """Reject overload, timeouts, failed decisions and even a slow tail request.
+
+    This is the backend's observed five-second local request budget, not a
+    universal service guarantee. P95 alone can hide up to 5% late requests.
+    """
+    return bool(load) and all(
+        rows and all(row["successful"] == row["clients"] and row["health_failures"] == 0
+                     and row["successful_within_target"] == row["clients"]
+                     and row["maximum_seconds"] <= target for row in rows)
+        for rows in load.values())
 
 
 def load_measurement(client, path, payload, count, expected_field):
@@ -68,6 +80,7 @@ def load_measurement(client, path, payload, count, expected_field):
     latencies = [item[0] for item in results]
     measured = {
         "clients": count, "successful": sum(item[1] for item in results),
+        "successful_within_target": sum(item[1] and item[0] <= 5. for item in results),
         "http_status_counts": {status: sum(item[2] == status for item in results) for status in sorted(set(item[2] for item in results))},
         "elapsed_seconds": round(time.monotonic() - started, 4),
         "p50_seconds": round(percentile(latencies, .50), 4),
@@ -131,6 +144,8 @@ def main():
         "inference_pending": args.pending, "inference_queue_seconds": args.queue_seconds,
         "native_threads": args.native_threads, "repetitions": args.repeat,
         "inference_concurrency": int(environment.get("INFERENCE_CONCURRENCY", "8")),
+        "state": "running", "functional_checks_passed": False, "latency_checks_passed": False,
+        "local_latency_target_seconds": 5.,
         "limitations": ["Identity corpus has only two people; no general FAR/FRR claim.",
                         "PAD samples are three publisher demos, not independent camera/attack validation.",
                         "These are local process timings, not Docker or full-system performance."],
@@ -191,10 +206,17 @@ def main():
                    and all(row["successful"] == row["clients"] and row["health_failures"] == 0
                            for rows in record["load"].values() for row in rows))
         record["functional_checks_passed"] = success
-        report_path.parent.mkdir(parents=True, exist_ok=True)
-        report_path.write_text(json.dumps(record, indent=2), encoding="utf-8")
+        record["latency_checks_passed"] = latency_gate(record["load"])
+        record["state"] = "complete"
+        save_report(report_path, record)
         print(f"Saved scores/timings only: {report_path}", flush=True)
-        return 0 if success else 1
+        print(f"Local latency gate passed={record['latency_checks_passed']}; classification release gate is separate", flush=True)
+        return (0 if record["latency_checks_passed"] else 2) if success else 1
+    except Exception as exc:
+        # Avoid persisting response bodies or URLs in diagnostic exceptions.
+        record["state"] = "failed"
+        record["failure_type"] = type(exc).__name__
+        return 1
     finally:
         record["server_exit_before_cleanup"] = server.poll()
         server.terminate()
@@ -204,7 +226,7 @@ def main():
             server.kill()
             server.wait(timeout=5)
         log.close()
-        report_path.write_text(json.dumps(record, indent=2), encoding="utf-8")
+        save_report(report_path, record)
 
 
 if __name__ == "__main__":

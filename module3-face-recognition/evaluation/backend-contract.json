@@ -1,0 +1,156 @@
+{
+  "timestamp_utc": "2026-10-19T15:26:13.152705+00:00",
+  "completed": true,
+  "passed": true,
+  "profiles": {
+    "sha256": [
+      {
+        "check": "enroll_data_url_and_64_hex_template",
+        "passed": true
+      },
+      {
+        "check": "verify_stored_template_round_trip",
+        "passed": true
+      },
+      {
+        "check": "passive_liveness_fields_and_same_template",
+        "passed": true
+      },
+      {
+        "check": "risk_weighted_contributions",
+        "passed": true
+      },
+      {
+        "check": "consent_false",
+        "passed": true
+      },
+      {
+        "check": "consent_string_not_boolean",
+        "passed": true
+      },
+      {
+        "check": "invalid_image",
+        "passed": true
+      },
+      {
+        "check": "blank_enrollment",
+        "passed": true
+      },
+      {
+        "check": "invalid_reference",
+        "passed": true
+      },
+      {
+        "check": "unsupported_blink",
+        "passed": true
+      },
+      {
+        "check": "unsupported_head_turn",
+        "passed": true
+      },
+      {
+        "check": "invalid_risk_score",
+        "passed": true
+      },
+      {
+        "check": "no_face_verify_negative_not_transport_failure",
+        "passed": true
+      },
+      {
+        "check": "no_face_liveness_negative_not_transport_failure",
+        "passed": true
+      }
+    ],
+    "enhanced": [
+      {
+        "check": "enroll_data_url_and_64_hex_template",
+        "passed": true
+      },
+      {
+        "check": "verify_stored_template_round_trip",
+        "passed": true
+      },
+      {
+        "check": "passive_liveness_fields_and_same_template",
+        "passed": true
+      },
+      {
+        "check": "risk_weighted_contributions",
+        "passed": true
+      },
+      {
+        "check": "consent_false",
+        "passed": true
+      },
+      {
+        "check": "consent_string_not_boolean",
+        "passed": true
+      },
+      {
+        "check": "invalid_image",
+        "passed": true
+      },
+      {
+        "check": "blank_enrollment",
+        "passed": true
+      },
+      {
+        "check": "invalid_reference",
+        "passed": true
+      },
+      {
+        "check": "unsupported_blink",
+        "passed": true
+      },
+      {
+        "check": "unsupported_head_turn",
+        "passed": true
+      },
+      {
+        "check": "invalid_risk_score",
+        "passed": true
+      },
+      {
+        "check": "no_face_verify_negative_not_transport_failure",
+        "passed": true
+      },
+      {
+        "check": "no_face_liveness_negative_not_transport_failure",
+        "passed": true
+      }
+    ]
+  },
+  "backend_modified": false,
+  "limitations": [
+    "Only the actual FaceClient/Module 3 HTTP boundary; not backend auth, DB or attendance decisions.",
+    "Only the backend settings import is stubbed, not client methods or HTTP responses.",
+    "Classification correctness and deployment capacity are separate release gates."
+  ],
+  "backend_commit": "601b3813f481ff05c344cfcddea6b191b9230038",
+  "backend_client_sha256": "3729a17bd98a913a0cacc1c75693803dab21218920077c40ac37e00833d8d9cc",
+  "fault_checks": [
+    {
+      "check": "unavailable",
+      "passed": true
+    },
+    {
+      "check": "error",
+      "passed": true
+    },
+    {
+      "check": "schema",
+      "passed": true
+    },
+    {
+      "check": "timeout",
+      "passed": true
+    }
+  ],
+  "caller_observations": {
+    "non_json_200_status_only": true,
+    "non_json_200_is_success": true
+  },
+  "caller_warnings": [
+    "FaceClient.is_success accepts a non-JSON 200 based on status alone; validate required typed fields before using biometric evidence."
+  ]
+}

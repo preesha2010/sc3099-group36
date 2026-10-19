@@ -99,13 +99,34 @@ def test_multiple_faces_are_rejected(monkeypatch):
 def test_mesh_uses_468_points_without_retaining_input(monkeypatch):
     def analyze(image):
         assert image.shape == (256, 256, 3)
-        return [SimpleNamespace(landmark=[SimpleNamespace(z=-.06) for _ in range(468)])]
+        return [SimpleNamespace(landmark=[SimpleNamespace(x=0., y=0., z=-.06) for _ in range(468)])]
 
     monkeypatch.setattr(liveness, "landmarks_for_image", analyze)
     original = np.zeros((256, 256, 3), np.uint8)
     result = liveness.analyze_face_mesh(original)
     assert result["landmark_count"] == 468 and result["depth_quality"] == "good"
     assert original.shape == (256, 256, 3)
+
+
+@pytest.mark.parametrize("count,value", [(0, 0.), (467, 0.), (468, float("nan")), (468, float("inf"))])
+def test_corrupt_mesh_output_returns_safe_service_error(client, monkeypatch, count, value):
+    monkeypatch.setattr(liveness, "landmarks_for_image", lambda _: [SimpleNamespace(
+        landmark=[SimpleNamespace(x=value, y=0., z=-.06) for _ in range(count)])])
+    response = client.post("/liveness/check", json={"challenge_response": sample("obama.jpg")})
+    assert response.status_code == 503
+    assert response.json() == {"detail": "Invalid local face mesh output"}
+
+
+@pytest.mark.parametrize("exception", [RuntimeError, ValueError])
+def test_mesh_native_failure_is_redacted_and_slot_is_released(client, monkeypatch, exception):
+    def fail(_):
+        raise exception("private native error / image / path")
+
+    monkeypatch.setattr(liveness, "landmarks_for_image", fail)
+    for _ in range(5):  # More than four mesh slots: exceptions cannot leak slots.
+        response = client.post("/liveness/check", json={"challenge_response": sample("obama.jpg")})
+        assert response.status_code == 503
+        assert response.json() == {"detail": "Local face mesh inference is unavailable"}
 
 
 def test_health_is_not_blocked_by_visual_processing(client, monkeypatch):

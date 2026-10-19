@@ -195,10 +195,12 @@ def neural_embedding(rgb: np.ndarray, detection: dict) -> np.ndarray:
         try:
             aligned = recognizer.alignCrop(bgr, row)
             features = recognizer.feature(aligned).reshape(-1).copy()
+            # Validate while the instance is still borrowed: corrupt model
+            # output must evict that slot, not return it to another caller.
+            norm = np.linalg.norm(features)
+            if features.shape != (128,) or not np.isfinite(features).all() or not np.isfinite(norm) or norm < 1e-8:
+                raise HTTPException(status_code=503, detail="Invalid local identity model output")
         finally:
             with metrics.stage("embedding_cleanup"):
                 recognizer.feature(np.zeros((112, 112, 3), dtype=np.uint8))
-    norm = np.linalg.norm(features)
-    if not np.isfinite(features).all() or norm < 1e-8:
-        raise HTTPException(status_code=400, detail="Could not extract face identity features")
     return features / norm

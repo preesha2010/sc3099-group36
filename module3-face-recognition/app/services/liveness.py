@@ -6,6 +6,7 @@ from threading import BoundedSemaphore
 
 import cv2
 import numpy as np
+from fastapi import HTTPException
 
 from app.services.face import extract_face_embedding, generate_face_hash
 from app.services.image import calculate_quality_score
@@ -22,11 +23,20 @@ def analyze_face_mesh(image_array: np.ndarray) -> Dict[str, Any]:
     # Each graph is request-local and closed before releasing its slot.
     # Unbounded simultaneous graph construction can exhaust native resources.
     with _mesh_slots:
-        result = landmarks_for_image(image_array)
+        try:
+            result = landmarks_for_image(image_array)
+        except (RuntimeError, ValueError) as exc:
+            raise HTTPException(status_code=503, detail="Local face mesh inference is unavailable") from exc
     if not result:
         return {"face_mesh_complete": False, "landmark_count": 0, "nose_tip_z": 0.0, "depth_quality": "poor"}
 
     landmarks = result[0].landmark
+    # Never let a partial/corrupt graph output become a valid liveness score or
+    # an unserializable NaN response. No-face remains a normal negative result.
+    if len(result) != 1 or len(landmarks) not in {468, 478} or not np.isfinite(
+        [(point.x, point.y, point.z) for point in landmarks]
+    ).all():
+        raise HTTPException(status_code=503, detail="Invalid local face mesh output")
     nose_tip_z = float(landmarks[1].z)
     landmark_count = len(landmarks)
     depth_quality = "good" if landmark_count >= 468 and nose_tip_z < -0.05 else "moderate" if landmark_count >= 468 and nose_tip_z < -0.01 else "poor"

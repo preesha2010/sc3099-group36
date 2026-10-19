@@ -9,6 +9,33 @@ from threading import Event
 from fastapi import HTTPException
 
 
+@pytest.mark.parametrize("features", [np.zeros(128), np.ones(127), np.full(128, np.nan),
+                                    np.full(128, np.inf), np.full(128, np.finfo(np.float32).max, np.float32)])
+def test_invalid_identity_output_evicts_model_and_clears_buffers(monkeypatch, features):
+    monkeypatch.setenv("FACE_MODEL_WORKERS", "1")
+
+    class Recognizer:
+        last_input = None
+
+        def alignCrop(self, *_):
+            return np.full((112, 112, 3), 77, dtype=np.uint8)
+
+        def feature(self, image):
+            self.last_input = image.copy()
+            return features.copy() if image.any() else np.ones(128, np.float32)
+
+    recognizer = Recognizer()
+    instance = neural.ModelPool(lambda: recognizer)
+    monkeypatch.setattr(neural, "pool", lambda _: instance)
+    with np.errstate(over="ignore", invalid="ignore"), pytest.raises(HTTPException) as error:
+        neural.neural_embedding(np.full((128, 128, 3), 77, np.uint8), {
+            "alignment": np.array([20, 20, 60, 60, 35, 40, 65, 40, 50, 55, 35, 70, 65, 70, .99], np.float32)})
+    assert error.value.status_code == 503
+    assert instance.degraded_slots == 1 and instance.available.qsize() == 1
+    assert not recognizer.last_input.any()
+    assert instance.available.get_nowait() is None
+
+
 def test_failed_model_is_discarded_instead_of_cached(monkeypatch):
     monkeypatch.setenv("FACE_MODEL_WORKERS", "1")
     objects = []
