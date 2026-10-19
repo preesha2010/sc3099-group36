@@ -63,5 +63,10 @@ class SessionResponse(BaseModel):
     require_face_match: bool = False
     risk_threshold: Optional[float] = None
     created_at: datetime
+    course_code: Optional[str] = None
+    course_name: Optional[str] = None
+    total_enrolled: Optional[int] = None
+    checked_in_count: Optional[int] = None
+    qr_code_enabled: bool = False
 
     model_config = {"from_attributes": True}

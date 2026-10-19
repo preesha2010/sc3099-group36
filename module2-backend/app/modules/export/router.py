@@ -33,6 +33,6 @@ def session_export(
     request: Request,
     format: str = Query(default="csv", alias="format"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles("instructor", "admin", "ta")),
+    current_user: User = Depends(require_roles("instructor", "admin")),
 ):
     return service.session_export(db, session_id, current_user, request, fmt=format)

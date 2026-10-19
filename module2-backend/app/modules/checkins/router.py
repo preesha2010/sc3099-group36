@@ -58,10 +58,12 @@ def list_checkins(
 
 @router.get("/my-checkins")
 def my_checkins(
+    course_id: Optional[str] = None,
+    limit: int = Query(default=50, ge=1, le=100),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return service.my_checkins(db, current_user)
+    return service.my_checkins(db, current_user, course_id=course_id, limit=limit)
 
 
 @router.get("/session/{session_id}")
@@ -75,10 +77,15 @@ def session_checkins(
 
 @router.get("/flagged")
 def flagged_checkins(
+    course_id: Optional[str] = None,
+    session_id: Optional[str] = None,
+    limit: int = Query(default=50, ge=1, le=100),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles("ta", "instructor", "admin")),
 ):
-    return service.flagged_checkins(db, current_user)
+    return service.flagged_checkins(
+        db, current_user, course_id=course_id, session_id=session_id, limit=limit
+    )
 
 
 @router.get("/{checkin_id}")

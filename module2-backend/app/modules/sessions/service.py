@@ -5,10 +5,11 @@ from fastapi import Request
 from sqlalchemy.orm import Session
 
 from app.audit.repository import append_audit
-from app.core.exceptions import bad_request, not_found
+from app.core.exceptions import bad_request, forbidden, not_found
 from app.core.pagination import page_of
-from app.core.utils import to_naive_utc
+from app.core.utils import to_naive_utc, utcnow_naive
 from app.db.enums import AuditAction, SessionStatus, UserRole
+from app.modules.checkins import repository as checkins_repo
 from app.modules.courses import repository as courses_repo
 from app.modules.enrollments import repository as enrollments_repo
 from app.modules.sessions import repository as sessions_repo
@@ -17,8 +18,34 @@ from app.modules.sessions.schemas import SessionCreate, SessionResponse, Session
 from app.modules.users.model import User
 
 
-def to_session_response(session: ClassSession) -> dict[str, Any]:
-    return SessionResponse.model_validate(session).model_dump()
+def can_manage_session(user: User, session: ClassSession) -> bool:
+    if user.role == UserRole.ADMIN.value:
+        return True
+    return bool(session.instructor_id == user.id)
+
+
+def can_staff_session(user: User, session: Optional[ClassSession]) -> bool:
+    if session is None:
+        return False
+    if user.role == UserRole.ADMIN.value:
+        return True
+    if user.role == UserRole.TA.value:
+        return True
+    return session.instructor_id == user.id
+
+
+def to_session_response(session: ClassSession, db: Optional[Session] = None) -> dict[str, Any]:
+    payload = SessionResponse.model_validate(session).model_dump()
+    course = session.course
+    payload["course_code"] = course.code if course is not None else None
+    payload["course_name"] = course.name if course is not None else None
+    payload["qr_code_enabled"] = bool(session.qr_code_secret)
+    if db is not None:
+        payload["total_enrolled"] = len(
+            enrollments_repo.list_for_course(db, session.course_id, active_only=True)
+        )
+        payload["checked_in_count"] = len(checkins_repo.list_for_session(db, session.id))
+    return payload
 
 
 def _naive(value: Optional[datetime]) -> Optional[datetime]:
@@ -55,33 +82,47 @@ def list_sessions(
         limit=limit,
         offset=offset,
     )
-    return page_of([to_session_response(row) for row in items], total, limit, offset)
+    return page_of([to_session_response(row, db) for row in items], total, limit, offset)
 
 
 def list_active(db: Session) -> Any:
-    return [to_session_response(row) for row in sessions_repo.list_active(db)]
+    return [to_session_response(row, db) for row in sessions_repo.list_active(db)]
 
 
-def my_sessions(db: Session, current_user: User) -> Any:
+def my_sessions(
+    db: Session,
+    current_user: User,
+    *,
+    status: Optional[str] = None,
+    upcoming: bool = False,
+    limit: int = 50,
+) -> Any:
     if current_user.role == UserRole.STUDENT.value:
         enrollments = enrollments_repo.list_for_student(db, current_user.id, active_only=True)
         course_ids = [row.course_id for row in enrollments]
-        rows = sessions_repo.list_for_courses(db, course_ids)
-        return [to_session_response(row) for row in rows]
-    if current_user.role == UserRole.ADMIN.value:
-        items, _, _, _ = sessions_repo.list_sessions(db, limit=100, offset=0)
-        return [to_session_response(row) for row in items]
-    items, _, _, _ = sessions_repo.list_sessions(
-        db, instructor_id=current_user.id, limit=100, offset=0
-    )
-    return [to_session_response(row) for row in items]
+        rows = list(sessions_repo.list_for_courses(db, course_ids))
+    elif current_user.role == UserRole.ADMIN.value:
+        rows, _, _, _ = sessions_repo.list_sessions(db, limit=100, offset=0)
+        rows = list(rows)
+    else:
+        rows, _, _, _ = sessions_repo.list_sessions(
+            db, instructor_id=current_user.id, limit=100, offset=0
+        )
+        rows = list(rows)
+    status_value = _status_value(status)
+    if status_value:
+        rows = [row for row in rows if row.status == status_value]
+    if upcoming:
+        now = utcnow_naive()
+        rows = [row for row in rows if row.scheduled_start and row.scheduled_start >= now]
+    return [to_session_response(row, db) for row in rows[: max(limit, 1)]]
 
 
 def get_session(db: Session, session_id: str, current_user: Optional[User]) -> dict[str, Any]:
     session = sessions_repo.get_by_id(db, session_id)
     if session is None:
         raise not_found()
-    return to_session_response(session)
+    return to_session_response(session, db)
 
 
 def create_session(db: Session, payload: SessionCreate, current_user: User, request: Request) -> dict[str, Any]:
@@ -90,6 +131,8 @@ def create_session(db: Session, payload: SessionCreate, current_user: User, requ
         raise not_found("Course not found")
     start = to_naive_utc(payload.scheduled_start)
     end = to_naive_utc(payload.scheduled_end)
+    if start <= utcnow_naive():
+        raise bad_request("scheduled_start must be in the future")
     if end <= start:
         raise bad_request("scheduled_end must be after scheduled_start")
     opens = _naive(payload.checkin_opens_at) or (start - timedelta(minutes=15))
@@ -132,7 +175,7 @@ def create_session(db: Session, payload: SessionCreate, current_user: User, requ
     )
     db.commit()
     db.refresh(session)
-    return to_session_response(session)
+    return to_session_response(session, db)
 
 
 def update_session(
@@ -141,6 +184,8 @@ def update_session(
     session = sessions_repo.get_by_id(db, session_id)
     if session is None:
         raise not_found()
+    if not can_manage_session(current_user, session):
+        raise forbidden()
     data = payload.model_dump(exclude_unset=True)
     if "status" in data:
         data["status"] = _status_value(data["status"])
@@ -160,13 +205,15 @@ def update_session(
     )
     db.commit()
     db.refresh(session)
-    return to_session_response(session)
+    return to_session_response(session, db)
 
 
 def delete_session(db: Session, session_id: str, current_user: User, request: Request) -> None:
     session = sessions_repo.get_by_id(db, session_id)
     if session is None:
         raise not_found()
+    if not can_manage_session(current_user, session):
+        raise forbidden()
     if session.status != SessionStatus.SCHEDULED.value:
         raise bad_request("Only scheduled sessions can be deleted")
     append_audit(

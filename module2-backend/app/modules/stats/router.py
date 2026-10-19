@@ -17,7 +17,7 @@ def overview(
     course_id: Optional[str] = None,
     days: int = Query(default=7, ge=1, le=365),
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles("instructor", "admin", "ta")),
+    current_user: User = Depends(require_roles("instructor", "admin")),
 ):
     return service.overview(db, current_user, course_id=course_id, days=days)
 
@@ -46,6 +46,6 @@ def course_stats(
 def student_stats(
     student_id: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles("instructor", "admin", "ta")),
+    current_user: User = Depends(require_roles("instructor", "admin")),
 ):
     return service.student_stats(db, student_id, current_user)

@@ -4,7 +4,7 @@ from typing import Any, Optional
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.core.exceptions import not_found
+from app.core.exceptions import forbidden, not_found
 from app.core.utils import to_naive_utc, utcnow_naive
 from app.db.enums import CheckinStatus, SessionStatus, UserRole
 from app.modules.checkins.model import CheckIn
@@ -13,6 +13,7 @@ from app.modules.enrollments import repository as enrollments_repo
 from app.modules.enrollments.model import Enrollment
 from app.modules.sessions import repository as sessions_repo
 from app.modules.sessions.model import ClassSession
+from app.modules.sessions.service import can_staff_session
 from app.modules.users import repository as users_repo
 from app.modules.users.model import User
 
@@ -36,6 +37,13 @@ def overview(db: Session, current_user: User, *, course_id: Optional[str], days:
     now = utcnow_naive()
     today = _day_start(now)
     week_start = now - timedelta(days=7)
+
+    if course_id:
+        course = db.query(Course).filter(Course.id == course_id).first()
+        if course is None:
+            raise not_found("Course not found")
+        if not enrollments_repo.user_manages_course(db, current_user, course_id):
+            raise forbidden()
 
     session_q = db.query(ClassSession)
     checkin_q = db.query(CheckIn)
@@ -123,6 +131,11 @@ def session_stats(db: Session, session_id: str, current_user: User) -> dict[str,
     session = sessions_repo.get_by_id(db, session_id)
     if session is None:
         raise not_found("Session not found")
+    if not (
+        can_staff_session(current_user, session)
+        or enrollments_repo.user_manages_course(db, current_user, session.course_id)
+    ):
+        raise forbidden()
     course = session.course
     enrolled = enrollments_repo.list_for_course(db, session.course_id, active_only=True)
     checkins = db.query(CheckIn).filter(CheckIn.session_id == session.id).all()
@@ -174,6 +187,8 @@ def course_stats(
     course = db.query(Course).filter(Course.id == course_id).first()
     if course is None:
         raise not_found("Course not found")
+    if not enrollments_repo.user_manages_course(db, current_user, course_id):
+        raise forbidden()
     start = to_naive_utc(start_date) if start_date else None
     end = to_naive_utc(end_date) if end_date else None
     session_q = db.query(ClassSession).filter(ClassSession.course_id == course_id)
@@ -254,10 +269,32 @@ def student_stats(db: Session, student_id: str, current_user: User) -> dict[str,
     student = users_repo.get_by_id(db, student_id)
     if student is None:
         raise not_found("Student not found")
-    enrollments = enrollments_repo.list_for_student(db, student_id, active_only=True)
+    is_admin = current_user.role == UserRole.ADMIN.value
+    if not is_admin and not (
+        current_user.role == UserRole.INSTRUCTOR.value
+        and enrollments_repo.instructor_teaches_enrolled_student(db, current_user.id, student_id)
+    ):
+        raise forbidden()
+    enrollments = list(enrollments_repo.list_for_student(db, student_id, active_only=True))
+    if not is_admin:
+        enrollments = [
+            row
+            for row in enrollments
+            if enrollments_repo.instructor_teaches_course(db, current_user.id, row.course_id)
+        ]
+        if not enrollments:
+            raise forbidden()
     course_ids = [row.course_id for row in enrollments]
     sessions = sessions_repo.list_for_courses(db, course_ids)
-    checkins = list(db.query(CheckIn).filter(CheckIn.student_id == student_id).order_by(CheckIn.checked_in_at.desc()).all())
+    authorized_session_ids = {session.id for session in sessions}
+    checkins = [
+        row
+        for row in db.query(CheckIn)
+        .filter(CheckIn.student_id == student_id)
+        .order_by(CheckIn.checked_in_at.desc())
+        .all()
+        if row.session_id in authorized_session_ids
+    ]
     attended_ids = {row.session_id for row in checkins}
     total_sessions = len(sessions)
     attended_sessions = len(attended_ids)

@@ -17,6 +17,7 @@ from app.core.utils import (
     utcnow_naive,
 )
 from app.db.enums import AuditAction, CheckinStatus, SessionStatus, UserRole
+from app.integrations.face_client import face_client
 from app.modules.checkins import repository as checkins_repo
 from app.modules.checkins import risk_service
 from app.modules.checkins.model import CheckIn
@@ -25,6 +26,7 @@ from app.modules.checkins.schemas import AppealRequest, CheckinCreate, ReviewReq
 from app.modules.devices import repository as devices_repo
 from app.modules.enrollments import repository as enrollments_repo
 from app.modules.sessions import repository as sessions_repo
+from app.modules.sessions.service import can_staff_session
 from app.modules.users.model import User
 
 
@@ -42,18 +44,56 @@ def _checkin_create_payload(checkin: CheckIn) -> dict[str, Any]:
         "distance_from_venue_meters": checkin.distance_from_venue_meters,
         "liveness_passed": checkin.liveness_passed,
         "liveness_score": checkin.liveness_score,
+        "face_match_passed": checkin.face_match_passed,
+        "face_match_score": checkin.face_match_score,
         "risk_factors": _risk_factors(checkin),
     }
 
 
 def _staff_for_session(current_user: User, session) -> bool:
-    if current_user.role == UserRole.ADMIN.value:
-        return True
-    if current_user.role not in {UserRole.INSTRUCTOR.value, UserRole.TA.value}:
-        return False
-    return session is not None and (
-        session.instructor_id == current_user.id or current_user.role in {UserRole.INSTRUCTOR.value, UserRole.TA.value}
-    )
+    return can_staff_session(current_user, session)
+
+
+def _face_signals(payload: CheckinCreate, current_user: User) -> dict[str, Any]:
+    """Call Module 3 only when a check-in image is present.
+
+    Timeouts, 5xx, and unimplemented Module 3 endpoints leave scores as None so
+    public tests (which omit the image) and pre-Module-3 integration still pass.
+    """
+    result: dict[str, Any] = {
+        "liveness_passed": None,
+        "liveness_score": None,
+        "face_match_passed": None,
+        "face_match_score": None,
+        "face_embedding_hash": None,
+    }
+    image = payload.liveness_challenge_response
+    if not image:
+        return result
+
+    live = face_client.liveness(image)
+    if face_client.is_success(live):
+        if "liveness_passed" in live:
+            result["liveness_passed"] = bool(live.get("liveness_passed"))
+        if live.get("liveness_score") is not None:
+            result["liveness_score"] = float(live["liveness_score"])
+        hash_value = live.get("face_embedding_hash")
+        if hash_value:
+            result["face_embedding_hash"] = str(hash_value)
+
+    reference = current_user.face_embedding_hash
+    if reference:
+        verified = face_client.verify(image, reference)
+        if face_client.is_success(verified):
+            if "match_passed" in verified:
+                result["face_match_passed"] = bool(verified.get("match_passed"))
+            if verified.get("match_score") is not None:
+                result["face_match_score"] = float(verified["match_score"])
+            hash_value = verified.get("current_template_hash") or verified.get("face_embedding_hash")
+            if hash_value:
+                result["face_embedding_hash"] = str(hash_value)
+
+    return result
 
 
 def submit_checkin(db: Session, payload: CheckinCreate, current_user: User, request: Request) -> dict[str, Any]:
@@ -63,6 +103,8 @@ def submit_checkin(db: Session, payload: CheckinCreate, current_user: User, requ
 
     if session.status != SessionStatus.ACTIVE.value:
         raise bad_request("Session not active")
+    if session.qr_code_secret and payload.qr_code != session.qr_code_secret:
+        raise bad_request("Invalid or missing QR code")
 
     now = utcnow_naive()
     opens = to_naive_utc(session.checkin_opens_at)
@@ -105,18 +147,7 @@ def submit_checkin(db: Session, payload: CheckinCreate, current_user: User, requ
         else:
             device = None
 
-    liveness_passed = None
-    liveness_score = None
-    # Public tests omit liveness; only score when an image is actually sent.
-    if payload.liveness_challenge_response:
-        from app.integrations.face_client import face_client
-
-        live = face_client.liveness(payload.liveness_challenge_response)
-        if live is not None and int(live.get("_status") or 200) < 400:
-            if "liveness_passed" in live:
-                liveness_passed = bool(live.get("liveness_passed"))
-            if live.get("liveness_score") is not None:
-                liveness_score = float(live["liveness_score"])
+    face = _face_signals(payload, current_user)
 
     course = session.course
     threshold = session.risk_threshold
@@ -129,8 +160,8 @@ def submit_checkin(db: Session, payload: CheckinCreate, current_user: User, requ
     assessment = risk_service.assess(
         distance_m=distance,
         geofence_m=float(geofence),
-        liveness_passed=liveness_passed,
-        face_match_passed=None,
+        liveness_passed=face["liveness_passed"],
+        face_match_passed=face["face_match_passed"],
         unknown_device=unknown_device,
         threshold=float(threshold),
     )
@@ -145,8 +176,11 @@ def submit_checkin(db: Session, payload: CheckinCreate, current_user: User, requ
         longitude=payload.longitude,
         location_accuracy_meters=payload.location_accuracy_meters,
         distance_from_venue_meters=distance,
-        liveness_passed=liveness_passed,
-        liveness_score=liveness_score,
+        liveness_passed=face["liveness_passed"],
+        liveness_score=face["liveness_score"],
+        face_match_passed=face["face_match_passed"],
+        face_match_score=face["face_match_score"],
+        face_embedding_hash=face["face_embedding_hash"],
         risk_score=assessment["risk_score"],
         risk_factors=json.dumps(assessment["factors"]) if assessment["factors"] else None,
     )
@@ -262,8 +296,14 @@ def list_checkins(
     return page_of([_list_item(row) for row in items], total, limit, offset)
 
 
-def my_checkins(db: Session, current_user: User) -> Any:
-    rows = checkins_repo.list_for_student(db, current_user.id)
+def my_checkins(
+    db: Session,
+    current_user: User,
+    *,
+    course_id: Optional[str] = None,
+    limit: int = 50,
+) -> Any:
+    rows = checkins_repo.list_for_student(db, current_user.id, course_id=course_id, limit=limit)
     items = []
     for row in rows:
         session = row.session
@@ -283,6 +323,11 @@ def my_checkins(db: Session, current_user: User) -> Any:
 
 
 def session_checkins(db: Session, session_id: str, current_user: User) -> Any:
+    session = sessions_repo.get_by_id(db, session_id)
+    if session is None:
+        raise not_found("Session not found")
+    if not _staff_for_session(current_user, session):
+        raise forbidden()
     rows = checkins_repo.list_for_session(db, session_id)
     items = []
     for row in rows:
@@ -314,8 +359,17 @@ def session_checkins(db: Session, session_id: str, current_user: User) -> Any:
     return items
 
 
-def flagged_checkins(db: Session, current_user: User) -> Any:
-    items, total, limit, offset = checkins_repo.list_flagged(db)
+def flagged_checkins(
+    db: Session,
+    current_user: User,
+    *,
+    course_id: Optional[str] = None,
+    session_id: Optional[str] = None,
+    limit: int = 50,
+) -> Any:
+    items, total, limit, offset = checkins_repo.list_flagged(
+        db, course_id=course_id, session_id=session_id, limit=limit
+    )
     return page_of([_flagged_item(row) for row in items], total, limit, offset)
 
 

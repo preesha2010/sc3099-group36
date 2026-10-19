@@ -4,7 +4,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, Query, Request, status
 from sqlalchemy.orm import Session
 
-from app.core.dependencies import get_current_user, get_current_user_optional, require_roles
+from app.core.dependencies import get_current_user, require_roles
 from app.db.session import get_db
 from app.modules.sessions import service
 from app.modules.sessions.schemas import SessionCreate, SessionUpdate
@@ -45,17 +45,20 @@ def list_active(db: Session = Depends(get_db)):
 
 @router.get("/my-sessions")
 def my_sessions(
+    status: Optional[str] = None,
+    upcoming: bool = False,
+    limit: int = Query(default=50, ge=1, le=100),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return service.my_sessions(db, current_user)
+    return service.my_sessions(db, current_user, status=status, upcoming=upcoming, limit=limit)
 
 
 @router.get("/{session_id}")
 def get_session(
     session_id: str,
     db: Session = Depends(get_db),
-    current_user: Optional[User] = Depends(get_current_user_optional),
+    current_user: User = Depends(get_current_user),
 ):
     return service.get_session(db, session_id, current_user)
 
@@ -76,7 +79,7 @@ def update_session(
     payload: SessionUpdate,
     request: Request,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles("instructor", "admin", "ta")),
+    current_user: User = Depends(require_roles("instructor", "admin")),
 ):
     return service.update_session(db, session_id, payload, current_user, request)
 

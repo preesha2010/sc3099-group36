@@ -39,13 +39,22 @@ def add_risk_signal(db: Session, signal: RiskSignal) -> RiskSignal:
     return signal
 
 
-def list_for_student(db: Session, student_id: str) -> Sequence[CheckIn]:
-    return (
-        db.query(CheckIn)
-        .filter(CheckIn.student_id == student_id)
-        .order_by(CheckIn.checked_in_at.desc())
-        .all()
-    )
+def list_for_student(
+    db: Session,
+    student_id: str,
+    *,
+    course_id: Optional[str] = None,
+    limit: Optional[int] = None,
+) -> Sequence[CheckIn]:
+    query = db.query(CheckIn).filter(CheckIn.student_id == student_id)
+    if course_id:
+        query = query.join(ClassSession, CheckIn.session_id == ClassSession.id).filter(
+            ClassSession.course_id == course_id
+        )
+    query = query.order_by(CheckIn.checked_in_at.desc())
+    if limit is not None:
+        query = query.limit(max(int(limit), 1))
+    return query.all()
 
 
 def list_for_session(db: Session, session_id: str) -> Sequence[CheckIn]:

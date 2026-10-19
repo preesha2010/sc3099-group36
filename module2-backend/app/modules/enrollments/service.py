@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Optional
 
 from fastapi import Request
 from sqlalchemy.orm import Session
@@ -39,11 +39,22 @@ def my_enrollments(db: Session, current_user: User) -> Any:
     return items
 
 
-def list_course_enrollments(db: Session, course_id: str, current_user: User) -> Any:
+def list_course_enrollments(
+    db: Session,
+    course_id: str,
+    current_user: User,
+    *,
+    is_active: Optional[bool] = True,
+    search: Optional[str] = None,
+) -> Any:
     course = courses_repo.get_by_id(db, course_id)
     if course is None:
         raise not_found("Course not found")
-    rows = enrollments_repo.list_for_course(db, course_id, active_only=True)
+    if not enrollments_repo.user_can_view_course_roster(db, current_user, course_id):
+        raise forbidden()
+    rows = enrollments_repo.list_for_course(
+        db, course_id, active_only=False, is_active=is_active, search=search
+    )
     students = []
     for row in rows:
         student = row.student or users_repo.get_by_id(db, row.student_id)
@@ -75,6 +86,8 @@ def create_enrollment(
     course = courses_repo.get_by_id(db, payload.course_id)
     if course is None:
         raise not_found("Course not found")
+    if not enrollments_repo.user_manages_course(db, current_user, payload.course_id):
+        raise forbidden()
     existing = enrollments_repo.get_by_student_course(db, payload.student_id, payload.course_id)
     if existing and existing.is_active:
         raise bad_request("Student already enrolled")
@@ -106,6 +119,8 @@ def bulk_enroll(
     course = courses_repo.get_by_id(db, payload.course_id)
     if course is None:
         raise not_found("Course not found")
+    if not enrollments_repo.user_manages_course(db, current_user, payload.course_id):
+        raise forbidden()
     enrolled = already_enrolled = not_found_count = created = 0
     details = []
     for email in payload.student_emails:
@@ -160,9 +175,8 @@ def drop_enrollment(db: Session, enrollment_id: str, current_user: User, request
     enrollment = enrollments_repo.get_by_id(db, enrollment_id)
     if enrollment is None:
         raise not_found()
-    if current_user.role not in {UserRole.ADMIN.value, UserRole.INSTRUCTOR.value, UserRole.TA.value}:
-        if enrollment.student_id != current_user.id:
-            raise forbidden()
+    if not enrollments_repo.user_manages_course(db, current_user, enrollment.course_id):
+        raise forbidden()
     enrollment.is_active = False
     enrollment.dropped_at = utcnow_naive()
     enrollments_repo.save(db, enrollment)

@@ -7,7 +7,7 @@ from fastapi import Request
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
-from app.core.exceptions import bad_request, not_found
+from app.core.exceptions import bad_request, forbidden, not_found
 from app.core.utils import to_naive_utc
 from app.modules.checkins import repository as checkins_repo
 from app.modules.courses import repository as courses_repo
@@ -86,6 +86,8 @@ def attendance_export(
     course = courses_repo.get_by_id(db, course_id)
     if course is None:
         raise not_found("Course not found")
+    if not enrollments_repo.user_manages_course(db, current_user, course_id):
+        raise forbidden()
     records = _attendance_rows(db, course, start_date, end_date)
     kind = (fmt or "csv").lower()
     if kind == "json":
@@ -131,6 +133,8 @@ def session_export(db: Session, session_id: str, current_user: User, request: Re
     session = sessions_repo.get_by_id(db, session_id)
     if session is None:
         raise not_found("Session not found")
+    if not enrollments_repo.user_manages_course(db, current_user, session.course_id):
+        raise forbidden()
     enrolled = enrollments_repo.list_for_course(db, session.course_id, active_only=True)
     checkins = checkins_repo.list_for_session(db, session.id)
     total_enrolled = len(enrolled)

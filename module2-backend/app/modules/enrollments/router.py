@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends, Request, status
+from typing import Optional
+
+from fastapi import APIRouter, Depends, Query, Request, status
 from sqlalchemy.orm import Session
 
 from app.core.dependencies import get_current_user, require_roles
@@ -21,10 +23,14 @@ def my_enrollments(
 @router.get("/course/{course_id}")
 def list_course_enrollments(
     course_id: str,
+    is_active: Optional[bool] = Query(default=True),
+    search: Optional[str] = Query(default=None),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles("instructor", "ta", "admin")),
 ):
-    return service.list_course_enrollments(db, course_id, current_user)
+    return service.list_course_enrollments(
+        db, course_id, current_user, is_active=is_active, search=search
+    )
 
 
 @router.post("/", status_code=status.HTTP_201_CREATED)
@@ -37,7 +43,7 @@ def create_enrollment(
     return service.create_enrollment(db, payload, current_user, request)
 
 
-@router.post("/bulk", status_code=status.HTTP_201_CREATED)
+@router.post("/bulk")
 def bulk_enroll(
     payload: BulkEnrollmentCreate,
     request: Request,
