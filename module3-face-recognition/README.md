@@ -3,10 +3,16 @@
 Internal FastAPI service on port 8001. No backend, database or Redis is needed
 to run its endpoints or standalone tests. Only files in this module are modified.
 
-**Latest handoff (2026-10-19):** see `VALIDATION-20261019.md`,
+**Latest handoff (2026-10-20):** see `VALIDATION-20261020.md`,
 `MODULE2-INTEGRATION.md` and `TEAM-UPDATE.md`. Engineering/API checks pass;
 the separate biometric classification gate still FAILS. Do not interpret test
 counts or operational readiness as permission for automatic attendance approval.
+
+**Evaluation correction:** older transformed PAD counts (two attack accepts and
+seven genuine rejects) used a helper that lost EXIF orientation. Version 2
+normalizes display orientation first; its 24 PAD checks pass. Those old counts
+must NOT be cited as current model-error estimates. The five identity false
+accepts remain. No production model/threshold/key policy was changed to get this.
 
 ## Run locally
 
@@ -503,3 +509,68 @@ functional/infrastructure failure; exit 2 means functional checks completed but
 the local five-second latency gate failed; exit 0 requires both. Atomic reports
 retain failed state without exception bodies. The classification security gate
 is still a separate required check, not overridden by this command.
+
+## Upload deadlines, private traces and corrected diagnostics (2026-10-20)
+
+`REQUEST_BODY_SECONDS` defaults to **3 seconds**, validated in 0.01-30. This is
+one absolute deadline for the whole HTTP request body, beginning after admission,
+not a renewable per-chunk timer. Unfinished/stalled uploads return **408** with
+`Connection: close` and release admission capacity. Disconnect/cancellation also
+releases capacity. Only body reads are cancelled; completed uploads and running
+native inference are not subject to this timer. Headers/TCP connection deadlines
+still belong to the upstream server/proxy; this is not complete slow-client DoS
+protection. Existing 400/413/422/503 meanings are unchanged.
+
+Tracing is **off by default**. To opt in on a trusted internal deployment:
+
+```powershell
+$env:OTEL_EXPORTER_OTLP_ENDPOINT = "http://localhost:4318"
+python scripts/run_enhanced.py
+```
+
+The base URL must be HTTP(S), without embedded credentials/query/fragment.
+The service appends `/v1/traces` unless already present. It sends OTLP protobuf
+using the pinned SDK on a bounded background batch queue (256 spans, batches of
+32), one export attempt with one-second network timeouts. Collector failure
+increments `module3_trace_export_failures_total`; it does not fail inference or
+readiness. No inherited proxy credentials, exporter-auth environment headers,
+redirect following, long retries or collector-response-body logging are used.
+This minimal exporter does not claim durable delivery/retry or authenticated
+Collector support. An unavailable/slow Collector can lose traces; metrics remain.
+
+Only fixed route/method/status/stage names and a fixed service identity are
+recorded. Unknown routes become `other`; health/readiness/metrics are excluded.
+W3C `traceparent` links requests and AnyIO worker stages. Baggage, tracestate,
+URLs, queries, headers, peer IPs, exceptions/stack traces, images, identities,
+scores, features and templates are NOT exported. No raw-request auto-instrumentor
+or process-global provider is installed. Standalone validation tools explicitly
+disable export unless running their own loopback receiver check.
+
+Additional standalone checks (no Docker/backend/real Collector needed):
+
+```powershell
+python scripts/check_transport.py
+python scripts/stress_boundaries.py --clients 8 --seconds 120
+python scripts/diagnose_classification.py --projection-study
+python scripts/release_check.py --transport --backend-ref origin/module2-backend
+```
+
+The real TCP checks cover stalled/trickling fixed-length and chunked uploads,
+disconnect/recovery, private protobuf delivery with parent/worker-stage continuity
+and unavailable-Collector isolation. The test receiver is NOT the actual Module 4
+deployment. Full backend-to-Collector-to-dashboard tracing is still unverified.
+
+The mixed soak uses exactly 12MP face/blank inputs, over-limit dimensions/base64,
+small and corrupt images, and an oversized-body header. Positive face cases must
+really detect a face and return a template, not merely a no-face 200. All cases
+are warmed at the selected concurrency before memory measurement. Image-size
+and HTTP contract success do not mean the large-frame identity/PAD decision is
+accurate; this is a resource/input-boundary test, not new accuracy evidence.
+
+The classification diagnosis compares raw SFace cosine to 64-bit projection
+using the SAME score mapping/operating threshold. All five observed template
+false accepts had raw-comparison rejection at that equivalent threshold. A
+diagnostic orthogonal-projection candidate was worse and was NOT shipped.
+Neither private-key replacement nor fitting a threshold to the tiny corpus is
+used as a fix. Existing reports are retained; read `VALIDATION-20261020.md` for
+the corrected evidence and remaining release block.

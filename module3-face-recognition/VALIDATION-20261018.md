@@ -1,5 +1,10 @@
 # Module 3 independent validation, 2026-10-18
 
+**2026-10-20 correction:** transformed PAD inputs below lost EXIF display
+orientation during re-encoding. Version 2 fixes the evaluator and passes all 24
+PAD checks; do not cite the old PAD counts as model accuracy. Identity false
+accepts remain unresolved. See `VALIDATION-20261020.md` for superseding evidence.
+
 ## Release status: biometric classification gate FAILED
 
 This is an engineering/test branch, not a production security certification.

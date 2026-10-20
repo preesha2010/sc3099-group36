@@ -125,6 +125,7 @@ def main():
                        FACE_NATIVE_THREADS=str(args.native_threads),
                        INFERENCE_CONCURRENCY=str(args.concurrency),
                        INFERENCE_PENDING=str(args.pending), INFERENCE_QUEUE_SECONDS=str(args.queue_seconds),
+                       REQUEST_BODY_SECONDS="3", OTEL_EXPORTER_OTLP_ENDPOINT="",
                        OPENBLAS_NUM_THREADS="1", OMP_NUM_THREADS="1", GLOG_minloglevel="2", TF_CPP_MIN_LOG_LEVEL="2")
     with socket.socket() as listener:
         listener.bind(("127.0.0.1", 0))

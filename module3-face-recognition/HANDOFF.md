@@ -1,5 +1,12 @@
 # Module 3 handoff checklist
 
+**2026-10-20 superseding evidence:** see `VALIDATION-20261020.md`. Transform
+version 2 preserves EXIF display orientation; old transformed PAD failures were
+evaluation-construction artifacts, not valid current model-error counts. The
+corrected 24 PAD checks pass, but five identity false accepts still block release.
+Whole-body upload deadlines and opt-in privacy-allowlisted OTLP are implemented;
+actual upstream network/Collector/dashboard integration is still external.
+
 **Latest 2026-10-19 update:** `VALIDATION-20261019.md` records 128 local tests,
 both public profiles, real Module 2 client boundary checks and the still-failed
 classification gate. Read `MODULE2-INTEGRATION.md` for shared policy decisions;
@@ -46,7 +53,7 @@ The backend owns authentication, consent persistence, storing the selected
 template, sessions/time windows, geofences, database updates and final attendance
 status. The Module 3 test caller intentionally owns none of those decisions.
 
-Errors: 400 consent/image/challenge issues, 413 oversized body/image, 422 schema
+Errors: 400 consent/image/challenge issues, 408 unfinished upload, 413 oversized body/image, 422 schema
 violations, 503 unavailable model or admission overload. No-face verification
 is a valid 200 with false/zero/empty current hash. Do not approve attendance on
 timeout, non-JSON, 503 or a false match/liveness result. Retry is a caller policy
@@ -66,6 +73,10 @@ identifies admission rejection, not a successful identity check.
   PAD timings. These are nested wall times, not mutually exclusive CPU profiles.
 - All metric labels are fixed; request IDs are random response headers only.
   Never add image/template/student/device data to labels or logs.
+- Optional `OTEL_EXPORTER_OTLP_ENDPOINT` sends allowlisted traces only; default
+  empty disables it. Collector failure must not be treated as failed biometric
+  inference. Check `module3_trace_export_failures_total` independently and read
+  the README's privacy, delivery and authentication limitations before enabling.
 
 ## Keys, restore and migration
 

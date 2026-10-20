@@ -25,6 +25,11 @@ from app.services.neural import ModelPool
     ("INFERENCE_QUEUE_SECONDS", "inf"), ("INFERENCE_QUEUE_SECONDS", "nan"),
     ("INFERENCE_QUEUE_SECONDS", "0"),
     ("FACE_NATIVE_THREADS", "0"), ("FACE_NATIVE_THREADS", "5"),
+    ("REQUEST_BODY_SECONDS", "0"), ("REQUEST_BODY_SECONDS", "nan"),
+    ("REQUEST_BODY_SECONDS", "inf"), ("REQUEST_BODY_SECONDS", "31"),
+    ("OTEL_EXPORTER_OTLP_ENDPOINT", "file:///private"),
+    ("OTEL_EXPORTER_OTLP_ENDPOINT", "http://user:secret@localhost:4318"),
+    ("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4318/?token=secret"),
 ])
 def test_invalid_configuration_fails_at_startup(monkeypatch, name, value):
     monkeypatch.setenv(name, value)

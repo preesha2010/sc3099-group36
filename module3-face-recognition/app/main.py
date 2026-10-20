@@ -12,10 +12,11 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, PlainTextResponse
 
-from app.middleware import BodySizeLimitMiddleware, ServiceMiddleware
+from app.middleware import BodySizeLimitMiddleware, ServiceMiddleware, TelemetryMiddleware
 from app.config import Settings
 from app.observability import metrics
 from app.runtime import Runtime
+from app.telemetry import Telemetry
 
 from app.schemas import (
     FaceEnrollRequest,
@@ -46,6 +47,7 @@ async def lifespan(application: FastAPI):
     application.state.runtime = runtime
     application.state.inference_slots = asyncio.Semaphore(settings.concurrency)
     application.state.admitted = 0
+    application.state.telemetry = Telemetry(settings.otel_endpoint, failed=metrics.trace_failed)
     limiter = anyio.to_thread.current_default_thread_limiter()
     previous = limiter.total_tokens
     limiter.total_tokens = settings.concurrency
@@ -65,6 +67,7 @@ async def lifespan(application: FastAPI):
         except asyncio.CancelledError:
             pass
         limiter.total_tokens = previous
+        await anyio.to_thread.run_sync(application.state.telemetry.close)
 
 
 app = FastAPI(
@@ -85,6 +88,7 @@ app.add_middleware(
 )
 app.add_middleware(BodySizeLimitMiddleware)
 app.add_middleware(ServiceMiddleware)
+app.add_middleware(TelemetryMiddleware)
 
 
 @app.exception_handler(RequestValidationError)

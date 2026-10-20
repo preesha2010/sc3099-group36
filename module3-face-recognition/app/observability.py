@@ -48,6 +48,11 @@ class Metrics:
         self.active = 0
         self.pending = 0
         self.rejected = 0
+        self.trace_export_failures = 0
+
+    def trace_failed(self):
+        with self.lock:
+            self.trace_export_failures += 1
 
     def observe(self, stage, seconds):
         with self.lock:
@@ -59,9 +64,11 @@ class Metrics:
 
     @contextmanager
     def stage(self, name):
+        from app.telemetry import trace_stage
         start = perf_counter()
         try:
-            yield
+            with trace_stage(name):
+                yield
         finally:
             self.observe(name, perf_counter() - start)
 
@@ -88,6 +95,8 @@ class Metrics:
                 lines += [f"# TYPE module3_inference_{name} gauge", f"module3_inference_{name} {value}"]
             lines += ["# TYPE module3_overload_rejections_total counter",
                       f"module3_overload_rejections_total {self.rejected}"]
+            lines += ["# TYPE module3_trace_export_failures_total counter",
+                      f"module3_trace_export_failures_total {self.trace_export_failures}"]
         memory = rss_bytes()
         if memory is not None:
             lines += ["# TYPE module3_process_resident_bytes gauge", f"module3_process_resident_bytes {memory}"]

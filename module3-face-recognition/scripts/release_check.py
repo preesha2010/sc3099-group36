@@ -15,8 +15,11 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--report", default="evaluation/robustness.json")
     parser.add_argument("--backend-ref", help="Also check the actual Module 2 client at this local Git ref")
+    parser.add_argument("--transport", action="store_true", help="Also check real slow uploads and private loopback OTLP delivery")
     args = parser.parse_args(argv)
     scripts = ["verify.py"]
+    if args.transport:
+        scripts.append("check_transport.py")
     if args.backend_ref:
         scripts.append("check_backend_contract.py")
     scripts.append("evaluate_robustness.py")

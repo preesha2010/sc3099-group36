@@ -1,5 +1,11 @@
 # Module 3 engineering and integration validation (2026-10-19)
 
+**Superseded PAD evidence:** the 2026-10-20 audit found EXIF orientation loss in
+the perturbation helper. Its corrected version 2 passes all 24 PAD checks. The
+old two attack accepts/seven genuine rejects below describe malformed evaluation
+conditions and must not be treated as current model-error counts. The identity
+false accepts remain. Read `VALIDATION-20261020.md` for current conclusions.
+
 ## Summary: engineering PASS, biometric classification release gate FAIL
 
 All changes are restricted to `module3-face-recognition/` on the existing branch.

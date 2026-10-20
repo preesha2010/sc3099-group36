@@ -27,6 +27,7 @@ def main():
     baseline.update(FACE_TEMPLATE_MODE="sha256", LIVENESS_BACKEND="heuristic",
                     FACE_MODEL_WORKERS="4", FACE_NATIVE_THREADS="1", INFERENCE_CONCURRENCY="8",
                     INFERENCE_PENDING="32", INFERENCE_QUEUE_SECONDS="2", OPENBLAS_NUM_THREADS="1",
+                    REQUEST_BODY_SECONDS="3", OTEL_EXPORTER_OTLP_ENDPOINT="",
                     OMP_NUM_THREADS="1", GLOG_minloglevel="2", TF_CPP_MIN_LOG_LEVEL="2")
     local = subprocess.run(
         [sys.executable, "-m", "pytest", "--confcutdir=tests", "tests", "-q"], cwd=MODULE, env=baseline,

@@ -13,6 +13,23 @@ from evaluate_robustness import CONDITIONS, perturb
 from support import report_target
 
 
+def test_perturbations_preserve_exif_display_orientation_instead_of_turning_faces_sideways():
+    import base64
+    from io import BytesIO
+    from PIL import Image
+    from app.services.image import decode_base64_image
+    source = Image.new("RGB", (64, 96), (0, 0, 0))
+    source.paste((255, 80, 40), (0, 0, 32, 48))
+    exif = Image.Exif()
+    exif[274] = 6  # Raw portrait pixels require a clockwise display rotation.
+    data = BytesIO()
+    source.save(data, format="JPEG", exif=exif)
+    for condition in CONDITIONS:
+        image = decode_base64_image(base64.b64encode(perturb(data.getvalue(), condition)).decode())
+        assert image.shape == (64, 96, 3)
+        assert image[8:24, 60:84, 0].mean() > image[40:56, 12:36, 0].mean() + 50
+
+
 def test_far_frr_and_pad_rates_with_no_face_rejections():
     rows = [(True, .9, True), (True, .5, True), (False, .8, True), (False, 0, False)]
     result = summarize(rows, .7, "identity")

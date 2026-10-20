@@ -6,10 +6,39 @@ import asyncio
 import time
 import uuid
 
-from app.observability import metrics
+from app.observability import metrics, ROUTES
 
 
 MAX_REQUEST_BYTES = 10 * 1024 * 1024
+
+
+class TelemetryMiddleware:
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http" or scope["path"] in {"/health", "/ready", "/metrics"}:
+            return await self.app(scope, receive, send)
+        telemetry = scope["app"].state.telemetry
+        route = scope["path"] if scope["path"] in ROUTES else "other"
+        method = scope["method"] if scope["method"] in {"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"} else "OTHER"
+        status = 500
+
+        async def observed_send(message):
+            nonlocal status
+            if message["type"] == "http.response.start":
+                status = message["status"]
+            await send(message)
+
+        with telemetry.request(route, method, scope.get("headers", [])) as span:
+            try:
+                return await self.app(scope, receive, observed_send)
+            finally:
+                if span is not None:
+                    from opentelemetry import trace
+                    span.set_attribute("http.status_code", status)
+                    if status >= 500:
+                        span.set_status(trace.Status(trace.StatusCode.ERROR))
+
+    def __init__(self, app):
+        self.app = app
 
 
 class ServiceMiddleware:
@@ -71,9 +100,10 @@ class ServiceMiddleware:
 
 
 class BodySizeLimitMiddleware:
-    def __init__(self, app: ASGIApp, max_bytes: int = MAX_REQUEST_BYTES):
+    def __init__(self, app: ASGIApp, max_bytes: int = MAX_REQUEST_BYTES, body_seconds=None):
         self.app = app
         self.max_bytes = max_bytes
+        self.body_seconds = body_seconds
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send):
         if scope["type"] != "http" or scope["method"] not in {"POST", "PUT", "PATCH"}:
@@ -92,8 +122,23 @@ class BodySizeLimitMiddleware:
 
         parts = []
         length = 0
+        # One absolute deadline for the WHOLE upload, not a fresh timeout on
+        # each chunk. A trickle of bytes cannot renew an admission slot forever.
+        budget = self.body_seconds
+        if budget is None:
+            budget = scope["app"].state.settings.body_seconds
+        deadline = time.monotonic() + budget
         while True:
-            message = await receive()
+            remaining = deadline - time.monotonic()
+            try:
+                if remaining <= 0:
+                    raise asyncio.TimeoutError
+                message = await asyncio.wait_for(receive(), remaining)
+            except asyncio.TimeoutError:
+                # Only ASGI body reads are cancelled. Native inference has not
+                # started and is never interrupted by this upload deadline.
+                return await JSONResponse({"detail": "Request body read deadline exceeded"}, status_code=408,
+                                          headers={"Connection": "close"})(scope, receive, send)
             if message["type"] == "http.disconnect":
                 return
             body = message.get("body", b"")

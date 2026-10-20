@@ -1,0 +1,299 @@
+{
+  "timestamp_utc": "2026-10-20T15:19:46.596554+00:00",
+  "completed": true,
+  "conditions": {
+    "original": {
+      "identity": {
+        "comparisons": 5,
+        "raw_equivalent_false_accepts": 0,
+        "template_false_accepts": 1,
+        "raw_equivalent_false_rejects": 0,
+        "template_false_rejects": 0,
+        "projection_decision_disagreements": 1,
+        "template_false_accepts_with_raw_rejection": 1,
+        "cosine_approximation_absolute_error": {
+          "mean": 0.088991,
+          "maximum": 0.210831
+        },
+        "hamming_ranges": {
+          "genuine": {
+            "minimum": 0,
+            "maximum": 18
+          },
+          "impostor": {
+            "minimum": 22,
+            "maximum": 28
+          }
+        }
+      },
+      "pad": {
+        "comparisons": 3,
+        "no_face": 0,
+        "genuine_reject_no_face": 0,
+        "reconstructed_score_disagreements": 0,
+        "genuine_reject_quality_only": 0,
+        "genuine_reject_pad_only": 0,
+        "genuine_reject_both": 0,
+        "attacks_accepted_by_both_stages": 0
+      }
+    },
+    "dark": {
+      "identity": {
+        "comparisons": 5,
+        "raw_equivalent_false_accepts": 0,
+        "template_false_accepts": 0,
+        "raw_equivalent_false_rejects": 0,
+        "template_false_rejects": 0,
+        "projection_decision_disagreements": 0,
+        "template_false_accepts_with_raw_rejection": 0,
+        "cosine_approximation_absolute_error": {
+          "mean": 0.115749,
+          "maximum": 0.204436
+        },
+        "hamming_ranges": {
+          "genuine": {
+            "minimum": 2,
+            "maximum": 20
+          },
+          "impostor": {
+            "minimum": 28,
+            "maximum": 28
+          }
+        }
+      },
+      "pad": {
+        "comparisons": 3,
+        "no_face": 0,
+        "genuine_reject_no_face": 0,
+        "reconstructed_score_disagreements": 0,
+        "genuine_reject_quality_only": 0,
+        "genuine_reject_pad_only": 0,
+        "genuine_reject_both": 0,
+        "attacks_accepted_by_both_stages": 0
+      }
+    },
+    "bright": {
+      "identity": {
+        "comparisons": 5,
+        "raw_equivalent_false_accepts": 0,
+        "template_false_accepts": 0,
+        "raw_equivalent_false_rejects": 0,
+        "template_false_rejects": 0,
+        "projection_decision_disagreements": 0,
+        "template_false_accepts_with_raw_rejection": 0,
+        "cosine_approximation_absolute_error": {
+          "mean": 0.067508,
+          "maximum": 0.113479
+        },
+        "hamming_ranges": {
+          "genuine": {
+            "minimum": 6,
+            "maximum": 19
+          },
+          "impostor": {
+            "minimum": 25,
+            "maximum": 32
+          }
+        }
+      },
+      "pad": {
+        "comparisons": 3,
+        "no_face": 0,
+        "genuine_reject_no_face": 0,
+        "reconstructed_score_disagreements": 0,
+        "genuine_reject_quality_only": 0,
+        "genuine_reject_pad_only": 0,
+        "genuine_reject_both": 0,
+        "attacks_accepted_by_both_stages": 0
+      }
+    },
+    "low_contrast": {
+      "identity": {
+        "comparisons": 5,
+        "raw_equivalent_false_accepts": 0,
+        "template_false_accepts": 1,
+        "raw_equivalent_false_rejects": 0,
+        "template_false_rejects": 0,
+        "projection_decision_disagreements": 1,
+        "template_false_accepts_with_raw_rejection": 1,
+        "cosine_approximation_absolute_error": {
+          "mean": 0.10848,
+          "maximum": 0.197959
+        },
+        "hamming_ranges": {
+          "genuine": {
+            "minimum": 3,
+            "maximum": 19
+          },
+          "impostor": {
+            "minimum": 22,
+            "maximum": 31
+          }
+        }
+      },
+      "pad": {
+        "comparisons": 3,
+        "no_face": 0,
+        "genuine_reject_no_face": 0,
+        "reconstructed_score_disagreements": 0,
+        "genuine_reject_quality_only": 0,
+        "genuine_reject_pad_only": 0,
+        "genuine_reject_both": 0,
+        "attacks_accepted_by_both_stages": 0
+      }
+    },
+    "rotate_left": {
+      "identity": {
+        "comparisons": 5,
+        "raw_equivalent_false_accepts": 0,
+        "template_false_accepts": 1,
+        "raw_equivalent_false_rejects": 0,
+        "template_false_rejects": 0,
+        "projection_decision_disagreements": 1,
+        "template_false_accepts_with_raw_rejection": 1,
+        "cosine_approximation_absolute_error": {
+          "mean": 0.134379,
+          "maximum": 0.204008
+        },
+        "hamming_ranges": {
+          "genuine": {
+            "minimum": 6,
+            "maximum": 19
+          },
+          "impostor": {
+            "minimum": 22,
+            "maximum": 34
+          }
+        }
+      },
+      "pad": {
+        "comparisons": 3,
+        "no_face": 0,
+        "genuine_reject_no_face": 0,
+        "reconstructed_score_disagreements": 0,
+        "genuine_reject_quality_only": 0,
+        "genuine_reject_pad_only": 0,
+        "genuine_reject_both": 0,
+        "attacks_accepted_by_both_stages": 0
+      }
+    },
+    "rotate_right": {
+      "identity": {
+        "comparisons": 5,
+        "raw_equivalent_false_accepts": 0,
+        "template_false_accepts": 0,
+        "raw_equivalent_false_rejects": 0,
+        "template_false_rejects": 0,
+        "projection_decision_disagreements": 0,
+        "template_false_accepts_with_raw_rejection": 0,
+        "cosine_approximation_absolute_error": {
+          "mean": 0.098416,
+          "maximum": 0.206769
+        },
+        "hamming_ranges": {
+          "genuine": {
+            "minimum": 16,
+            "maximum": 19
+          },
+          "impostor": {
+            "minimum": 27,
+            "maximum": 36
+          }
+        }
+      },
+      "pad": {
+        "comparisons": 3,
+        "no_face": 0,
+        "genuine_reject_no_face": 0,
+        "reconstructed_score_disagreements": 0,
+        "genuine_reject_quality_only": 0,
+        "genuine_reject_pad_only": 0,
+        "genuine_reject_both": 0,
+        "attacks_accepted_by_both_stages": 0
+      }
+    },
+    "jpeg40": {
+      "identity": {
+        "comparisons": 5,
+        "raw_equivalent_false_accepts": 0,
+        "template_false_accepts": 1,
+        "raw_equivalent_false_rejects": 0,
+        "template_false_rejects": 0,
+        "projection_decision_disagreements": 1,
+        "template_false_accepts_with_raw_rejection": 1,
+        "cosine_approximation_absolute_error": {
+          "mean": 0.104177,
+          "maximum": 0.225678
+        },
+        "hamming_ranges": {
+          "genuine": {
+            "minimum": 1,
+            "maximum": 19
+          },
+          "impostor": {
+            "minimum": 21,
+            "maximum": 29
+          }
+        }
+      },
+      "pad": {
+        "comparisons": 3,
+        "no_face": 0,
+        "genuine_reject_no_face": 0,
+        "reconstructed_score_disagreements": 0,
+        "genuine_reject_quality_only": 0,
+        "genuine_reject_pad_only": 0,
+        "genuine_reject_both": 0,
+        "attacks_accepted_by_both_stages": 0
+      }
+    },
+    "resize512": {
+      "identity": {
+        "comparisons": 5,
+        "raw_equivalent_false_accepts": 0,
+        "template_false_accepts": 1,
+        "raw_equivalent_false_rejects": 0,
+        "template_false_rejects": 0,
+        "projection_decision_disagreements": 1,
+        "template_false_accepts_with_raw_rejection": 1,
+        "cosine_approximation_absolute_error": {
+          "mean": 0.1169,
+          "maximum": 0.2331
+        },
+        "hamming_ranges": {
+          "genuine": {
+            "minimum": 4,
+            "maximum": 19
+          },
+          "impostor": {
+            "minimum": 21,
+            "maximum": 32
+          }
+        }
+      },
+      "pad": {
+        "comparisons": 3,
+        "no_face": 0,
+        "genuine_reject_no_face": 0,
+        "reconstructed_score_disagreements": 0,
+        "genuine_reject_quality_only": 0,
+        "genuine_reject_pad_only": 0,
+        "genuine_reject_both": 0,
+        "attacks_accepted_by_both_stages": 0
+      }
+    }
+  },
+  "transform_version": 2,
+  "exif_orientation_normalized_before_transforms": true,
+  "unchanged_api_threshold": 0.7,
+  "raw_cosine_equivalent_threshold": 0.4,
+  "thresholds_changed": false,
+  "vectors_persisted": false,
+  "newly_collected_faces": 0,
+  "limitations": [
+    "Only two identities/three publisher PAD demos; transformations are correlated.",
+    "Raw cosine comparison is diagnostic, not a replacement production matcher or calibrated threshold.",
+    "No vectors, templates, images or individual subject scores are in this aggregate report.",
+    "Successful diagnosis does not mean the biometric classification gate passes."
+  ]
+}

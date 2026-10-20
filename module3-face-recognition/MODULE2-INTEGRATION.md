@@ -1,5 +1,12 @@
 # Module 2 / Module 3 boundary handoff (2026-10-19)
 
+2026-10-20 additions: incomplete uploads can now return **408**; this is not an
+identity decision. Optional OTLP traces preserve `traceparent` but discard
+baggage/tracestate and all input/score data. Module 3-side delivery to a local
+test receiver is verified, not the real backend/Module 4 trace chain. See the
+latest validation record for the EXIF evaluation correction and remaining
+identity classification block.
+
 Read-only comparison target: `module2-backend` at
 `601b3813f481ff05c344cfcddea6b191b9230038`.
 No Module 2 files or branch were modified, merged or copied into this module.
@@ -79,8 +86,9 @@ not sandboxed. Its settings are test-only, with no deployment credentials.
    two-second queue deadline. 503/Retry-After means rejected work, not a match.
    The relaxed 128-waiter/30-second throughput experiment is NOT production
    capacity. Agree resources/arrival rate and fail/review behavior before rollout.
-5. **Accuracy and camera integration:** current transformed samples still show
-   false accepts/rejects and attack accepts. No authorized held-out corpus is
+5. **Accuracy and camera integration:** identity false accepts remain. Version 2
+   fixes EXIF loss in transformed PAD evaluation: its 24 checks pass, superseding
+   old PAD failure counts, but not certifying real camera security. No authorized held-out corpus is
    available. Full capture -> auth/DB -> face signals -> attendance -> dashboard
    validation needs the other owners. Active challenges and signed device
    attestation need multi-frame/server-challenge protocols, not a still-image

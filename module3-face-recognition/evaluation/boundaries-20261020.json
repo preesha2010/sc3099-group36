@@ -1,0 +1,92 @@
+{
+  "timestamp_utc": "2026-10-20T15:21:58.920871+00:00",
+  "state": "complete",
+  "passed": true,
+  "profile": "enhanced",
+  "clients": 8,
+  "requested_seconds": 120,
+  "counts": {
+    "/face/verify": {
+      "normal": {
+        "requests": 262,
+        "valid": 262,
+        "statuses": {
+          "200": 262
+        }
+      },
+      "blank_exactly_12mp": {
+        "requests": 262,
+        "valid": 262,
+        "statuses": {
+          "200": 262
+        }
+      },
+      "side_over_limit": {
+        "requests": 262,
+        "valid": 262,
+        "statuses": {
+          "413": 262
+        }
+      },
+      "corrupt": {
+        "requests": 262,
+        "valid": 262,
+        "statuses": {
+          "400": 262
+        }
+      }
+    },
+    "/liveness/check": {
+      "face_exactly_12mp": {
+        "requests": 262,
+        "valid": 262,
+        "statuses": {
+          "200": 262
+        }
+      },
+      "pixels_over_limit": {
+        "requests": 262,
+        "valid": 262,
+        "statuses": {
+          "413": 262
+        }
+      },
+      "below_minimum": {
+        "requests": 262,
+        "valid": 262,
+        "statuses": {
+          "400": 262
+        }
+      },
+      "base64_over_limit": {
+        "requests": 262,
+        "valid": 262,
+        "statuses": {
+          "413": 262
+        }
+      }
+    }
+  },
+  "health_failures": 0,
+  "maximum_seconds": 0.515,
+  "limitations": [
+    "Existing sample upscaling/synthetic images are not new authorized accuracy data.",
+    "All workload cases are warmed before memory baseline; allocator high-watermark is not a leak proof.",
+    "Local finite stress, not Docker/full-system or universal deployment capacity validation."
+  ],
+  "declared_body_over_limit_rejected": true,
+  "elapsed_seconds": 120.125,
+  "memory": {
+    "available": true,
+    "sample_count": 263,
+    "window_samples": 10,
+    "initial_bytes": 693592064.0,
+    "final_bytes": 727810048.0,
+    "peak_bytes": 776511488.0,
+    "end_minus_initial_mib": 32.633,
+    "window_growth_mib": 1.088,
+    "growth_within_budget": true
+  },
+  "local_five_second_target_met": true,
+  "recovery_ready": true
+}

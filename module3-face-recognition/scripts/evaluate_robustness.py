@@ -12,7 +12,7 @@ from io import BytesIO
 import sys
 
 import httpx
-from PIL import Image, ImageEnhance
+from PIL import Image, ImageEnhance, ImageOps
 
 from support import MODULE, local_service, report_target, save_report
 
@@ -28,7 +28,10 @@ def perturb(data, condition):
     if condition == "original":
         return data
     with Image.open(BytesIO(data)) as source:
-        image = source.convert("RGB")
+        # Match the API decoder BEFORE re-encoding strips EXIF. Otherwise a
+        # portrait tagged Orientation=6 becomes a sideways image, not simply a
+        # darker/brighter/compressed version of the same presentation.
+        image = ImageOps.exif_transpose(source).convert("RGB")
     if condition == "dark":
         image = ImageEnhance.Brightness(image).enhance(.65)
     elif condition == "bright":
@@ -96,6 +99,7 @@ def main():
     args = parser.parse_args()
     target = report_target(args.report)
     record = {"timestamp_utc": datetime.now(timezone.utc).isoformat(), "conditions": {},
+              "transform_version": 2, "exif_orientation_normalized_before_transforms": True,
               "independent_identities": 2, "independent_pad_sources": 3, "newly_collected_faces": 0,
               "identity_pairs_per_condition": 5, "genuine_pairs_derived_from_enrollment_per_condition": 1,
               "transport_checks_passed": False,

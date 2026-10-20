@@ -102,6 +102,6 @@ async def test_body_limit_rejects_header_and_chunked_uploads(declared):
         responses.append(message)
 
     scope = {"type": "http", "method": "POST", "headers": [(b"content-length", b"8")] if declared else []}
-    await BodySizeLimitMiddleware(downstream, max_bytes=5)(scope, receive, send)
+    await BodySizeLimitMiddleware(downstream, max_bytes=5, body_seconds=3)(scope, receive, send)
     assert not called
     assert responses[0]["status"] == 413

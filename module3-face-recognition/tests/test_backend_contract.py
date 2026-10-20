@@ -97,3 +97,16 @@ def test_release_checks_backend_boundary_before_accuracy_gate(monkeypatch):
     assert len(commands) == 2
     assert commands[-1][-2:] == ["--backend-ref", "origin/module2-backend"]
     assert commands[-1][1].endswith("check_backend_contract.py")
+
+
+def test_full_local_release_pipeline_still_propagates_classification_block(monkeypatch):
+    commands, results = [], iter([0, 0, 0, 2])
+
+    def run(command, **_):
+        commands.append(command)
+        return SimpleNamespace(returncode=next(results))
+
+    monkeypatch.setattr(release_check.subprocess, "run", run)
+    assert release_check.main(["--transport", "--backend-ref", "origin/module2-backend"]) == 2
+    assert [Path(command[1]).name for command in commands] == [
+        "verify.py", "check_transport.py", "check_backend_contract.py", "evaluate_robustness.py"]

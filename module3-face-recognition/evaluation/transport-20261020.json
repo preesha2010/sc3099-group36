@@ -1,0 +1,32 @@
+{
+  "timestamp_utc": "2026-10-20T15:14:52.533637+00:00",
+  "completed": false,
+  "passed": false,
+  "limitations": [
+    "Loopback diagnostic receiver, not the actual Module 4 Collector or complete backend trace.",
+    "No inference accuracy, external proxy/header deadlines or production network certification."
+  ],
+  "uploads": [
+    {
+      "chunked": false,
+      "trickle": false,
+      "passed": true
+    },
+    {
+      "chunked": false,
+      "trickle": true,
+      "passed": true
+    },
+    {
+      "chunked": true,
+      "trickle": false,
+      "passed": true
+    },
+    {
+      "chunked": true,
+      "trickle": true,
+      "passed": true
+    }
+  ],
+  "failure_type": "AssertionError"
+}

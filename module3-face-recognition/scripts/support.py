@@ -44,6 +44,7 @@ def local_service(profile="sha256", overrides=None):
     environment = os.environ.copy()
     environment.update(FACE_TEMPLATE_MODE="simhash" if profile == "enhanced" else "sha256",
                        LIVENESS_BACKEND="minifasnet" if profile == "enhanced" else "heuristic",
+                       REQUEST_BODY_SECONDS="3", OTEL_EXPORTER_OTLP_ENDPOINT="",
                        OPENBLAS_NUM_THREADS="1", OMP_NUM_THREADS="1", GLOG_minloglevel="2", TF_CPP_MIN_LOG_LEVEL="2")
     environment.update(overrides or {})
     with socket.socket() as listener:
