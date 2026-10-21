@@ -72,26 +72,22 @@ def _face_signals(payload: CheckinCreate, current_user: User) -> dict[str, Any]:
         return result
 
     live = face_client.liveness(image)
-    if face_client.is_success(live):
-        if "liveness_passed" in live:
-            result["liveness_passed"] = bool(live.get("liveness_passed"))
-        if live.get("liveness_score") is not None:
-            result["liveness_score"] = float(live["liveness_score"])
-        hash_value = live.get("face_embedding_hash")
+    if live.ok:
+        result["liveness_passed"] = live.data["liveness_passed"]
+        result["liveness_score"] = live.data["liveness_score"]
+        hash_value = live.data.get("face_embedding_hash")
         if hash_value:
-            result["face_embedding_hash"] = str(hash_value)
+            result["face_embedding_hash"] = hash_value
 
     reference = current_user.face_embedding_hash
     if reference:
         verified = face_client.verify(image, reference)
-        if face_client.is_success(verified):
-            if "match_passed" in verified:
-                result["face_match_passed"] = bool(verified.get("match_passed"))
-            if verified.get("match_score") is not None:
-                result["face_match_score"] = float(verified["match_score"])
-            hash_value = verified.get("current_template_hash") or verified.get("face_embedding_hash")
+        if verified.ok:
+            result["face_match_passed"] = verified.data["match_passed"]
+            result["face_match_score"] = verified.data["match_score"]
+            hash_value = verified.data.get("current_template_hash")
             if hash_value:
-                result["face_embedding_hash"] = str(hash_value)
+                result["face_embedding_hash"] = hash_value
 
     return result
 

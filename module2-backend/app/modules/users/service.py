@@ -57,18 +57,13 @@ def enroll_face(
     if not current_user.camera_consent:
         raise bad_request("Camera consent not given")
     result = face_client.enroll(current_user.id, payload.image, True)
-    if result is None:
+    if result.kind in {"unavailable", "malformed"}:
         raise service_unavailable("Face recognition service unavailable")
-    status_code = int(result.get("_status") or 200)
-    if status_code >= 500:
-        raise service_unavailable("Face recognition service unavailable")
-    if status_code >= 400:
+    if result.kind == "client_error" or not result.data.get("enrollment_successful"):
         raise bad_request("No face detected")
-    hash_value = result.get("face_template_hash") or result.get("face_embedding_hash")
-    if not result.get("enrollment_successful") and not hash_value:
-        raise bad_request("No face detected")
+    hash_value = result.data.get("face_template_hash")
     if not hash_value:
-        raise bad_request("No face detected")
+        raise service_unavailable("Face recognition service unavailable")
     current_user.face_embedding_hash = str(hash_value)
     current_user.face_enrolled = True
     users_repo.save(db, current_user)
@@ -82,7 +77,7 @@ def enroll_face(
     )
     db.commit()
     db.refresh(current_user)
-    quality = result.get("quality_score")
+    quality = result.data.get("quality_score")
     return {
         "success": True,
         "message": "Face enrolled successfully",
