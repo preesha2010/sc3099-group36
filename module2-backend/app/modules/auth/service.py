@@ -137,6 +137,8 @@ def refresh_tokens(db: Session, refresh_token: str) -> dict[str, Any]:
     user = users_repo.get_by_id(db, payload.get("sub"))
     if user is None or not user.is_active:
         raise HTTPException(status_code=401, detail="Could not validate credentials")
+    if user.is_locked:
+        raise HTTPException(status_code=429, detail="Account locked")
     return {
         "access_token": create_access_token(user.id, user.email, user.role),
         "refresh_token": create_refresh_token(user.id, user.email, user.role),
