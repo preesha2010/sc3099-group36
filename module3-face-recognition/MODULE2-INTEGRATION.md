@@ -1,15 +1,11 @@
-# Module 2 / Module 3 boundary handoff (2026-10-19)
-
-2026-10-20 additions: incomplete uploads can now return **408**; this is not an
-identity decision. Optional OTLP traces preserve `traceparent` but discard
-baggage/tracestate and all input/score data. Module 3-side delivery to a local
-test receiver is verified, not the real backend/Module 4 trace chain. See the
-latest validation record for the EXIF evaluation correction and remaining
-identity classification block.
+# Module 2 / Module 3 boundary handoff (2026-10-23)
 
 Read-only comparison target: `module2-backend` at
-`601b3813f481ff05c344cfcddea6b191b9230038`.
+`7963b06641dc5ed5f3f4f5df8a843b61b068f53c`.
 No Module 2 files or branch were modified, merged or copied into this module.
+Latest evidence: `evaluation/backend-contract-20261023.json` and
+`VALIDATION-20261023.md`. Historical October 19/20 client observations are
+superseded where explicitly noted below.
 
 ## Ownership and compatible calls
 
@@ -24,72 +20,93 @@ Yes: Module 3 owns port **8001**, including `POST /face/enroll`,
 | `liveness` | challenge_response, challenge_type=passive | 200; liveness_passed, liveness_score, face_embedding_hash |
 | `assess_risk` | documented risk signals | 200; risk_score, risk_level, pass_threshold, signal_breakdown |
 
-Templates remain 64 lowercase hexadecimal characters in both profiles. That
-does **not** mean their policies are interchangeable. Default SHA-256 is an
-exact normalized-image compatibility mode and fails cross-photo recognition.
-Opt-in SimHash provides cross-photo similarity but is NOT SHA-256-only storage,
-and its observed misclassifications still block biometric security approval.
-Do not change modes/keys between enrollment and verification. Agree the final
-policy and re-enrollment/migration plan first; retain the chosen private key.
+Latest FaceClient returns typed `FaceCall` outcomes for enroll/verify/liveness,
+with `ok`, `kind`, `status`, `data`; risk retains the legacy dictionary return.
+Only the diagnostic adapter changed to observe both contracts. Its loader
+registers an isolated module for postponed dataclass annotations and stubs ONLY
+the settings import; upstream source/methods/requests are unmodified.
 
-The browser uses Module 2's authenticated `/api/v1/users/me/face/enroll` route.
-Module 2 checks/stores consent and stores Module 3's returned template. Module 3
-is stateless: it has no user/session database and needs the stored reference on
-each verification. It does not issue JWTs or decide final attendance status.
-Keep its unauthenticated internal API/metrics off the public network.
+The old non-JSON-200-as-success warning is **resolved in this backend revision**.
+Real HTTP probes confirm malformed/missing/invalid typed results are not success.
+A valid negative decision IS a successful transport result, but NOT a passed
+identity/liveness decision. `.ok` alone must never approve attendance.
+
+Templates remain 64 lowercase hexadecimal characters in both profiles, but
+their policies are not interchangeable. Default SHA-256 matches only the same
+normalized image; opt-in SimHash supports cross-photo similarity and is not
+SHA-256-only storage. Changing profile/key/model policy needs a migration plan.
+
+The user-authorized October 23 scorer is
+`gaussian_query_margin_agreement_v3` (`GET /: match_score_policy`). It preserves
+signed SimHash bytes/key/projection/weights and needs **no re-enrollment for this
+score-only update**. Restart all instances consistently; do not mix old/new
+scorers. Score .70 is normalized agreement, estimated cosine .40, not raw cosine
+.70 or a probability. The backend already receives/uses these changed scores;
+final risk interpretation needs joint approval. Keep the continuous-score API
+internal and apply caller authentication/rate controls upstream.
+
+Module 2 owns browser authentication, consent persistence and storing the
+returned template through `/api/v1/users/me/face/enroll`. Module 3 has no user or
+session database: verification needs the stored reference supplied by Module 2.
+It does not issue JWTs or decide final attendance. Keep internal API/metrics off
+the public network.
 
 ## What was actually exercised
 
-`evaluation/backend-contract.json` records the resolved backend commit and
-SHA-256 of the **unmodified** upstream FaceClient source. The harness executes
-that source, stubbing only `app.core.config.get_settings`; all client method
-logic and HTTP requests remain real. It starts its own loopback Module 3
-subprocess and uses the client's existing five-second timeout.
+The JSON report records the resolved backend commit and SHA-256 of its unmodified
+FaceClient source. It starts loopback Module 3 subprocesses, retaining the actual
+client's five-second timeout except the intentional short-timeout fault probe.
 
-- Fourteen checks passed in each profile: 28/28 service-boundary checks.
-- Four additional real-HTTP fault checks passed: 500, 503, 422 and timeout.
-- No backend app, database, Redis, JWT or complete attendance flow is exercised.
-- No images, templates, private keys or response bodies enter the report.
-- No new people/data were collected; the existing repository sample was used.
-
-Reproduce from this module after bootstrapping the enhanced model assets:
+- Fourteen checks per profile: **28/28 live client/service boundary checks**.
+- **12/12 real HTTP outcome checks:** 503, 500, 422, 408, timeout, non-JSON 200,
+  empty object, boolean score, string boolean, NaN score, bad hash, valid negative.
+- Root mode and raw wire threshold/passive metadata are also checked: the new
+  client deliberately strips some metadata from its validated data result.
+- No backend app, DB, Redis, JWT or complete attendance flow was exercised.
+- No images, templates, private keys or response bodies enter this aggregate
+  report. Existing repository samples only; no new people/data were collected.
 
 ```powershell
 git fetch origin refs/heads/module2-backend:refs/remotes/origin/module2-backend
-python scripts/check_backend_contract.py --backend-ref origin/module2-backend
+python scripts/check_backend_contract.py --backend-ref 7963b06641dc5ed5f3f4f5df8a843b61b068f53c
 ```
 
-For immutable reproduction use the full backend commit above as `--backend-ref`.
-The command reads a local Git ref; it does not fetch or change branches itself.
-Only run this harness against trusted project code: the client source is executed,
-not sandboxed. Its settings are test-only, with no deployment credentials.
+The harness reads a local Git ref, not a fetch/checkout itself. Only execute it
+against trusted project code: the client source is executed, not sandboxed.
+Settings are test-only; no deployment credentials are supplied.
 
-## Shared decisions that are not solved by this boundary pass
+## Remaining joint decisions and integration (not Module 3 edits)
 
-1. **Risk policy:** the current backend check-in flow invokes its own
-   `checkins.risk_service.assess`; it does not call `FaceClient.assess_risk`.
-   Module 3's endpoint is available and tested, but that is not proof it is used
-   for final attendance. Align missing-signal handling, rejection/review policy
-   and ownership with Module 2. No weighting or timeout was changed here.
-2. **Unavailable is not verified:** FaceClient returns None on 5xx/timeout.
-   `_face_signals` leaves values missing, while the current backend risk code
-   initializes missing face/liveness risk to zero. Failed matching alone adds
-   only its weighted risk contribution and does not force rejection. Decide the
-   intended review/rejection behavior jointly; never call this fail-closed
-   attendance authorization based on the Module 3 tests.
-3. **Malformed upstream responses:** the actual client's `is_success` reports
-   true for a non-JSON HTTP 200 represented only as `{"_status": 200}`. This
-   diagnostic observation is explicitly recorded, not counted as biometric
-   success. Validate required booleans, finite scores and templates at the
-   backend boundary. No other module was patched to change that behavior.
-4. **Capacity:** default admission is eight active plus 32 queued, with a
-   two-second queue deadline. 503/Retry-After means rejected work, not a match.
-   The relaxed 128-waiter/30-second throughput experiment is NOT production
-   capacity. Agree resources/arrival rate and fail/review behavior before rollout.
-5. **Accuracy and camera integration:** identity false accepts remain. Version 2
-   fixes EXIF loss in transformed PAD evaluation: its 24 checks pass, superseding
-   old PAD failure counts, but not certifying real camera security. No authorized held-out corpus is
-   available. Full capture -> auth/DB -> face signals -> attendance -> dashboard
-   validation needs the other owners. Active challenges and signed device
-   attestation need multi-frame/server-challenge protocols, not a still-image
-   workaround. Docker remains excluded by the user's instruction.
+1. **Template/scorer policy:** agree default exact-image compatibility versus
+   enhanced similarity, key custody/backup, existing enrollment migration and
+   one consistent scorer version. Equal hash lengths do not prove compatibility.
+2. **Final risk ownership:** backend check-in still calls its own
+   `checkins.risk_service.assess`, not `FaceClient.assess_risk`. Align formulas,
+   signals, score semantics and approve/review/reject policy; the Module 3 risk
+   endpoint being tested does not prove it is used for attendance.
+3. **Missing signals/failure policy:** `_face_signals` leaves unavailable outcomes
+   as None; the current risk calculator initializes missing face/liveness risk
+   to zero. Liveness false explicitly rejects, but face false alone contributes
+   weighted risk rather than forcing rejection. Decide intended behavior for
+   missing image/reference, timeout, 408, overload, malformed result and false
+   decisions. Client validation fixes do not prove fail-closed authorization.
+4. **Real capture/auth/DB flow:** test consent -> enrollment persistence -> new
+   photo check-in -> stored face/liveness signals -> attendance/review/export ->
+   Module 4 dashboard. Include expired JWT, unavailable service and negative
+   decisions. This needs the other owners and their services/test environment.
+5. **Accuracy/PAD:** the existing correlated sample gate now passes, not a held-out
+   security evaluation. Supply authorized labeled identity and print/screen/replay
+   data across real cameras/lighting; agree operating point/target FAR/FRR and
+   APCER/BPCER. Toy-seed sensitivity still finds identity errors.
+6. **Active/device protocols:** passive single-frame liveness cannot verify
+   blink/head-turn or signed device identity. These require multi-frame random
+   server challenges, anti-replay/expiry and frontend/backend protocol agreement.
+7. **Observability/network/deployment:** configure trusted network, upstream
+   header/TCP deadlines, caller auth/rate control, metrics scraping and the real
+   backend -> Module 3 -> Collector -> dashboard trace chain. Local OTLP receiver
+   delivery is verified, not an authenticated/durable production Collector.
+8. **Capacity/operations:** default eight active/32 pending/two-second queue can
+   legitimately reject with 503/Retry-After. Agree retry/review behavior and host
+   resources. Relaxed 128-waiter/30-second throughput is not default capacity;
+   fleet/key distribution, real long-duration load and deployment need owners.
+   Docker remains explicitly excluded from this phase.

@@ -1,5 +1,5 @@
 {
-  "timestamp_utc": "2026-10-20T15:29:33.636244+00:00",
+  "timestamp_utc": "2026-10-23T08:33:46.527600+00:00",
   "completed": true,
   "passed": true,
   "profiles": {
@@ -126,31 +126,108 @@
     "Only the backend settings import is stubbed, not client methods or HTTP responses.",
     "Classification correctness and deployment capacity are separate release gates."
   ],
-  "backend_commit": "601b3813f481ff05c344cfcddea6b191b9230038",
-  "backend_client_sha256": "3729a17bd98a913a0cacc1c75693803dab21218920077c40ac37e00833d8d9cc",
+  "backend_commit": "7963b06641dc5ed5f3f4f5df8a843b61b068f53c",
+  "backend_client_sha256": "b35df5cd628919d5626e5856b8c116a3416c21300d250ad1d99d61bea9feec53",
   "fault_checks": [
     {
       "check": "unavailable",
-      "passed": true
+      "passed": true,
+      "outcome_kind": "unavailable",
+      "http_status": 503,
+      "client_timeout_seconds": 5.0,
+      "request_body_consumed": true
     },
     {
       "check": "error",
-      "passed": true
+      "passed": true,
+      "outcome_kind": "unavailable",
+      "http_status": 500,
+      "client_timeout_seconds": 5.0,
+      "request_body_consumed": true
     },
     {
       "check": "schema",
-      "passed": true
+      "passed": true,
+      "outcome_kind": "client_error",
+      "http_status": 422,
+      "client_timeout_seconds": 5.0,
+      "request_body_consumed": true
+    },
+    {
+      "check": "upload",
+      "passed": true,
+      "outcome_kind": "client_error",
+      "http_status": 408,
+      "client_timeout_seconds": 5.0,
+      "request_body_consumed": true
     },
     {
       "check": "timeout",
-      "passed": true
+      "passed": true,
+      "outcome_kind": "unavailable",
+      "http_status": null,
+      "client_timeout_seconds": 0.03,
+      "request_body_consumed": true
+    },
+    {
+      "check": "malformed",
+      "passed": true,
+      "outcome_kind": "malformed",
+      "http_status": 200,
+      "client_timeout_seconds": 5.0,
+      "request_body_consumed": true
+    },
+    {
+      "check": "empty",
+      "passed": true,
+      "outcome_kind": "malformed",
+      "http_status": 200,
+      "client_timeout_seconds": 5.0,
+      "request_body_consumed": true
+    },
+    {
+      "check": "boolean_score",
+      "passed": true,
+      "outcome_kind": "malformed",
+      "http_status": 200,
+      "client_timeout_seconds": 5.0,
+      "request_body_consumed": true
+    },
+    {
+      "check": "string_boolean",
+      "passed": true,
+      "outcome_kind": "malformed",
+      "http_status": 200,
+      "client_timeout_seconds": 5.0,
+      "request_body_consumed": true
+    },
+    {
+      "check": "nan_score",
+      "passed": true,
+      "outcome_kind": "malformed",
+      "http_status": 200,
+      "client_timeout_seconds": 5.0,
+      "request_body_consumed": true
+    },
+    {
+      "check": "bad_hash",
+      "passed": true,
+      "outcome_kind": "malformed",
+      "http_status": 200,
+      "client_timeout_seconds": 5.0,
+      "request_body_consumed": true
+    },
+    {
+      "check": "valid_negative",
+      "passed": true,
+      "outcome_kind": "ok",
+      "http_status": 200,
+      "client_timeout_seconds": 5.0,
+      "request_body_consumed": true
     }
   ],
   "caller_observations": {
-    "non_json_200_status_only": true,
-    "non_json_200_is_success": true
-  },
-  "caller_warnings": [
-    "FaceClient.is_success accepts a non-JSON 200 based on status alone; validate required typed fields before using biometric evidence."
-  ]
+    "non_json_200_status_only": false,
+    "non_json_200_is_success": false
+  }
 }

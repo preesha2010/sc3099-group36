@@ -1,0 +1,150 @@
+{
+  "timestamp_utc": "2026-10-23T08:26:39.562179+00:00",
+  "profile": "sha256",
+  "format_version": 2,
+  "python": "3.12.10",
+  "platform": "Windows",
+  "opencv": "4.11.0",
+  "configuration": {
+    "FACE_MODEL_WORKERS": "4",
+    "FACE_NATIVE_THREADS": "1",
+    "INFERENCE_CONCURRENCY": "8",
+    "INFERENCE_PENDING": "32",
+    "INFERENCE_QUEUE_SECONDS": "2"
+  },
+  "requested_soak_seconds": 60,
+  "clients": 4,
+  "rss_growth_budget_mib": 128,
+  "restart_workflows_passed": 3,
+  "sustained": {
+    "/face/verify": {
+      "waves": 141,
+      "requests": 564,
+      "successful_200": 564,
+      "health_failures": 0,
+      "maximum_seconds": 0.204,
+      "worst_wave_p95_seconds": 0.204,
+      "status_counts": {
+        "200": 564
+      }
+    },
+    "/liveness/check": {
+      "waves": 141,
+      "requests": 564,
+      "successful_200": 564,
+      "health_failures": 0,
+      "maximum_seconds": 0.375,
+      "worst_wave_p95_seconds": 0.375,
+      "status_counts": {
+        "200": 564
+      }
+    }
+  },
+  "burst": {
+    "/face/verify": {
+      "clients": 100,
+      "status_counts": {
+        "200": 72,
+        "503": 28
+      },
+      "successful_200": 72,
+      "all_responses_contract_valid": true,
+      "p95_all_seconds": 2.015,
+      "p95_successful_seconds": 2.031,
+      "maximum_seconds": 2.031,
+      "health_maximum_seconds": 0.782,
+      "health_failures": 0
+    },
+    "/liveness/check": {
+      "clients": 100,
+      "status_counts": {
+        "200": 49,
+        "503": 51
+      },
+      "successful_200": 49,
+      "all_responses_contract_valid": true,
+      "p95_all_seconds": 2.485,
+      "p95_successful_seconds": 2.719,
+      "maximum_seconds": 2.75,
+      "health_maximum_seconds": 0.312,
+      "health_failures": 0
+    }
+  },
+  "passed": true,
+  "limitations": [
+    "Local process only; not Docker/full-system validation.",
+    "Successful overload rejection does not mean 100-client inference latency meets a target.",
+    "Finite RSS observation is not proof of absence of memory leaks.",
+    "Liveness workflow validates score propagation, not general anti-spoof accuracy."
+  ],
+  "soak_actual_seconds": 60.36,
+  "memory": {
+    "available": true,
+    "sample_count": 142,
+    "window_samples": 10,
+    "initial_bytes": 167866368.0,
+    "final_bytes": 179486720.0,
+    "peak_bytes": 185356288.0,
+    "end_minus_initial_mib": 11.082,
+    "window_growth_mib": 9.807,
+    "growth_within_budget": true
+  },
+  "state": "complete",
+  "memory_samples": [
+    {
+      "elapsed_seconds": 0.0,
+      "rss_bytes": 167866368.0
+    },
+    {
+      "elapsed_seconds": 5.094,
+      "rss_bytes": 173600768.0
+    },
+    {
+      "elapsed_seconds": 10.047,
+      "rss_bytes": 172412928.0
+    },
+    {
+      "elapsed_seconds": 15.047,
+      "rss_bytes": 171708416.0
+    },
+    {
+      "elapsed_seconds": 20.141,
+      "rss_bytes": 174256128.0
+    },
+    {
+      "elapsed_seconds": 25.36,
+      "rss_bytes": 176070656.0
+    },
+    {
+      "elapsed_seconds": 30.156,
+      "rss_bytes": 170397696.0
+    },
+    {
+      "elapsed_seconds": 35.219,
+      "rss_bytes": 172929024.0
+    },
+    {
+      "elapsed_seconds": 40.031,
+      "rss_bytes": 180121600.0
+    },
+    {
+      "elapsed_seconds": 45.235,
+      "rss_bytes": 173748224.0
+    },
+    {
+      "elapsed_seconds": 50.266,
+      "rss_bytes": 181542912.0
+    },
+    {
+      "elapsed_seconds": 55.422,
+      "rss_bytes": 179671040.0
+    },
+    {
+      "elapsed_seconds": 60.328,
+      "rss_bytes": 179486720.0
+    }
+  ],
+  "overload_rejections_total": 79.0,
+  "final_metrics": "# TYPE module3_http_requests_total counter\nmodule3_http_requests_total{route=\"/face/enroll\",status=\"201\"} 1\nmodule3_http_requests_total{route=\"/face/enroll\",status=\"400\"} 1\nmodule3_http_requests_total{route=\"/face/match\",status=\"200\"} 1\nmodule3_http_requests_total{route=\"/face/verify\",status=\"200\"} 644\nmodule3_http_requests_total{route=\"/face/verify\",status=\"400\"} 1\nmodule3_http_requests_total{route=\"/face/verify\",status=\"422\"} 1\nmodule3_http_requests_total{route=\"/face/verify\",status=\"503\"} 28\nmodule3_http_requests_total{route=\"/health\",status=\"200\"} 1761\nmodule3_http_requests_total{route=\"/liveness/check\",status=\"200\"} 620\nmodule3_http_requests_total{route=\"/liveness/check\",status=\"400\"} 1\nmodule3_http_requests_total{route=\"/liveness/check\",status=\"503\"} 51\nmodule3_http_requests_total{route=\"/metrics\",status=\"200\"} 142\nmodule3_http_requests_total{route=\"/ready\",status=\"200\"} 3\nmodule3_http_requests_total{route=\"/risk/assess\",status=\"200\"} 2\nmodule3_http_requests_total{route=\"/risk/assess\",status=\"422\"} 1\n# TYPE module3_stage_seconds histogram\nmodule3_stage_seconds_bucket{stage=\"admission_wait\",le=\"0.01\"} 1165\nmodule3_stage_seconds_bucket{stage=\"admission_wait\",le=\"0.05\"} 1165\nmodule3_stage_seconds_bucket{stage=\"admission_wait\",le=\"0.1\"} 1172\nmodule3_stage_seconds_bucket{stage=\"admission_wait\",le=\"0.25\"} 1179\nmodule3_stage_seconds_bucket{stage=\"admission_wait\",le=\"0.5\"} 1191\nmodule3_stage_seconds_bucket{stage=\"admission_wait\",le=\"1\"} 1234\nmodule3_stage_seconds_bucket{stage=\"admission_wait\",le=\"2\"} 1270\nmodule3_stage_seconds_bucket{stage=\"admission_wait\",le=\"5\"} 1270\nmodule3_stage_seconds_bucket{stage=\"admission_wait\",le=\"10\"} 1270\nmodule3_stage_seconds_bucket{stage=\"admission_wait\",le=\"30\"} 1270\nmodule3_stage_seconds_bucket{stage=\"admission_wait\",le=\"+Inf\"} 1270\nmodule3_stage_seconds_count{stage=\"admission_wait\"} 1270\nmodule3_stage_seconds_sum{stage=\"admission_wait\"} 85.848643500\nmodule3_stage_seconds_bucket{stage=\"embedding\",le=\"0.01\"} 1087\nmodule3_stage_seconds_bucket{stage=\"embedding\",le=\"0.05\"} 1263\nmodule3_stage_seconds_bucket{stage=\"embedding\",le=\"0.1\"} 1264\nmodule3_stage_seconds_bucket{stage=\"embedding\",le=\"0.25\"} 1264\nmodule3_stage_seconds_bucket{stage=\"embedding\",le=\"0.5\"} 1264\nmodule3_stage_seconds_bucket{stage=\"embedding\",le=\"1\"} 1264\nmodule3_stage_seconds_bucket{stage=\"embedding\",le=\"2\"} 1264\nmodule3_stage_seconds_bucket{stage=\"embedding\",le=\"5\"} 1264\nmodule3_stage_seconds_bucket{stage=\"embedding\",le=\"10\"} 1264\nmodule3_stage_seconds_bucket{stage=\"embedding\",le=\"30\"} 1264\nmodule3_stage_seconds_bucket{stage=\"embedding\",le=\"+Inf\"} 1264\nmodule3_stage_seconds_count{stage=\"embedding\"} 1264\nmodule3_stage_seconds_sum{stage=\"embedding\"} 5.851126900\nmodule3_stage_seconds_bucket{stage=\"face_detect\",le=\"0.01\"} 0\nmodule3_stage_seconds_bucket{stage=\"face_detect\",le=\"0.05\"} 909\nmodule3_stage_seconds_bucket{stage=\"face_detect\",le=\"0.1\"} 1252\nmodule3_stage_seconds_bucket{stage=\"face_detect\",le=\"0.25\"} 1266\nmodule3_stage_seconds_bucket{stage=\"face_detect\",le=\"0.5\"} 1266\nmodule3_stage_seconds_bucket{stage=\"face_detect\",le=\"1\"} 1266\nmodule3_stage_seconds_bucket{stage=\"face_detect\",le=\"2\"} 1266\nmodule3_stage_seconds_bucket{stage=\"face_detect\",le=\"5\"} 1266\nmodule3_stage_seconds_bucket{stage=\"face_detect\",le=\"10\"} 1266\nmodule3_stage_seconds_bucket{stage=\"face_detect\",le=\"30\"} 1266\nmodule3_stage_seconds_bucket{stage=\"face_detect\",le=\"+Inf\"} 1266\nmodule3_stage_seconds_count{stage=\"face_detect\"} 1266\nmodule3_stage_seconds_sum{stage=\"face_detect\"} 56.837749500\nmodule3_stage_seconds_bucket{stage=\"http__face_enroll\",le=\"0.01\"} 1\nmodule3_stage_seconds_bucket{stage=\"http__face_enroll\",le=\"0.05\"} 1\nmodule3_stage_seconds_bucket{stage=\"http__face_enroll\",le=\"0.1\"} 2\nmodule3_stage_seconds_bucket{stage=\"http__face_enroll\",le=\"0.25\"} 2\nmodule3_stage_seconds_bucket{stage=\"http__face_enroll\",le=\"0.5\"} 2\nmodule3_stage_seconds_bucket{stage=\"http__face_enroll\",le=\"1\"} 2\nmodule3_stage_seconds_bucket{stage=\"http__face_enroll\",le=\"2\"} 2\nmodule3_stage_seconds_bucket{stage=\"http__face_enroll\",le=\"5\"} 2\nmodule3_stage_seconds_bucket{stage=\"http__face_enroll\",le=\"10\"} 2\nmodule3_stage_seconds_bucket{stage=\"http__face_enroll\",le=\"30\"} 2\nmodule3_stage_seconds_bucket{stage=\"http__face_enroll\",le=\"+Inf\"} 2\nmodule3_stage_seconds_count{stage=\"http__face_enroll\"} 2\nmodule3_stage_seconds_sum{stage=\"http__face_enroll\"} 0.098262300\nmodule3_stage_seconds_bucket{stage=\"http__face_match\",le=\"0.01\"} 0\nmodule3_stage_seconds_bucket{stage=\"http__face_match\",le=\"0.05\"} 0\nmodule3_stage_seconds_bucket{stage=\"http__face_match\",le=\"0.1\"} 1\nmodule3_stage_seconds_bucket{stage=\"http__face_match\",le=\"0.25\"} 1\nmodule3_stage_seconds_bucket{stage=\"http__face_match\",le=\"0.5\"} 1\nmodule3_stage_seconds_bucket{stage=\"http__face_match\",le=\"1\"} 1\nmodule3_stage_seconds_bucket{stage=\"http__face_match\",le=\"2\"} 1\nmodule3_stage_seconds_bucket{stage=\"http__face_match\",le=\"5\"} 1\nmodule3_stage_seconds_bucket{stage=\"http__face_match\",le=\"10\"} 1\nmodule3_stage_seconds_bucket{stage=\"http__face_match\",le=\"30\"} 1\nmodule3_stage_seconds_bucket{stage=\"http__face_match\",le=\"+Inf\"} 1\nmodule3_stage_seconds_count{stage=\"http__face_match\"} 1\nmodule3_stage_seconds_sum{stage=\"http__face_match\"} 0.064328700\nmodule3_stage_seconds_bucket{stage=\"http__face_verify\",le=\"0.01\"} 29\nmodule3_stage_seconds_bucket{stage=\"http__face_verify\",le=\"0.05\"} 31\nmodule3_stage_seconds_bucket{stage=\"http__face_verify\",le=\"0.1\"} 43\nmodule3_stage_seconds_bucket{stage=\"http__face_verify\",le=\"0.25\"} 606\nmodule3_stage_seconds_bucket{stage=\"http__face_verify\",le=\"0.5\"} 618\nmodule3_stage_seconds_bucket{stage=\"http__face_verify\",le=\"1\"} 642\nmodule3_stage_seconds_bucket{stage=\"http__face_verify\",le=\"2\"} 674\nmodule3_stage_seconds_bucket{stage=\"http__face_verify\",le=\"5\"} 674\nmodule3_stage_seconds_bucket{stage=\"http__face_verify\",le=\"10\"} 674\nmodule3_stage_seconds_bucket{stage=\"http__face_verify\",le=\"30\"} 674\nmodule3_stage_seconds_bucket{stage=\"http__face_verify\",le=\"+Inf\"} 674\nmodule3_stage_seconds_count{stage=\"http__face_verify\"} 674\nmodule3_stage_seconds_sum{stage=\"http__face_verify\"} 133.034946800\nmodule3_stage_seconds_bucket{stage=\"http__liveness_check\",le=\"0.01\"} 52\nmodule3_stage_seconds_bucket{stage=\"http__liveness_check\",le=\"0.05\"} 53\nmodule3_stage_seconds_bucket{stage=\"http__liveness_check\",le=\"0.1\"} 53\nmodule3_stage_seconds_bucket{stage=\"http__liveness_check\",le=\"0.25\"} 571\nmodule3_stage_seconds_bucket{stage=\"http__liveness_check\",le=\"0.5\"} 629\nmodule3_stage_seconds_bucket{stage=\"http__liveness_check\",le=\"1\"} 642\nmodule3_stage_seconds_bucket{stage=\"http__liveness_check\",le=\"2\"} 663\nmodule3_stage_seconds_bucket{stage=\"http__liveness_check\",le=\"5\"} 672\nmodule3_stage_seconds_bucket{stage=\"http__liveness_check\",le=\"10\"} 672\nmodule3_stage_seconds_bucket{stage=\"http__liveness_check\",le=\"30\"} 672\nmodule3_stage_seconds_bucket{stage=\"http__liveness_check\",le=\"+Inf\"} 672\nmodule3_stage_seconds_count{stage=\"http__liveness_check\"} 672\nmodule3_stage_seconds_sum{stage=\"http__liveness_check\"} 182.635279100\nmodule3_stage_seconds_bucket{stage=\"http__risk_assess\",le=\"0.01\"} 3\nmodule3_stage_seconds_bucket{stage=\"http__risk_assess\",le=\"0.05\"} 3\nmodule3_stage_seconds_bucket{stage=\"http__risk_assess\",le=\"0.1\"} 3\nmodule3_stage_seconds_bucket{stage=\"http__risk_assess\",le=\"0.25\"} 3\nmodule3_stage_seconds_bucket{stage=\"http__risk_assess\",le=\"0.5\"} 3\nmodule3_stage_seconds_bucket{stage=\"http__risk_assess\",le=\"1\"} 3\nmodule3_stage_seconds_bucket{stage=\"http__risk_assess\",le=\"2\"} 3\nmodule3_stage_seconds_bucket{stage=\"http__risk_assess\",le=\"5\"} 3\nmodule3_stage_seconds_bucket{stage=\"http__risk_assess\",le=\"10\"} 3\nmodule3_stage_seconds_bucket{stage=\"http__risk_assess\",le=\"30\"} 3\nmodule3_stage_seconds_bucket{stage=\"http__risk_assess\",le=\"+Inf\"} 3\nmodule3_stage_seconds_count{stage=\"http__risk_assess\"} 3\nmodule3_stage_seconds_sum{stage=\"http__risk_assess\"} 0.006389700\nmodule3_stage_seconds_bucket{stage=\"image_decode\",le=\"0.01\"} 3\nmodule3_stage_seconds_bucket{stage=\"image_decode\",le=\"0.05\"} 429\nmodule3_stage_seconds_bucket{stage=\"image_decode\",le=\"0.1\"} 1176\nmodule3_stage_seconds_bucket{stage=\"image_decode\",le=\"0.25\"} 1267\nmodule3_stage_seconds_bucket{stage=\"image_decode\",le=\"0.5\"} 1267\nmodule3_stage_seconds_bucket{stage=\"image_decode\",le=\"1\"} 1267\nmodule3_stage_seconds_bucket{stage=\"image_decode\",le=\"2\"} 1267\nmodule3_stage_seconds_bucket{stage=\"image_decode\",le=\"5\"} 1267\nmodule3_stage_seconds_bucket{stage=\"image_decode\",le=\"10\"} 1267\nmodule3_stage_seconds_bucket{stage=\"image_decode\",le=\"30\"} 1267\nmodule3_stage_seconds_bucket{stage=\"image_decode\",le=\"+Inf\"} 1267\nmodule3_stage_seconds_count{stage=\"image_decode\"} 1267\nmodule3_stage_seconds_sum{stage=\"image_decode\"} 80.859362500\nmodule3_stage_seconds_bucket{stage=\"mesh\",le=\"0.01\"} 0\nmodule3_stage_seconds_bucket{stage=\"mesh\",le=\"0.05\"} 19\nmodule3_stage_seconds_bucket{stage=\"mesh\",le=\"0.1\"} 587\nmodule3_stage_seconds_bucket{stage=\"mesh\",le=\"0.25\"} 619\nmodule3_stage_seconds_bucket{stage=\"mesh\",le=\"0.5\"} 619\nmodule3_stage_seconds_bucket{stage=\"mesh\",le=\"1\"} 619\nmodule3_stage_seconds_bucket{stage=\"mesh\",le=\"2\"} 619\nmodule3_stage_seconds_bucket{stage=\"mesh\",le=\"5\"} 619\nmodule3_stage_seconds_bucket{stage=\"mesh\",le=\"10\"} 619\nmodule3_stage_seconds_bucket{stage=\"mesh\",le=\"30\"} 619\nmodule3_stage_seconds_bucket{stage=\"mesh\",le=\"+Inf\"} 619\nmodule3_stage_seconds_count{stage=\"mesh\"} 619\nmodule3_stage_seconds_sum{stage=\"mesh\"} 42.255862900\nmodule3_stage_seconds_bucket{stage=\"template\",le=\"0.01\"} 1243\nmodule3_stage_seconds_bucket{stage=\"template\",le=\"0.05\"} 1264\nmodule3_stage_seconds_bucket{stage=\"template\",le=\"0.1\"} 1264\nmodule3_stage_seconds_bucket{stage=\"template\",le=\"0.25\"} 1264\nmodule3_stage_seconds_bucket{stage=\"template\",le=\"0.5\"} 1264\nmodule3_stage_seconds_bucket{stage=\"template\",le=\"1\"} 1264\nmodule3_stage_seconds_bucket{stage=\"template\",le=\"2\"} 1264\nmodule3_stage_seconds_bucket{stage=\"template\",le=\"5\"} 1264\nmodule3_stage_seconds_bucket{stage=\"template\",le=\"10\"} 1264\nmodule3_stage_seconds_bucket{stage=\"template\",le=\"30\"} 1264\nmodule3_stage_seconds_bucket{stage=\"template\",le=\"+Inf\"} 1264\nmodule3_stage_seconds_count{stage=\"template\"} 1264\nmodule3_stage_seconds_sum{stage=\"template\"} 0.729635200\n# TYPE module3_inference_active gauge\nmodule3_inference_active 0\n# TYPE module3_inference_pending gauge\nmodule3_inference_pending 0\n# TYPE module3_overload_rejections_total counter\nmodule3_overload_rejections_total 79\n# TYPE module3_trace_export_failures_total counter\nmodule3_trace_export_failures_total 0\n# TYPE module3_process_resident_bytes gauge\nmodule3_process_resident_bytes 180850688\n# TYPE module3_model_degraded_slots gauge\n# TYPE module3_model_slots gauge\n",
+  "five_second_sustained_target_met": true
+}

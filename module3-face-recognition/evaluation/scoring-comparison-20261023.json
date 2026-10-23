@@ -1,0 +1,462 @@
+{
+  "timestamp_utc": "2026-10-23T08:19:41.193136+00:00",
+  "completed": true,
+  "threshold": 0.7,
+  "conditions": {
+    "original": {
+      "historical_rescaled_hamming": {
+        "comparisons": 5,
+        "genuine": 3,
+        "false_rejects": 0,
+        "impostor": 2,
+        "false_accepts": 1
+      },
+      "cosine_hamming": {
+        "comparisons": 5,
+        "genuine": 3,
+        "false_rejects": 1,
+        "impostor": 2,
+        "false_accepts": 0
+      },
+      "raw_cosine": {
+        "comparisons": 5,
+        "genuine": 3,
+        "false_rejects": 0,
+        "impostor": 2,
+        "false_accepts": 0
+      },
+      "raw_rescaled": {
+        "comparisons": 5,
+        "genuine": 3,
+        "false_rejects": 0,
+        "impostor": 2,
+        "false_accepts": 0
+      },
+      "query_margin_cosine": {
+        "comparisons": 5,
+        "genuine": 3,
+        "false_rejects": 2,
+        "impostor": 2,
+        "false_accepts": 0
+      },
+      "query_margin_rescaled": {
+        "comparisons": 5,
+        "genuine": 3,
+        "false_rejects": 0,
+        "impostor": 2,
+        "false_accepts": 0
+      }
+    },
+    "dark": {
+      "historical_rescaled_hamming": {
+        "comparisons": 5,
+        "genuine": 3,
+        "false_rejects": 0,
+        "impostor": 2,
+        "false_accepts": 0
+      },
+      "cosine_hamming": {
+        "comparisons": 5,
+        "genuine": 3,
+        "false_rejects": 2,
+        "impostor": 2,
+        "false_accepts": 0
+      },
+      "raw_cosine": {
+        "comparisons": 5,
+        "genuine": 3,
+        "false_rejects": 0,
+        "impostor": 2,
+        "false_accepts": 0
+      },
+      "raw_rescaled": {
+        "comparisons": 5,
+        "genuine": 3,
+        "false_rejects": 0,
+        "impostor": 2,
+        "false_accepts": 0
+      },
+      "query_margin_cosine": {
+        "comparisons": 5,
+        "genuine": 3,
+        "false_rejects": 2,
+        "impostor": 2,
+        "false_accepts": 0
+      },
+      "query_margin_rescaled": {
+        "comparisons": 5,
+        "genuine": 3,
+        "false_rejects": 0,
+        "impostor": 2,
+        "false_accepts": 0
+      }
+    },
+    "bright": {
+      "historical_rescaled_hamming": {
+        "comparisons": 5,
+        "genuine": 3,
+        "false_rejects": 0,
+        "impostor": 2,
+        "false_accepts": 0
+      },
+      "cosine_hamming": {
+        "comparisons": 5,
+        "genuine": 3,
+        "false_rejects": 1,
+        "impostor": 2,
+        "false_accepts": 0
+      },
+      "raw_cosine": {
+        "comparisons": 5,
+        "genuine": 3,
+        "false_rejects": 0,
+        "impostor": 2,
+        "false_accepts": 0
+      },
+      "raw_rescaled": {
+        "comparisons": 5,
+        "genuine": 3,
+        "false_rejects": 0,
+        "impostor": 2,
+        "false_accepts": 0
+      },
+      "query_margin_cosine": {
+        "comparisons": 5,
+        "genuine": 3,
+        "false_rejects": 2,
+        "impostor": 2,
+        "false_accepts": 0
+      },
+      "query_margin_rescaled": {
+        "comparisons": 5,
+        "genuine": 3,
+        "false_rejects": 0,
+        "impostor": 2,
+        "false_accepts": 0
+      }
+    },
+    "low_contrast": {
+      "historical_rescaled_hamming": {
+        "comparisons": 5,
+        "genuine": 3,
+        "false_rejects": 0,
+        "impostor": 2,
+        "false_accepts": 1
+      },
+      "cosine_hamming": {
+        "comparisons": 5,
+        "genuine": 3,
+        "false_rejects": 2,
+        "impostor": 2,
+        "false_accepts": 0
+      },
+      "raw_cosine": {
+        "comparisons": 5,
+        "genuine": 3,
+        "false_rejects": 0,
+        "impostor": 2,
+        "false_accepts": 0
+      },
+      "raw_rescaled": {
+        "comparisons": 5,
+        "genuine": 3,
+        "false_rejects": 0,
+        "impostor": 2,
+        "false_accepts": 0
+      },
+      "query_margin_cosine": {
+        "comparisons": 5,
+        "genuine": 3,
+        "false_rejects": 2,
+        "impostor": 2,
+        "false_accepts": 0
+      },
+      "query_margin_rescaled": {
+        "comparisons": 5,
+        "genuine": 3,
+        "false_rejects": 0,
+        "impostor": 2,
+        "false_accepts": 0
+      }
+    },
+    "rotate_left": {
+      "historical_rescaled_hamming": {
+        "comparisons": 5,
+        "genuine": 3,
+        "false_rejects": 0,
+        "impostor": 2,
+        "false_accepts": 1
+      },
+      "cosine_hamming": {
+        "comparisons": 5,
+        "genuine": 3,
+        "false_rejects": 2,
+        "impostor": 2,
+        "false_accepts": 0
+      },
+      "raw_cosine": {
+        "comparisons": 5,
+        "genuine": 3,
+        "false_rejects": 0,
+        "impostor": 2,
+        "false_accepts": 0
+      },
+      "raw_rescaled": {
+        "comparisons": 5,
+        "genuine": 3,
+        "false_rejects": 0,
+        "impostor": 2,
+        "false_accepts": 0
+      },
+      "query_margin_cosine": {
+        "comparisons": 5,
+        "genuine": 3,
+        "false_rejects": 2,
+        "impostor": 2,
+        "false_accepts": 0
+      },
+      "query_margin_rescaled": {
+        "comparisons": 5,
+        "genuine": 3,
+        "false_rejects": 0,
+        "impostor": 2,
+        "false_accepts": 0
+      }
+    },
+    "rotate_right": {
+      "historical_rescaled_hamming": {
+        "comparisons": 5,
+        "genuine": 3,
+        "false_rejects": 0,
+        "impostor": 2,
+        "false_accepts": 0
+      },
+      "cosine_hamming": {
+        "comparisons": 5,
+        "genuine": 3,
+        "false_rejects": 2,
+        "impostor": 2,
+        "false_accepts": 0
+      },
+      "raw_cosine": {
+        "comparisons": 5,
+        "genuine": 3,
+        "false_rejects": 2,
+        "impostor": 2,
+        "false_accepts": 0
+      },
+      "raw_rescaled": {
+        "comparisons": 5,
+        "genuine": 3,
+        "false_rejects": 0,
+        "impostor": 2,
+        "false_accepts": 0
+      },
+      "query_margin_cosine": {
+        "comparisons": 5,
+        "genuine": 3,
+        "false_rejects": 2,
+        "impostor": 2,
+        "false_accepts": 0
+      },
+      "query_margin_rescaled": {
+        "comparisons": 5,
+        "genuine": 3,
+        "false_rejects": 0,
+        "impostor": 2,
+        "false_accepts": 0
+      }
+    },
+    "jpeg40": {
+      "historical_rescaled_hamming": {
+        "comparisons": 5,
+        "genuine": 3,
+        "false_rejects": 0,
+        "impostor": 2,
+        "false_accepts": 1
+      },
+      "cosine_hamming": {
+        "comparisons": 5,
+        "genuine": 3,
+        "false_rejects": 2,
+        "impostor": 2,
+        "false_accepts": 0
+      },
+      "raw_cosine": {
+        "comparisons": 5,
+        "genuine": 3,
+        "false_rejects": 0,
+        "impostor": 2,
+        "false_accepts": 0
+      },
+      "raw_rescaled": {
+        "comparisons": 5,
+        "genuine": 3,
+        "false_rejects": 0,
+        "impostor": 2,
+        "false_accepts": 0
+      },
+      "query_margin_cosine": {
+        "comparisons": 5,
+        "genuine": 3,
+        "false_rejects": 2,
+        "impostor": 2,
+        "false_accepts": 0
+      },
+      "query_margin_rescaled": {
+        "comparisons": 5,
+        "genuine": 3,
+        "false_rejects": 0,
+        "impostor": 2,
+        "false_accepts": 0
+      }
+    },
+    "resize512": {
+      "historical_rescaled_hamming": {
+        "comparisons": 5,
+        "genuine": 3,
+        "false_rejects": 0,
+        "impostor": 2,
+        "false_accepts": 1
+      },
+      "cosine_hamming": {
+        "comparisons": 5,
+        "genuine": 3,
+        "false_rejects": 2,
+        "impostor": 2,
+        "false_accepts": 0
+      },
+      "raw_cosine": {
+        "comparisons": 5,
+        "genuine": 3,
+        "false_rejects": 0,
+        "impostor": 2,
+        "false_accepts": 0
+      },
+      "raw_rescaled": {
+        "comparisons": 5,
+        "genuine": 3,
+        "false_rejects": 0,
+        "impostor": 2,
+        "false_accepts": 0
+      },
+      "query_margin_cosine": {
+        "comparisons": 5,
+        "genuine": 3,
+        "false_rejects": 2,
+        "impostor": 2,
+        "false_accepts": 0
+      },
+      "query_margin_rescaled": {
+        "comparisons": 5,
+        "genuine": 3,
+        "false_rejects": 0,
+        "impostor": 2,
+        "false_accepts": 0
+      }
+    }
+  },
+  "totals": {
+    "historical_rescaled_hamming": {
+      "comparisons": 40,
+      "genuine": 24,
+      "false_rejects": 0,
+      "impostor": 16,
+      "false_accepts": 5
+    },
+    "cosine_hamming": {
+      "comparisons": 40,
+      "genuine": 24,
+      "false_rejects": 14,
+      "impostor": 16,
+      "false_accepts": 0
+    },
+    "raw_cosine": {
+      "comparisons": 40,
+      "genuine": 24,
+      "false_rejects": 2,
+      "impostor": 16,
+      "false_accepts": 0
+    },
+    "raw_rescaled": {
+      "comparisons": 40,
+      "genuine": 24,
+      "false_rejects": 0,
+      "impostor": 16,
+      "false_accepts": 0
+    },
+    "query_margin_cosine": {
+      "comparisons": 40,
+      "genuine": 24,
+      "false_rejects": 16,
+      "impostor": 16,
+      "false_accepts": 0
+    },
+    "query_margin_rescaled": {
+      "comparisons": 40,
+      "genuine": 24,
+      "false_rejects": 0,
+      "impostor": 16,
+      "false_accepts": 0
+    }
+  },
+  "toy_seed_sensitivity": {
+    "query_margin_rescaled": {
+      "comparisons": 1280,
+      "genuine": 768,
+      "false_rejects": 0,
+      "impostor": 512,
+      "false_accepts": 47
+    },
+    "historical_rescaled_hamming": {
+      "comparisons": 1280,
+      "genuine": 768,
+      "false_rejects": 2,
+      "impostor": 512,
+      "false_accepts": 69
+    }
+  },
+  "toy_seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23,
+    24,
+    25,
+    26,
+    27,
+    28,
+    29,
+    30,
+    31
+  ],
+  "formulas_fitted_to_samples": false,
+  "newly_collected_faces": 0,
+  "limitations": [
+    "Two identities and correlated transforms only, not a calibration/held-out dataset.",
+    "Only query_margin_rescaled is now live; all other formulas are diagnostic/rejected.",
+    "No production template/key/projection is changed or selected by this script.",
+    "Toy seeds repeat the SAME people; counts are sensitivity, not population error rates.",
+    "Raw vector baselines are diagnostic, never reference-vector storage proposals."
+  ]
+}

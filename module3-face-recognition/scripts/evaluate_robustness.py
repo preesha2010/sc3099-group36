@@ -19,6 +19,7 @@ from support import MODULE, local_service, report_target, save_report
 sys.path.insert(0, str(MODULE))
 from app.evaluation import summarize
 from app.model_assets import FAS
+from app.services.templates import SCORE_POLICY
 from evaluate import PAD_SAMPLES
 
 CONDITIONS = ("original", "dark", "bright", "low_contrast", "rotate_left", "rotate_right", "jpeg40", "resize512")
@@ -100,6 +101,7 @@ def main():
     target = report_target(args.report)
     record = {"timestamp_utc": datetime.now(timezone.utc).isoformat(), "conditions": {},
               "transform_version": 2, "exif_orientation_normalized_before_transforms": True,
+              "score_policy": SCORE_POLICY,
               "independent_identities": 2, "independent_pad_sources": 3, "newly_collected_faces": 0,
               "identity_pairs_per_condition": 5, "genuine_pairs_derived_from_enrollment_per_condition": 1,
               "transport_checks_passed": False,

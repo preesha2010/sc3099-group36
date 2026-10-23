@@ -5,6 +5,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 from PIL import Image, ImageEnhance
+from fastapi.testclient import TestClient
 
 from app.model_assets import model_directory
 
@@ -22,20 +23,23 @@ def image(name, brightness=None):
 
 
 @pytest.fixture
-def reference(client, monkeypatch):
+def reference(monkeypatch):
+    from app.main import app
     monkeypatch.setenv("FACE_TEMPLATE_MODE", "simhash")
-    result = client.post("/face/enroll", json={"user_id": "neural-test", "image": image("obama.jpg"), "camera_consent": True})
-    assert result.status_code == 201, result.text
-    assert result.json()["details"]["template_mode"] == "simhash"
-    return result.json()["face_template_hash"]
+    with TestClient(app) as client:
+        result = client.post("/face/enroll", json={"user_id": "neural-test", "image": image("obama.jpg"), "camera_consent": True})
+        assert result.status_code == 201, result.text
+        assert result.json()["details"]["template_mode"] == "simhash"
+        yield client, result.json()["face_template_hash"]
 
 
 @pytest.mark.parametrize("name,brightness,expected", [
     ("obama.jpg", None, True), ("obama2.jpg", None, True), ("obama3.jpg", None, True),
     ("obama.jpg", .75, True), ("obama.jpg", 1.25, True), ("biden.jpg", None, False),
 ])
-def test_identity_across_photos_and_lighting(client, reference, name, brightness, expected):
-    result = client.post("/face/verify", json={"image": image(name, brightness), "reference_template_hash": reference})
+def test_identity_across_photos_and_lighting(reference, name, brightness, expected):
+    client, template = reference
+    result = client.post("/face/verify", json={"image": image(name, brightness), "reference_template_hash": template})
     assert result.status_code == 200, result.text
     assert result.json()["match_passed"] is expected
 

@@ -3,16 +3,20 @@
 Internal FastAPI service on port 8001. No backend, database or Redis is needed
 to run its endpoints or standalone tests. Only files in this module are modified.
 
-**Latest handoff (2026-10-20):** see `VALIDATION-20261020.md`,
-`MODULE2-INTEGRATION.md` and `TEAM-UPDATE.md`. Engineering/API checks pass;
-the separate biometric classification gate still FAILS. Do not interpret test
-counts or operational readiness as permission for automatic attendance approval.
+**Latest handoff (2026-10-23):** see `VALIDATION-20261023.md`,
+`STANDALONE-COMPLETION.md`, `MODULE2-INTEGRATION.md` and `TEAM-UPDATE.md`.
+181 module-local tests, both public profiles and the existing-sample
+classification gate pass. This completes the bounded standalone engineering
+checklist, NOT independent biometric/security approval or full-system integration.
+The dated records below are historical; use the latest report for current claims.
 
 **Evaluation correction:** older transformed PAD counts (two attack accepts and
 seven genuine rejects) used a helper that lost EXIF orientation. Version 2
 normalizes display orientation first; its 24 PAD checks pass. Those old counts
-must NOT be cited as current model-error estimates. The five identity false
-accepts remain. No production model/threshold/key policy was changed to get this.
+must NOT be cited as current model-error estimates. On October 23 the user
+authorized a scoring change: the five existing identity false accepts are no
+longer present in this local sample gate. No weights/key/encoding/thresholds were
+changed. Toy-seed sensitivity still finds errors; do not infer general accuracy.
 
 ## Run locally
 
@@ -64,10 +68,29 @@ exported ONNX checksums are verified; licenses and provenance are described in
 SimHash mode uses aligned, normalized SFace identity features (128 dimensions)
 and 64 fixed private random projections, following the lecture's approach.
 The 64-hex result contains version/key ID, eight bytes of SimHash, and a 16-byte
-HMAC-SHA256 authentication tag. The API score is `(1 + cos(pi * distance/64))/2`,
-with the documented threshold 0.70. It is not a SHA-256 digest of an embedding.
+HMAC-SHA256 authentication tag. Current scoring policy is
+`gaussian_query_margin_agreement_v3`, advertised by `GET /`. It compares the
+authenticated reference sign bits with the transient query projection margins,
+without quantizing the query again. For unit query `u`, reference signs `s` and
+the unchanged Gaussian projection matrix `A`, the score is
+`clip((1 + sqrt(pi/2) * mean(s * (A @ u)))/2, 0, 1)` (six decimal places).
+This is normalized agreement, NOT raw cosine: score threshold **0.70** corresponds
+to an estimated cosine operating point **0.40**. It is not a calibrated match
+probability. The previous rescaled Hamming formula is no longer live; direct
+Hamming-cosine .70 was evaluated and rejected because it rejected 14/24 genuine
+comparisons. See the latest validation report for every candidate's FA/FR counts.
+It is not a SHA-256 digest of an embedding.
 It exposes similarity information and remains sensitive biometric data; this
 format does not claim cryptographic non-reconstructability or anonymization.
+The new continuous score exposes finer similarity information than the old
+65-level Hamming score. Keep this API internal and apply authenticated caller
+access/rate controls upstream; no resistance to adaptive score-oracle attacks is
+claimed. Only transient query features are used, never a stored reference vector.
+
+Existing signed SimHash templates remain byte-compatible with this score-only
+update: keep the SAME key/weights/projection, drain traffic and restart all
+instances consistently. No re-enrollment is needed for this update alone, but
+old/new scorers must not be mixed: their decisions and risk inputs differ.
 
 **Do not mix profiles.** Legacy SHA-256 templates are rejected by SimHash mode;
 users must re-enroll. Back up `models/template.key`, keep it out of Git and logs,
@@ -226,7 +249,7 @@ cleanup. See `evaluation/latest.json` for the full measured report.
 - SHA-256 compatibility public tests: 15/15; enhanced public tests: 15/15.
 
 - Obama same/different photographs pass against the original enrollment;
-  Biden is rejected. Current scores: 1.0, 0.777785, 0.817197, 0.378510.
+  Biden is rejected. Historical scores: 1.0, 0.777785, 0.817197, 0.378510.
 - Publisher attack samples F1/F2 are rejected at 0.072331/0.181286; T1 passes
   at 0.993568. These are two attack examples and one genuine example, not a
   validated general-purpose PAD accuracy estimate.

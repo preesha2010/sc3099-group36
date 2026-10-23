@@ -12,10 +12,44 @@ from functools import lru_cache
 
 import numpy as np
 from fastapi import HTTPException
+from app.observability import timed
 
 from app.model_assets import ASSETS, model_directory
 
 PREFIX = b"SF\x01\x00"
+SCORE_POLICY = "gaussian_query_margin_agreement_v3"
+
+
+def score_distance(distance: int, bits: int = 64) -> float:
+    """Unshipped bit-only cosine diagnostic, NOT the live query-margin policy."""
+    if type(distance) is not int or type(bits) is not int or bits <= 0 or not 0 <= distance <= bits:
+        raise ValueError("Invalid SimHash distance")
+    return round(max(0., math.cos(math.pi * distance / bits)), 6)
+
+
+@timed("similarity")
+def match_query_to_template(embedding: np.ndarray, reference: str) -> float:
+    """Compare transient query margins to authenticated reference sign bits.
+
+    For unit u/v and a standard Gaussian plane a,
+      E[sign(a.v) * (a.u)] = sqrt(2/pi) * dot(u,v).
+    Thus sqrt(pi/2)*mean(reference_sign*query_margin) estimates cosine without
+    quantizing the query a second time. Map [-1,1] to agreement [0,1] explicitly.
+    No learned fit, template re-encoding, reference vector or new key is needed.
+    Finite 64-plane estimation still needs independent accuracy validation.
+    """
+    key = template_key()
+    code = decode_simhash(reference, key)
+    vector = np.asarray(embedding, dtype=np.float32).reshape(-1)
+    norm = np.linalg.norm(vector)
+    if vector.shape != (128,) or not np.isfinite(vector).all() or not np.isfinite(norm) or norm < 1e-8:
+        raise HTTPException(status_code=503, detail="Invalid local identity features for similarity")
+    signs = np.unpackbits(np.frombuffer(code, dtype=np.uint8)).astype(np.float64) * 2. - 1.
+    margins = np.einsum("ij,j->i", projection(key), vector / norm, optimize=False)
+    estimated_cosine = math.sqrt(math.pi / 2.) * float(np.mean(signs * margins))
+    if not math.isfinite(estimated_cosine):
+        raise HTTPException(status_code=503, detail="Invalid local similarity model output")
+    return round(float(np.clip((1. + estimated_cosine) / 2., 0., 1.)), 6)
 
 
 def template_mode() -> str:
@@ -80,14 +114,18 @@ def decode_simhash(value: str, key: bytes) -> bytes:
 
 
 def match_templates(current: str, reference: str) -> float:
-    if template_mode() == "sha256":
-        return 1.0 if hmac.compare_digest(current, reference) else 0.0
+    """Legacy exact-image compatibility only; never downgrade SimHash matching."""
+    if template_mode() != "sha256":
+        raise HTTPException(status_code=503, detail="Similarity requires transient query features; hash-only fallback is disabled")
+    return 1.0 if hmac.compare_digest(current, reference) else 0.0
+
+
+def diagnostic_hash_cosine(current: str, reference: str) -> float:
+    """Authenticated hash-only diagnostic retained for reproducible comparisons."""
     key = template_key()
     left, right = decode_simhash(current, key), decode_simhash(reference, key)
     distance = (int.from_bytes(left, "big") ^ int.from_bytes(right, "big")).bit_count()
-    # Random-hyperplane LSH estimates cosine = cos(pi * Hamming distance / bits).
-    # Map [-1,1] to the API's [0,1]; API threshold .70 means estimated cosine .40.
-    return round((1.0 + math.cos(math.pi * distance / 64.0)) / 2.0, 6)
+    return score_distance(distance)
 
 
 def validate_reference(reference: str) -> None:

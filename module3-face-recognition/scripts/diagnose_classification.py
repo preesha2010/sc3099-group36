@@ -26,12 +26,12 @@ from app.main import app
 from app.model_assets import FAS
 from app.services.face import detect_face, extract_face_embedding, generate_face_hash
 from app.services.image import decode_base64_image
-from app.services.templates import decode_simhash, match_templates, template_key, projection
+from app.services.templates import decode_simhash, match_query_to_template, template_key, projection, SCORE_POLICY
 
 
 def identity_observation(expected, raw_cosine, estimated_score):
-    # Both comparisons use the SAME numerical mapping/threshold. Using .70
-    # directly as a raw cosine would introduce a second policy change.
+    # Service v3 is normalized query-margin agreement, explicitly NOT raw
+    # cosine .70. The equivalent raw-vector diagnostic operating point is .40.
     raw_pass = (1. + raw_cosine) / 2. >= .7
     template_pass = estimated_score >= .7
     return {"comparisons": 1, "raw_equivalent_false_accepts": int(not expected and raw_pass),
@@ -112,7 +112,7 @@ def diagnose(client, photos, presentations, record, study=False):
                 vector = features(perturb(photos[name], condition))
                 try:
                     reference, template = references[target]
-                    score = match_templates(generate_face_hash(vector), template)
+                    score = match_query_to_template(vector, template)
                     raw_cosine = float(np.clip(np.dot(reference, vector), -1, 1))
                     add(identity, identity_observation(expected, raw_cosine, score))
                     for name, values in matrices.items():
@@ -120,7 +120,7 @@ def diagnose(client, photos, presentations, record, study=False):
                             left_bits = np.einsum("ij,j->i", planes, reference, optimize=False) >= 0
                             right_bits = np.einsum("ij,j->i", planes, vector, optimize=False) >= 0
                             count = int(np.count_nonzero(left_bits != right_bits))
-                            candidate = (1 + math.cos(math.pi * count / 64)) / 2
+                            candidate = (1. + math.cos(math.pi * count / 64)) / 2.
                             add(record["projection_study"][name], identity_observation(expected, raw_cosine, candidate))
                     left, right = decode_simhash(template, template_key()), decode_simhash(generate_face_hash(vector), template_key())
                     distance = (int.from_bytes(left, "big") ^ int.from_bytes(right, "big")).bit_count()
@@ -129,7 +129,7 @@ def diagnose(client, photos, presentations, record, study=False):
                     distances["genuine" if expected else "impostor"].append(distance)
                 finally:
                     vector.fill(0)
-            identity["cosine_approximation_absolute_error"] = {
+            identity["historical_hamming_cosine_approximation_absolute_error"] = {
                 "mean": round(float(np.mean(errors)), 6), "maximum": round(max(errors), 6)}
             identity["hamming_ranges"] = {label: {"minimum": min(values), "maximum": max(values)}
                                            for label, values in distances.items()}
@@ -162,12 +162,14 @@ def main():
     record = {"timestamp_utc": datetime.now(timezone.utc).isoformat(), "completed": False, "conditions": {},
               "transform_version": 2, "exif_orientation_normalized_before_transforms": True,
               "unchanged_api_threshold": .7, "raw_cosine_equivalent_threshold": .4,
+              "score_policy": SCORE_POLICY, "query_second_quantization_removed": True,
               "thresholds_changed": False, "vectors_persisted": False, "newly_collected_faces": 0,
               "limitations": ["Only two identities/three publisher PAD demos; transformations are correlated.",
                               "Raw cosine comparison is diagnostic, not a replacement production matcher or calibrated threshold.",
                               "No vectors, templates, images or individual subject scores are in this aggregate report.",
                               "Successful diagnosis does not mean the biometric classification gate passes."]}
     if args.projection_study:
+        record["projection_study_policy"] = "historical_rescaled_hamming_diagnostic_not_current_service"
         record["limitations"].append("Orthogonal projections are an unshipped experiment; 32 toy seeds do not add independent identities or certify a policy.")
     try:
         photos = {name: (MODULE.parent / "sample_images" / name).read_bytes()

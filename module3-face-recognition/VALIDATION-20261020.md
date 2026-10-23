@@ -1,5 +1,11 @@
 # Module 3 independent follow-up, 2026-10-20
 
+**Historical report, superseded by `VALIDATION-20261023.md`:** the user subsequently
+authorized a scoring change. The existing-sample identity gate now passes with
+0/16 false accepts and 0/24 false rejects. This does not erase these historical
+failures or establish independent accuracy; toy-seed sensitivity still finds
+errors. Weights/key/template encoding/numeric thresholds remain unchanged.
+
 ## Current outcome
 
 Engineering regression, upload transport/privacy checks and finite stability

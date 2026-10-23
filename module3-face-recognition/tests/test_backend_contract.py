@@ -35,22 +35,41 @@ def test_http_fault_harness_observes_actual_network_responses():
         def __init__(self, base_url, timeout):
             self.base_url, self.timeout = base_url, timeout
 
-        def _post(self, path, payload):
+        def verify(self, image, reference):
             try:
-                response = httpx.post(self.base_url + path, json=payload, timeout=self.timeout)
-                if response.status_code >= 500:
-                    return None
-                return {"_status": response.status_code}  # Only status is relevant to this harness test.
+                response = httpx.post(self.base_url + "/face/verify", json={}, timeout=self.timeout)
+                status = response.status_code
+                kind = ("unavailable" if status >= 500 else "client_error" if status >= 400 else
+                        "ok" if self.base_url.endswith("/valid_negative") else "malformed")
             except httpx.HTTPError:
-                return None
+                status, kind = None, "unavailable"
+            return SimpleNamespace(status=status, kind=kind, ok=kind == "ok", data={})
 
         @staticmethod
         def is_success(data):
-            return data is not None and data["_status"] < 400
+            return data.ok
 
     rows, observation = contract.failure_checks(Probe)
-    assert len(rows) == 4 and all(row["passed"] for row in rows)
-    assert observation == {"non_json_200_status_only": True, "non_json_200_is_success": True}
+    assert len(rows) == 12 and all(row["passed"] for row in rows)
+    assert all(row["client_timeout_seconds"] == (.03 if row["check"] == "timeout" else 5.) for row in rows)
+    assert all(row["request_body_consumed"] for row in rows)
+    assert observation == {"non_json_200_status_only": False, "non_json_200_is_success": False}
+
+
+def test_postponed_dataclass_annotations_work_without_mutating_backend_modules():
+    source = '''
+from __future__ import annotations
+from dataclasses import dataclass
+@dataclass
+class Result:
+    ok: bool = True
+class FaceClient:
+    def response(self):
+        return Result()
+'''
+    cls = contract.client_class(source)
+    assert cls().response().ok is True
+    assert contract.client_class(source) is cls
 
 
 def test_ref_is_resolved_to_immutable_commit_before_reading_source(monkeypatch):

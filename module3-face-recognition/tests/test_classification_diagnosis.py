@@ -9,8 +9,8 @@ def test_identity_diagnostic_compares_equivalent_thresholds_without_rescaling_po
     result = identity_observation(False, .2, .75)
     assert result["template_false_accepts"] == result["template_false_accepts_with_raw_rejection"] == 1
     assert result["raw_equivalent_false_accepts"] == 0
-    assert identity_observation(False, .6, .75)["raw_equivalent_false_accepts"] == 1
-    assert identity_observation(True, .6, .75)["projection_decision_disagreements"] == 0
+    assert identity_observation(False, .8, .75)["raw_equivalent_false_accepts"] == 1
+    assert identity_observation(True, .8, .75)["projection_decision_disagreements"] == 0
 
 
 def test_pad_diagnostic_attributes_quality_and_neural_failures_separately():

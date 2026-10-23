@@ -69,6 +69,9 @@ class ServiceMiddleware:
         try:
             if scope["method"] == "POST" and scope["path"] in self.VISUAL:
                 settings = state.settings
+                runtime = getattr(state, "runtime", None)
+                if runtime is not None and not runtime.unchanged():
+                    return await JSONResponse({"detail": "Model/key/configuration changed; restart service"}, 503)(scope, receive, observed_send)
                 # All modifications here are on the event loop, without awaits.
                 if state.admitted >= settings.concurrency + settings.pending:
                     metrics.rejected += 1
@@ -89,6 +92,10 @@ class ServiceMiddleware:
                     metrics.observe("admission_wait", time.perf_counter() - begin)
                     metrics.pending -= 1
                 metrics.active += 1
+                # Recheck after queuing: config/assets may have changed while
+                # this caller waited. Do not read its image under mixed policy.
+                if runtime is not None and not runtime.unchanged():
+                    return await JSONResponse({"detail": "Model/key/configuration changed; restart service"}, 503)(scope, receive, observed_send)
             await self.app(scope, receive, observed_send)
         finally:
             if acquired:

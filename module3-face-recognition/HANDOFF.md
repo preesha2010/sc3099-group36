@@ -1,5 +1,16 @@
 # Module 3 handoff checklist
 
+**Current 2026-10-23 handoff:** read `VALIDATION-20261023.md` and
+`STANDALONE-COMPLETION.md` first. Standalone regression, both public profiles,
+the existing-sample classification gate, transport and the latest Module 2
+client boundary pass. The user-authorized query-margin scorer replaces the
+old Hamming scorer; existing signed templates/key/weights are unchanged, so
+this score-only update needs consistent restart, not re-enrollment. Its .70
+threshold is normalized agreement (estimated cosine .40), NOT raw cosine .70.
+Scores/decisions differ; do not mix scorer versions. Independent accuracy,
+template/risk/failure policies, deployment and full-system integration remain
+external. Historical notes below do not describe the new score policy.
+
 **2026-10-20 superseding evidence:** see `VALIDATION-20261020.md`. Transform
 version 2 preserves EXIF display orientation; old transformed PAD failures were
 evaluation-construction artifacts, not valid current model-error counts. The
@@ -69,7 +80,7 @@ identifies admission rejection, not a successful identity check.
 - Inference/cleanup failure evicts the model. Failed reconstruction preserves
   capacity tokens and is retried in the background. Ongoing failures need an
   operator; they are not treated as successful inference or low-risk attendance.
-- Stage histograms expose queue, decode, detection, embedding, cleanup, mesh and
+- Stage histograms expose queue, decode, detection, embedding, similarity, cleanup, mesh and
   PAD timings. These are nested wall times, not mutually exclusive CPU profiles.
 - All metric labels are fixed; request IDs are random response headers only.
   Never add image/template/student/device data to labels or logs.
@@ -91,6 +102,11 @@ identifies admission rejection, not a successful identity check.
    re-enrollment. Do not reinterpret old SHA-256 strings as signed SimHash.
 5. Multiple service instances require the same selected policy/model/key. This
    phase tests one process, not cross-host key distribution or rolling upgrades.
+6. A score-only change preserving key/projection/encoding (October 23) does NOT
+   itself require re-enrollment. Drain traffic and restart consistently; inspect
+   `GET /`'s `match_score_policy` rather than assuming equal-length hashes imply
+   equal decision semantics. New visual work returns 503 if runtime config,
+   key or observed asset fingerprints change, including after queue waiting.
 
 ## Remaining external decisions/validation
 
@@ -105,5 +121,5 @@ identifies admission rejection, not a successful identity check.
 - Active blink/head-turn needs an agreed multi-frame random-challenge protocol;
   the still-image endpoint correctly rejects it. Device attestation still needs
   the backend's signed server challenge. No new protocol is invented here.
-- Docker/fleet deployment, upstream body deadlines, monitoring scraping config,
+- Docker/fleet deployment, upstream header/TCP deadlines, monitoring scraping config,
   long-duration production load and operational key custody remain unverified.

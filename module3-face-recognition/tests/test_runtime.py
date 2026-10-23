@@ -212,3 +212,44 @@ def test_histogram_is_cumulative_and_memory_is_optional():
     assert 'stage="embedding",le="0.1"} 1' in text
     assert 'stage="embedding",le="+Inf"} 1' in text
     assert rss_bytes() is None or rss_bytes() > 0
+
+
+def test_changed_runtime_rejects_visual_work_before_decoding_but_health_remains_live(client, monkeypatch):
+    import app.main as api
+    monkeypatch.setattr(app.state.runtime, "unchanged", lambda: False)
+    monkeypatch.setattr(api, "decode_base64_image", lambda _: pytest.fail("Changed runtime must not decode a face"))
+    result = client.post("/face/enroll", json={"user_id": "probe", "image": "private-marker", "camera_consent": True})
+    assert result.status_code == 503 and "private-marker" not in result.text
+    assert client.get("/health").status_code == 200 and client.get("/ready").status_code == 503
+    assert app.state.admitted == 0
+
+
+@pytest.mark.asyncio
+async def test_queued_request_rechecks_runtime_before_reading_body():
+    from types import SimpleNamespace
+    checked = asyncio.Event()
+    unchanged = True
+
+    def consistency():
+        checked.set()
+        return unchanged
+
+    state = SimpleNamespace(settings=Settings("sha256", "heuristic", 1, 1, 1, 2),
+                            inference_slots=asyncio.Semaphore(0), admitted=0,
+                            runtime=SimpleNamespace(unchanged=consistency))
+    responses = []
+
+    async def must_not_run(*_):
+        pytest.fail("Queued image must not be read/processed after policy change")
+
+    async def send(message):
+        responses.append(message)
+
+    scope = {"type": "http", "method": "POST", "path": "/face/verify", "app": SimpleNamespace(state=state)}
+    task = asyncio.create_task(ServiceMiddleware(must_not_run)(scope, must_not_run, send))
+    await asyncio.wait_for(checked.wait(), 1)
+    assert state.admitted == 1
+    unchanged = False
+    state.inference_slots.release()
+    await asyncio.wait_for(task, 1)
+    assert responses[0]["status"] == 503 and state.admitted == 0 and state.inference_slots._value == 1

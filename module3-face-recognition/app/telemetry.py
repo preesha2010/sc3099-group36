@@ -18,7 +18,7 @@ from opentelemetry.sdk.trace.sampling import ALWAYS_ON, ParentBased
 from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
 
 _active = ContextVar("module3_telemetry", default=None)
-STAGES = {"admission_wait", "image_decode", "face_detect", "embedding", "template", "mesh", "anti_spoof",
+STAGES = {"admission_wait", "image_decode", "face_detect", "embedding", "template", "similarity", "mesh", "anti_spoof",
           "model_wait", "model_rebuild", "detector_cleanup", "embedding_cleanup"}
 
 

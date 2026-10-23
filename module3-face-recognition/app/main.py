@@ -33,7 +33,7 @@ from app.services.face import detect_face, extract_face_embedding, generate_face
 from app.services.image import calculate_quality_score, decode_base64_image
 from app.services.liveness import assess_passive_liveness
 from app.services.risk import assess_risk
-from app.services.templates import match_templates, template_mode, validate_reference
+from app.services.templates import match_templates, template_mode, validate_reference, SCORE_POLICY, match_query_to_template
 
 
 @asynccontextmanager
@@ -134,6 +134,7 @@ async def root():
         "service": "SAIV Face Recognition & Risk Service",
         "version": "1.0.0",
         "template_mode": template_mode(),
+        "match_score_policy": SCORE_POLICY if template_mode() == "simhash" else "exact_sha256_v1",
         "endpoints": [
             "/health",
             "/ready",
@@ -195,7 +196,8 @@ def verify_face(request: FaceVerifyRequest):
 
     embedding = extract_face_embedding(image_array, detection)
     current_template_hash = generate_face_hash(embedding)
-    match_score = match_templates(current_template_hash, request.reference_template_hash)
+    match_score = (match_query_to_template(embedding, request.reference_template_hash) if template_mode() == "simhash"
+                   else match_templates(current_template_hash, request.reference_template_hash))
     del image_array, embedding
     return FaceVerifyResponse(
         match_passed=match_score >= 0.70,
