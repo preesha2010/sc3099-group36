@@ -16,7 +16,7 @@
 
 import { useCallback, useState, type FormEvent } from 'react'
 import * as api from '@/lib/api'
-import { ApiError } from '@/lib/errors'
+import { ACCOUNT_LOCKED_MESSAGE, ApiError } from '@/lib/errors'
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -25,6 +25,8 @@ export interface LoginFormProps {
   onSwitchToRegister: () => void
   /** Optional banner (e.g. "Account created — please log in") from a prior step. */
   notice?: string | null
+  /** Optional warning shown before the student signs in (e.g. the account is locked). */
+  warning?: string | null
 }
 
 /** Maps a login failure to a static, user-friendly message — never the raw error. */
@@ -33,6 +35,8 @@ function describeLoginError(error: unknown): string {
     switch (error.kind) {
       case 'authentication':
         return 'Incorrect email or password.'
+      case 'account_locked':
+        return ACCOUNT_LOCKED_MESSAGE
       case 'rate_limit':
         return 'Too many attempts. Please wait a moment and try again.'
       case 'network':
@@ -50,6 +54,7 @@ export default function LoginForm({
   onLoginSuccess,
   onSwitchToRegister,
   notice = null,
+  warning = null,
 }: LoginFormProps) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -89,6 +94,15 @@ export default function LoginForm({
     <div className="max-w-md mx-auto p-6 bg-white rounded-lg shadow">
       <h2 className="text-2xl font-bold mb-2">Sign In</h2>
       <p className="text-gray-600 mb-4">Sign in to start your check-in.</p>
+
+      {warning && (
+        <div
+          role="alert"
+          className="mb-4 p-3 rounded border-l-4 border-amber-500 bg-amber-50 text-sm text-amber-800"
+        >
+          {warning}
+        </div>
+      )}
 
       {notice && (
         <div

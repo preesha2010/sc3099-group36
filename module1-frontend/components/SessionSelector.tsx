@@ -31,7 +31,8 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import * as api from '@/lib/api'
-import { ApiError } from '@/lib/errors'
+import { ACCOUNT_LOCKED_MESSAGE, ApiError } from '@/lib/errors'
+import { formatServerDateTime } from '@/lib/dates'
 import type { Session } from '@/types/api'
 
 type FetchStatus = 'loading' | 'error' | 'ready'
@@ -49,6 +50,8 @@ function describeSessionsError(error: unknown): string {
         return 'Your session has expired. Please log in again.'
       case 'authorization':
         return 'You don’t have permission to view sessions.'
+      case 'account_locked':
+        return ACCOUNT_LOCKED_MESSAGE
       case 'rate_limit':
         return 'Too many requests. Please wait a moment and try again.'
       case 'network':
@@ -62,13 +65,9 @@ function describeSessionsError(error: unknown): string {
   return 'Unable to load your sessions right now. Please try again.'
 }
 
-/** Formats an ISO start/end pair for display; falls back to the raw string if unparsable. */
+/** Formats a start/end pair (server timestamps, UTC) in the viewer's local time. */
 function formatSessionWindow(start: string, end: string): string {
-  const startDate = new Date(start)
-  const endDate = new Date(end)
-  const startText = Number.isNaN(startDate.getTime()) ? start : startDate.toLocaleString()
-  const endText = Number.isNaN(endDate.getTime()) ? end : endDate.toLocaleString()
-  return `${startText} – ${endText}`
+  return `${formatServerDateTime(start)} – ${formatServerDateTime(end)}`
 }
 
 export default function SessionSelector({ onSessionSelected }: SessionSelectorProps) {
@@ -188,7 +187,8 @@ export default function SessionSelector({ onSessionSelected }: SessionSelectorPr
                   />
                   <span>
                     <span className="block font-semibold">
-                      {session.course_code} — {session.name}
+                      {session.course_code ? `${session.course_code} — ` : ''}
+                      {session.name}
                     </span>
                     <span className="block text-sm text-gray-600">
                       {session.venue_name}

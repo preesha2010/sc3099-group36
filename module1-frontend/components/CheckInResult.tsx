@@ -19,7 +19,9 @@
  * documented in DATABASE-SCHEMA.md.
  */
 
-import type { CheckinCreateResponse, CheckinStatus, CheckinSummary } from '@/types/api'
+import { formatServerDateTime } from '@/lib/dates'
+import { describeRiskFactor, presentStatus } from '@/lib/checkinPresentation'
+import type { CheckinCreateResponse, CheckinSummary } from '@/types/api'
 
 export type CheckInOutcome =
   | { kind: 'submitted'; checkin: CheckinCreateResponse }
@@ -30,93 +32,12 @@ export interface CheckInResultProps {
   onDone: () => void
 }
 
-const RISK_FACTOR_LABELS: Record<string, string> = {
-  geo_out_of_bounds: 'Your location was outside the venue area',
-  impossible_travel: 'Your location changed implausibly fast',
-  geo_accuracy_low: 'Your location accuracy was low',
-  vpn_detected: 'A VPN or proxy was detected',
-  proxy_detected: 'A proxy was detected',
-  tor_detected: 'Tor network use was detected',
-  suspicious_ip: 'Your network address looked suspicious',
-  device_unknown: 'This device is not recognised',
-  device_emulator: 'This device looks like an emulator',
-  device_rooted: 'This device appears to be rooted or jailbroken',
-  attestation_failed: 'Device attestation failed',
-  rapid_succession: 'Check-ins were attempted in rapid succession',
-  unusual_time: 'The check-in time was unusual',
-  pattern_anomaly: 'An unusual pattern was detected',
-  liveness_failed: 'The live photo check did not pass',
-  liveness_low_confidence: 'The live photo check had low confidence',
-  deepfake_suspected: 'The photo looked artificially generated',
-  replay_suspected: 'The photo looked like a replay',
-  face_match_failed: 'Your face did not match the enrolled face',
-  face_match_low_confidence: 'The face match had low confidence',
-}
-
-function describeRiskFactor(type: string): string {
-  const known = RISK_FACTOR_LABELS[type]
-  if (known) return known
-  const spaced = type.replace(/_/g, ' ').trim()
-  return spaced.length > 0 ? spaced.charAt(0).toUpperCase() + spaced.slice(1) : 'Unspecified factor'
-}
-
-function formatDateTime(value: string): string {
-  const date = new Date(value)
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleString()
-}
-
-interface StatusPresentation {
-  headline: string
-  detail: string
-  boxClasses: string
-}
-
-function presentStatus(status: CheckinStatus | string): StatusPresentation {
-  switch (status) {
-    case 'approved':
-      return {
-        headline: 'You’re checked in',
-        detail: 'Your attendance has been recorded.',
-        boxClasses: 'border-green-500 bg-green-50 text-green-800',
-      }
-    case 'pending':
-      return {
-        headline: 'Check-in received',
-        detail: 'Your check-in is pending verification.',
-        boxClasses: 'border-blue-500 bg-blue-50 text-blue-800',
-      }
-    case 'flagged':
-      return {
-        headline: 'Check-in flagged for review',
-        detail:
-          'Your check-in was recorded but needs to be reviewed by your instructor before it is confirmed.',
-        boxClasses: 'border-amber-500 bg-amber-50 text-amber-800',
-      }
-    case 'rejected':
-      return {
-        headline: 'Check-in rejected',
-        detail: 'Your check-in was not accepted.',
-        boxClasses: 'border-red-500 bg-red-50 text-red-800',
-      }
-    case 'appealed':
-      return {
-        headline: 'Check-in under appeal',
-        detail: 'Your appeal is waiting for review.',
-        boxClasses: 'border-blue-500 bg-blue-50 text-blue-800',
-      }
-    default:
-      return {
-        headline: 'Check-in recorded',
-        detail: `Current status: ${status}.`,
-        boxClasses: 'border-gray-400 bg-gray-50 text-gray-800',
-      }
-  }
-}
+const formatDateTime = formatServerDateTime
 
 export default function CheckInResult({ outcome, onDone }: CheckInResultProps) {
   const { checkin } = outcome
-  const presentation = presentStatus(checkin.status)
   const submitted = outcome.kind === 'submitted' ? outcome.checkin : null
+  const presentation = presentStatus(checkin.status, submitted?.risk_factors)
 
   return (
     <div className="max-w-md mx-auto p-6 bg-white rounded-lg shadow">

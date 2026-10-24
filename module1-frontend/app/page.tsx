@@ -1,12 +1,16 @@
 'use client'
 
 /**
- * SAIV Student Frontend — auth gate + session selection (Milestone 3B)
+ * SAIV Student Frontend — the app shell: auth gate and the signed-in views
  *
  * Shell flow:
  *
  *   unauthenticated -> LoginForm <-> RegisterForm
  *   authenticated    -> SessionSelector -> CheckInFlow
+ *                    -> CheckInHistory   (history + appeals; "My check-ins")
+ *                    -> FaceEnrollment   ("Face enrollment", or "Enroll now"
+ *                                         from a check-in preflight, which
+ *                                         returns to that same session)
  *
  * Auth status is resolved by `api.restoreSession()` — never by touching
  * localStorage directly — and only inside a `useEffect`, so the very
@@ -40,8 +44,11 @@ import LoginForm from '@/components/LoginForm'
 import RegisterForm from '@/components/RegisterForm'
 import SessionSelector from '@/components/SessionSelector'
 import CheckInFlow from '@/components/CheckInFlow'
+import CheckInHistory from '@/components/CheckInHistory'
+import FaceEnrollment from '@/components/FaceEnrollment'
 import OfflineBanner from '@/components/OfflineBanner'
 import { useOnlineStatus } from '@/lib/useOnlineStatus'
+import { ACCOUNT_LOCKED_MESSAGE } from '@/lib/errors'
 import type { Session } from '@/types/api'
 
 // 'unavailable': the session couldn't be restored because the server couldn't
@@ -49,12 +56,15 @@ import type { Session } from '@/types/api'
 // state, not a signed-out one.
 type AuthStatus = 'loading' | 'authenticated' | 'unauthenticated' | 'unavailable'
 type AuthView = 'login' | 'register'
-type PostAuthView = 'session-select' | 'check-in'
+type PostAuthView = 'session-select' | 'check-in' | 'history' | 'face-enroll'
 
 export default function Home() {
   const [authStatus, setAuthStatus] = useState<AuthStatus>('loading')
   const [authView, setAuthView] = useState<AuthView>('login')
   const [registerNotice, setRegisterNotice] = useState<string | null>(null)
+  // Shown on Sign In when the session could not be restored because the account
+  // is locked (the stored tokens were cleared). Cleared by a successful sign-in.
+  const [loginWarning, setLoginWarning] = useState<string | null>(null)
   const [postAuthView, setPostAuthView] = useState<PostAuthView>('session-select')
   const [selectedSession, setSelectedSession] = useState<Session | null>(null)
 
@@ -69,9 +79,18 @@ export default function Home() {
   // 'unauthenticated'), and the user can retry once they're back online.
   const restore = useCallback(() => {
     setAuthStatus('loading')
+    setLoginWarning(null)
     let cancelled = false
     void api.restoreSession().then((restored) => {
-      if (!cancelled) setAuthStatus(restored)
+      if (cancelled) return
+      if (restored === 'locked') {
+        // The locked account cannot sign in; say so on Sign In straight away.
+        setLoginWarning(ACCOUNT_LOCKED_MESSAGE)
+        setAuthView('login')
+        setAuthStatus('unauthenticated')
+        return
+      }
+      setAuthStatus(restored)
     })
     return () => {
       cancelled = true
@@ -80,7 +99,23 @@ export default function Home() {
 
   useEffect(() => restore(), [restore])
 
+  // The backend locked the account while the student was signed in (api.ts has
+  // already cleared both tokens): leave every signed-in screen and say so on
+  // Sign In. Safe to run more than once — it only sets state — and it
+  // unsubscribes on cleanup.
+  const handleAccountLocked = useCallback(() => {
+    setLoginWarning(ACCOUNT_LOCKED_MESSAGE)
+    setRegisterNotice(null)
+    setAuthView('login')
+    setPostAuthView('session-select')
+    setSelectedSession(null)
+    setAuthStatus('unauthenticated')
+  }, [])
+
+  useEffect(() => api.onAccountLocked(handleAccountLocked), [handleAccountLocked])
+
   const handleLoginSuccess = useCallback(() => {
+    setLoginWarning(null)
     setAuthStatus('authenticated')
   }, [])
 
@@ -91,6 +126,7 @@ export default function Home() {
 
   const handleSwitchToRegister = useCallback(() => {
     setRegisterNotice(null)
+    setLoginWarning(null)
     setAuthView('register')
   }, [])
 
@@ -103,6 +139,7 @@ export default function Home() {
     setAuthStatus('unauthenticated')
     setAuthView('login')
     setRegisterNotice(null)
+    setLoginWarning(null)
     setPostAuthView('session-select')
     setSelectedSession(null)
   }, [])
@@ -116,6 +153,28 @@ export default function Home() {
     setPostAuthView('session-select')
     setSelectedSession(null)
   }, [])
+
+  const handleOpenHistory = useCallback(() => {
+    setPostAuthView('history')
+    setSelectedSession(null)
+  }, [])
+
+  // From the signed-in bar: enrollment is not tied to any session.
+  const handleOpenFaceEnrollment = useCallback(() => {
+    setPostAuthView('face-enroll')
+    setSelectedSession(null)
+  }, [])
+
+  // From a session's preflight: the chosen session is kept, so leaving
+  // enrollment returns to that session's preflight (which reloads, so the new
+  // enrolled status is picked up).
+  const handleEnrollFromPreflight = useCallback(() => {
+    setPostAuthView('face-enroll')
+  }, [])
+
+  const handleLeaveFaceEnrollment = useCallback(() => {
+    setPostAuthView(selectedSession ? 'check-in' : 'session-select')
+  }, [selectedSession])
 
   // Decoded, UNVERIFIED claim used only to display which account is
   // signed in — never used for any authorization decision.
@@ -158,6 +217,7 @@ export default function Home() {
           onLoginSuccess={handleLoginSuccess}
           onSwitchToRegister={handleSwitchToRegister}
           notice={registerNotice}
+          warning={loginWarning}
         />
       )}
 
@@ -174,17 +234,49 @@ export default function Home() {
             <span className="text-gray-600">
               {signedInEmail ? `Signed in as ${signedInEmail}` : null}
             </span>
-            <button
-              type="button"
-              onClick={handleLogout}
-              className="text-blue-600 hover:underline focus:outline-none focus:ring-2 focus:ring-blue-500 rounded"
-            >
-              Log Out
-            </button>
+            <span className="flex items-center gap-4">
+              {postAuthView === 'session-select' && (
+                <button
+                  type="button"
+                  onClick={handleOpenFaceEnrollment}
+                  className="text-blue-600 hover:underline focus:outline-none focus:ring-2 focus:ring-blue-500 rounded"
+                >
+                  Face enrollment
+                </button>
+              )}
+              {postAuthView === 'session-select' && (
+                <button
+                  type="button"
+                  onClick={handleOpenHistory}
+                  className="text-blue-600 hover:underline focus:outline-none focus:ring-2 focus:ring-blue-500 rounded"
+                >
+                  My check-ins
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="text-blue-600 hover:underline focus:outline-none focus:ring-2 focus:ring-blue-500 rounded"
+              >
+                Log Out
+              </button>
+            </span>
           </div>
 
           {postAuthView === 'session-select' && (
             <SessionSelector onSessionSelected={handleSessionSelected} />
+          )}
+
+          {postAuthView === 'history' && (
+            <CheckInHistory onBack={handleChangeSession} onAuthExpired={handleLogout} />
+          )}
+
+          {postAuthView === 'face-enroll' && (
+            <FaceEnrollment
+              onBack={handleLeaveFaceEnrollment}
+              onAuthExpired={handleLogout}
+              backLabel={selectedSession ? 'Back to check-in' : 'Back to sessions'}
+            />
           )}
 
           {postAuthView === 'check-in' && selectedSession && (
@@ -205,6 +297,7 @@ export default function Home() {
                 session={selectedSession}
                 onExit={handleChangeSession}
                 onAuthExpired={handleLogout}
+                onEnrollFace={handleEnrollFromPreflight}
               />
             </div>
           )}

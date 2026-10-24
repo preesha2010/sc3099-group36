@@ -25,12 +25,13 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import * as api from '@/lib/api'
-import { ApiError } from '@/lib/errors'
+import { ACCOUNT_LOCKED_MESSAGE, ApiError } from '@/lib/errors'
 import {
   ensureDeviceRegistered,
   type DeviceRegistrationStatus,
 } from '@/lib/deviceBinding'
 import { useOnlineStatus } from '@/lib/useOnlineStatus'
+import { formatServerDateTime, parseServerDate } from '@/lib/dates'
 import type { Session, SessionDetail, UserResponse } from '@/types/api'
 
 type PreflightStatus = 'loading' | 'error' | 'ready'
@@ -45,6 +46,8 @@ export interface CheckInPreflightProps {
   session: Session
   /** Called when the user clicks "Start check-in" on the ready screen. */
   onReady: (result: CheckInPreflightResult) => void
+  /** If given, the face-match warning offers an "Enroll now" button that calls this. */
+  onEnrollFace?: () => void
 }
 
 /** Maps a preflight failure to a static, user-friendly message — never raw backend text. */
@@ -55,6 +58,8 @@ function describePreflightError(error: unknown): string {
         return 'Your session has expired. Please log in again.'
       case 'authorization':
         return 'You don’t have permission to check in to this session.'
+      case 'account_locked':
+        return ACCOUNT_LOCKED_MESSAGE
       case 'rate_limit':
         return 'Too many requests. Please wait a moment and try again.'
       case 'network':
@@ -70,10 +75,20 @@ function describePreflightError(error: unknown): string {
   return 'Unable to load this session right now. Please try again.'
 }
 
-/** Formats an ISO timestamp for display; falls back to the raw string if unparsable. */
-function formatDateTime(value: string): string {
-  const date = new Date(value)
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleString()
+const formatDateTime = formatServerDateTime
+
+/**
+ * Whether the session's check-in window looks open, going by this device's
+ * clock. Informational only: the server decides, and a device with a wrong
+ * clock can be mistaken, so this never blocks anything.
+ */
+function checkinWindowState(opensAt: string, closesAt: string): 'open' | 'not-open-yet' | 'closed' {
+  const now = Date.now()
+  const opens = parseServerDate(opensAt).getTime()
+  const closes = parseServerDate(closesAt).getTime()
+  if (!Number.isNaN(closes) && now > closes) return 'closed'
+  if (!Number.isNaN(opens) && now < opens) return 'not-open-yet'
+  return 'open'
 }
 
 function describeDeviceStatus(status: DeviceStatus): string {
@@ -93,7 +108,11 @@ function describeDeviceStatus(status: DeviceStatus): string {
 const NOTICE_CLASSES =
   'p-3 rounded border-l-4 border-amber-500 bg-amber-50 text-sm text-amber-800'
 
-export default function CheckInPreflight({ session, onReady }: CheckInPreflightProps) {
+export default function CheckInPreflight({
+  session,
+  onReady,
+  onEnrollFace,
+}: CheckInPreflightProps) {
   const [status, setStatus] = useState<PreflightStatus>('loading')
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [result, setResult] = useState<CheckInPreflightResult | null>(null)
@@ -219,10 +238,39 @@ export default function CheckInPreflight({ session, onReady }: CheckInPreflightP
                 not be accepted.
               </div>
             )}
+            {checkinWindowState(
+              result.sessionDetail.checkin_opens_at,
+              result.sessionDetail.checkin_closes_at,
+            ) === 'closed' && (
+              <div className={NOTICE_CLASSES}>
+                The check-in window for this session closed at{' '}
+                {formatDateTime(result.sessionDetail.checkin_closes_at)}, so check-in will
+                probably be rejected.
+              </div>
+            )}
+            {checkinWindowState(
+              result.sessionDetail.checkin_opens_at,
+              result.sessionDetail.checkin_closes_at,
+            ) === 'not-open-yet' && (
+              <div className={NOTICE_CLASSES}>
+                Check-in for this session opens at{' '}
+                {formatDateTime(result.sessionDetail.checkin_opens_at)}, so check-in will
+                probably be rejected until then.
+              </div>
+            )}
             {result.sessionDetail.require_face_match && !result.user.face_enrolled && (
               <div className={NOTICE_CLASSES}>
                 This session requires a face match, but no face is enrolled on your
                 account. Your check-in may be rejected.
+                {onEnrollFace && (
+                  <button
+                    type="button"
+                    onClick={onEnrollFace}
+                    className="mt-2 block font-medium underline focus:outline-none focus:ring-2 focus:ring-amber-600 rounded"
+                  >
+                    Enroll now
+                  </button>
+                )}
               </div>
             )}
             {result.sessionDetail.qr_code_enabled && (

@@ -21,6 +21,8 @@ import type {
   RefreshTokenResponse,
   UserResponse,
   UpdateUserRequest,
+  FaceEnrollRequest,
+  FaceEnrollResponse,
   SessionSummary,
   Session,
   SessionDetail,
@@ -93,6 +95,42 @@ function isSessionStale(startedInEpoch: number): boolean {
   return startedInEpoch !== sessionEpoch || auth.getRefreshToken() === null
 }
 
+// ---------------------------------------------------------------------------
+// "Account locked" notification
+// ---------------------------------------------------------------------------
+
+type AccountLockedListener = () => void
+let accountLockedListeners: AccountLockedListener[] = []
+
+/**
+ * Registers a callback for the moment a signed-in session is ended because the
+ * backend answered 429 "Account locked". By then both tokens are already
+ * cleared. Returns the function that unsubscribes (call it on cleanup).
+ *
+ * Fires once per ended session, only for the CURRENT session: a late response
+ * that belongs to a session that has since ended or been replaced is ignored
+ * (see sessionEpoch), so it can never sign out whoever is signed in now.
+ */
+export function onAccountLocked(listener: AccountLockedListener): () => void {
+  accountLockedListeners = [...accountLockedListeners, listener]
+  return () => {
+    accountLockedListeners = accountLockedListeners.filter((existing) => existing !== listener)
+  }
+}
+
+function notifyAccountLocked(): void {
+  // The list is replaced (never edited in place) on subscribe/unsubscribe, so
+  // this loop is safe even if a listener unsubscribes. One failing listener must
+  // not stop the others or turn the original request's error into a different one.
+  accountLockedListeners.forEach((listener) => {
+    try {
+      listener()
+    } catch {
+      // ignored on purpose
+    }
+  })
+}
+
 httpClient.interceptors.request.use((config) => {
   // POST /auth/refresh is documented without auth ("Requires auth" appears on the
   // protected endpoints but not here): its credential is the refresh token in the
@@ -135,15 +173,21 @@ type RetriableConfig = InternalAxiosRequestConfig & {
  * - `reauthenticate` — 401 (kind `authentication`): the one status whose HTTP
  *   meaning is "credentials rejected". The stored tokens are cleared and the
  *   user is sent to sign in again.
- * - `transient` — no usable answer: network failure, timeout, 5xx, 429, or a
- *   200 whose body isn't a token pair. The session may well still be valid, so
- *   the tokens are kept and the user gets a retry, never a logout.
+ * - `locked` — 429 with the detail "Account locked" (kind `account_locked`). The
+ *   account cannot sign in until an administrator unlocks it, so this is a
+ *   definitive answer, not a temporary one: the local session is ended (both
+ *   tokens cleared), nothing is retried, and the user is told the account is
+ *   locked. Any other 429 is NOT this (see `transient`).
+ * - `transient` — no usable answer: network failure, timeout, 5xx, a 429 rate
+ *   limit ("Rate limit exceeded"), or a 200 whose body isn't a token pair. The
+ *   session may well still be valid, so the tokens are kept and the user gets a
+ *   retry, never a logout.
  * - `other` — any other answer (400, 403, 404, 422, …). Not documented as
  *   meaning "token revoked", so the tokens are NOT cleared, but the session
  *   can't be restored either, so the user is directed to sign in again. These
  *   are never handed to feature screens as if they were that feature's error.
  */
-type RefreshFailureHandling = 'reauthenticate' | 'transient' | 'other'
+type RefreshFailureHandling = 'reauthenticate' | 'locked' | 'transient' | 'other'
 
 function classifyRefreshFailure(error: ApiError): RefreshFailureHandling {
   switch (error.kind) {
@@ -153,6 +197,8 @@ function classifyRefreshFailure(error: ApiError): RefreshFailureHandling {
     case 'server':
     case 'rate_limit':
       return 'transient'
+    case 'account_locked':
+      return 'locked'
     default:
       return 'other'
   }
@@ -231,8 +277,19 @@ async function performRefresh(startedInEpoch: number): Promise<RefreshResult> {
     // A late failure for an old session must not clear a newer session's tokens.
     if (isSessionStale(startedInEpoch)) return STALE_REFRESH
     const error = toApiError(caught)
-    if (classifyRefreshFailure(error) === 'reauthenticate') {
+    // Two answers are definitive and end the local session: a 401 (the token is
+    // no longer accepted) and "429 Account locked" (the account cannot sign in
+    // until an administrator unlocks it). Neither is retried.
+    const handling = classifyRefreshFailure(error)
+    if (handling === 'reauthenticate' || handling === 'locked') {
       endSession()
+    }
+    if (handling === 'locked') {
+      // Runs in the same synchronous block as the stale check above, so this
+      // refresh still belongs to the current session when the listeners hear of
+      // it. A refresh is shared by every request waiting on it, so this happens
+      // once, not once per request.
+      notifyAccountLocked()
     }
     return { error }
   }
@@ -248,6 +305,29 @@ httpClient.interceptors.response.use(
       requestUrl.includes(path),
     )
 
+    // A signed-in request answered 429 "Account locked" (the token is still
+    // valid, but the account has been locked since). Retrying cannot help, so the
+    // local session ends now and the page is told. Only a response for the
+    // CURRENT session may do this: if the request was sent under a session that
+    // has since ended or been replaced (or the tokens are already gone), it is
+    // ignored, so a late response cannot sign out whoever is signed in now. The
+    // first response ends the session (changing the epoch), so concurrent
+    // responses for the same session fall through here and cause nothing more.
+    // Login, register and refresh are excluded: they report the error themselves.
+    if (status === 429 && originalRequest && !isAuthEndpoint) {
+      const lockedCheck = toApiError(error)
+      if (lockedCheck.kind === 'account_locked') {
+        if (
+          originalRequest._sessionEpoch !== undefined &&
+          !isSessionStale(originalRequest._sessionEpoch)
+        ) {
+          endSession()
+          notifyAccountLocked()
+        }
+        return Promise.reject(lockedCheck)
+      }
+    }
+
     if (status === 401 && originalRequest && !originalRequest._retried && !isAuthEndpoint) {
       originalRequest._retried = true
 
@@ -260,6 +340,16 @@ httpClient.interceptors.response.use(
       }
 
       const refreshed = await refreshSession()
+
+      // "429 Account locked": performRefresh has already ended the session (and
+      // told the listeners, once), which changes the session epoch, so the check
+      // below would otherwise report the original 401. A stale refresh result
+      // never gets here (it is `{ stale }`, not `{ error }`). Every request that
+      // was waiting on this refresh gets the locked error instead, so a screen
+      // that is still showing can say so. Nothing is retried.
+      if ('error' in refreshed && classifyRefreshFailure(refreshed.error) === 'locked') {
+        return Promise.reject(refreshed.error)
+      }
 
       // Same reasoning if the session changed while the refresh was in flight:
       // that refresh's result was discarded and nothing may be retried.
@@ -335,6 +425,11 @@ async function realUpdateCurrentUser(
   update: UpdateUserRequest,
 ): Promise<UserResponse> {
   const { data } = await httpClient.put<UserResponse>('/users/me', update)
+  return data
+}
+
+async function realEnrollFace(payload: FaceEnrollRequest): Promise<FaceEnrollResponse> {
+  const { data } = await httpClient.post<FaceEnrollResponse>('/users/me/face/enroll', payload)
   return data
 }
 
@@ -446,6 +541,9 @@ export const updateCurrentUser = (
 ): Promise<UserResponse> =>
   USE_MOCKS ? mockApi.updateCurrentUser(update) : realUpdateCurrentUser(update)
 
+export const enrollFace = (payload: FaceEnrollRequest): Promise<FaceEnrollResponse> =>
+  USE_MOCKS ? mockApi.enrollFace(payload) : realEnrollFace(payload)
+
 export const getActiveSessions = (): Promise<SessionSummary[]> =>
   USE_MOCKS ? mockApi.getActiveSessions() : realGetActiveSessions()
 
@@ -509,10 +607,18 @@ let inFlightRestore: Promise<SessionRestoreResult> | null = null
  * - `authenticated`: the user is (or has just been silently made) signed in.
  * - `unauthenticated`: there is no usable session; show Sign In.
  * - `unavailable`: the server couldn't be reached or answered (offline,
- *   timeout, 5xx, 429). The stored tokens were kept, so retrying later may
- *   still restore the session — don't show Sign In as if the user were out.
+ *   timeout, 5xx, or a 429 rate limit). The stored tokens were kept, so retrying
+ *   later may still restore the session — don't show Sign In as if the user
+ *   were out.
+ * - `locked`: the refresh was answered with 429 "Account locked". The local
+ *   session has been ended (both tokens cleared); show Sign In and tell the user
+ *   the account is locked. Retrying cannot help until an administrator unlocks it.
  */
-export type SessionRestoreResult = 'authenticated' | 'unauthenticated' | 'unavailable'
+export type SessionRestoreResult =
+  | 'authenticated'
+  | 'unauthenticated'
+  | 'unavailable'
+  | 'locked'
 
 async function doRestoreSession(): Promise<SessionRestoreResult> {
   // Access token still valid: nothing to do, no network call.
@@ -544,6 +650,9 @@ async function doRestoreSession(): Promise<SessionRestoreResult> {
       case 'reauthenticate':
         endSession()
         return 'unauthenticated'
+      case 'locked':
+        endSession()
+        return 'locked'
       case 'transient':
         // No usable answer from the server: keep the tokens and offer a retry.
         return 'unavailable'

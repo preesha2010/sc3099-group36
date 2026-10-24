@@ -15,6 +15,7 @@ export type ApiErrorKind =
   | 'authentication'
   | 'authorization'
   | 'rate_limit'
+  | 'account_locked'
   | 'client'
   | 'server'
   | 'unknown'
@@ -41,6 +42,19 @@ export class ApiError extends Error {
     this.detail = params.detail
     this.retryAfterSeconds = params.retryAfterSeconds
   }
+}
+
+/**
+ * Shown wherever a locked account is reported. Static text, never the raw
+ * backend message. The account is locked after repeated failed sign-ins and the
+ * backend clears the lock only through an administrator.
+ */
+export const ACCOUNT_LOCKED_MESSAGE =
+  'Your account is locked after too many failed sign-in attempts. Please contact an administrator to unlock it.'
+
+/** True for the backend's "Account locked" detail (case and surrounding spaces ignored). */
+function isAccountLockedDetail(detail: unknown): boolean {
+  return typeof detail === 'string' && detail.trim().toLowerCase() === 'account locked'
 }
 
 function detailToMessage(detail: unknown): string | undefined {
@@ -107,6 +121,19 @@ export function toApiError(error: unknown): ApiError {
       return new ApiError({
         kind: 'validation',
         message: message ?? 'Invalid request data.',
+        status,
+        detail,
+      })
+    }
+
+    // The backend answers 429 for two different reasons: a temporary rate limit
+    // ("Rate limit exceeded") and a locked account ("Account locked"). Retrying
+    // never helps the second one (only an administrator can unlock it), so it is
+    // kept apart from the first by its `detail` text.
+    if (status === 429 && isAccountLockedDetail(detail)) {
+      return new ApiError({
+        kind: 'account_locked',
+        message: message ?? 'Account locked.',
         status,
         detail,
       })

@@ -38,6 +38,8 @@ import type {
   DeviceSummary,
   DeviceUpdateRequest,
   Enrollment,
+  FaceEnrollRequest,
+  FaceEnrollResponse,
   UserRole,
 } from '@/types/api'
 
@@ -84,16 +86,26 @@ let currentUser: UserResponse = {
 const DEMO_COURSE_ID = 'mock-course-cs6101'
 const DEMO_SESSION_ID = 'mock-session-lecture-05'
 
+// A rolling window around "now", so the demo session's check-in is open whenever
+// the app is used (fixed dates would make it look closed). Real server
+// timestamps carry no zone marker; these end in "Z", which is also handled.
+const NOW_MS = Date.now()
+const fromNow = (minutes: number) => new Date(NOW_MS + minutes * 60_000).toISOString()
+const DEMO_START = fromNow(-15)
+const DEMO_END = fromNow(105)
+const DEMO_CHECKIN_OPENS = fromNow(-30)
+const DEMO_CHECKIN_CLOSES = fromNow(240)
+
 const demoSessionSummary: SessionSummary = {
   id: DEMO_SESSION_ID,
   course_id: DEMO_COURSE_ID,
   course_code: 'CS6101',
   name: 'Lecture 5: Neural Networks',
   status: 'active',
-  scheduled_start: '2026-03-02T14:00:00Z',
-  scheduled_end: '2026-03-02T16:00:00Z',
-  checkin_opens_at: '2026-03-02T13:45:00Z',
-  checkin_closes_at: '2026-03-02T14:30:00Z',
+  scheduled_start: DEMO_START,
+  scheduled_end: DEMO_END,
+  checkin_opens_at: DEMO_CHECKIN_OPENS,
+  checkin_closes_at: DEMO_CHECKIN_CLOSES,
   venue_name: 'NTU LT1',
 }
 
@@ -106,10 +118,10 @@ const demoSession: Session = {
   name: 'Lecture 5: Neural Networks',
   session_type: 'lecture',
   status: 'active',
-  scheduled_start: '2026-03-02T14:00:00Z',
-  scheduled_end: '2026-03-02T16:00:00Z',
-  checkin_opens_at: '2026-03-02T13:45:00Z',
-  checkin_closes_at: '2026-03-02T14:30:00Z',
+  scheduled_start: DEMO_START,
+  scheduled_end: DEMO_END,
+  checkin_opens_at: DEMO_CHECKIN_OPENS,
+  checkin_closes_at: DEMO_CHECKIN_CLOSES,
   venue_name: 'NTU LT1',
   total_enrolled: 50,
   checked_in_count: 41,
@@ -122,10 +134,10 @@ const demoSessionDetail: SessionDetail = {
   name: 'Lecture 5: Neural Networks',
   session_type: 'lecture',
   status: 'active',
-  scheduled_start: '2026-03-02T14:00:00Z',
-  scheduled_end: '2026-03-02T16:00:00Z',
-  checkin_opens_at: '2026-03-02T13:45:00Z',
-  checkin_closes_at: '2026-03-02T14:30:00Z',
+  scheduled_start: DEMO_START,
+  scheduled_end: DEMO_END,
+  checkin_opens_at: DEMO_CHECKIN_OPENS,
+  checkin_closes_at: DEMO_CHECKIN_CLOSES,
   venue_latitude: 1.3483,
   venue_longitude: 103.6831,
   venue_name: 'NTU LT1',
@@ -152,6 +164,99 @@ const demoEnrollments: Enrollment[] = [
 
 const checkinStore = new Map<string, CheckinDetail>()
 const checkinSummaries: CheckinSummary[] = []
+
+// A little past history so the history and appeal screens can be tried in mock
+// mode (new mock check-ins are always approved, which can't be appealed). These
+// belong to other sessions, so they never block checking in to the demo session.
+;(function seedPastCheckins() {
+  const daysAgo = (days: number) => new Date(NOW_MS - days * 86_400_000).toISOString()
+  const past: Array<{
+    id: string
+    sessionId: string
+    name: string
+    status: CheckinSummary['status']
+    days: number
+    risk: number
+    distance: number
+    factors: CheckinDetail['risk_factors']
+    livenessPassed: boolean | null
+  }> = [
+    {
+      id: 'mock-checkin-past-flagged',
+      sessionId: 'mock-session-lecture-03',
+      name: 'Lecture 3: Convolutional Networks',
+      status: 'flagged',
+      days: 2,
+      risk: 0.62,
+      distance: 180,
+      factors: [
+        { type: 'geo_out_of_bounds', weight: 0.4 },
+        { type: 'device_unknown', weight: 0.15 },
+      ],
+      livenessPassed: true,
+    },
+    {
+      id: 'mock-checkin-past-rejected',
+      sessionId: 'mock-session-lecture-02',
+      name: 'Lecture 2: Optimisation',
+      status: 'rejected',
+      days: 6,
+      risk: 0.9,
+      distance: 12,
+      factors: [{ type: 'liveness_failed', weight: 0.5 }],
+      livenessPassed: false,
+    },
+    {
+      id: 'mock-checkin-past-approved',
+      sessionId: 'mock-session-lecture-01',
+      name: 'Lecture 1: Introduction',
+      status: 'approved',
+      days: 9,
+      risk: 0.1,
+      distance: 20,
+      factors: [],
+      livenessPassed: true,
+    },
+  ]
+  for (const item of past) {
+    const checkedInAt = daysAgo(item.days)
+    checkinStore.set(item.id, {
+      id: item.id,
+      session_id: item.sessionId,
+      student_id: DEMO_USER_ID,
+      device_id: null,
+      status: item.status,
+      checked_in_at: checkedInAt,
+      verified_at: checkedInAt,
+      latitude: 1.3483,
+      longitude: 103.6831,
+      location_accuracy_meters: 10,
+      distance_from_venue_meters: item.distance,
+      liveness_passed: item.livenessPassed,
+      liveness_score: item.livenessPassed === null ? null : item.livenessPassed ? 0.9 : 0.2,
+      liveness_challenge_type: 'passive',
+      face_match_passed: null,
+      face_match_score: null,
+      risk_score: item.risk,
+      risk_factors: item.factors,
+      qr_code_verified: false,
+      reviewed_by_id: null,
+      reviewed_at: null,
+      review_notes: null,
+      appeal_reason: null,
+      appealed_at: null,
+    })
+    checkinSummaries.push({
+      id: item.id,
+      session_id: item.sessionId,
+      session_name: item.name,
+      course_code: 'CS6101',
+      status: item.status,
+      checked_in_at: checkedInAt,
+      risk_score: item.risk,
+    })
+  }
+})()
 const deviceStore = new Map<string, DeviceRegisterResponse>()
 
 // ---------------------------------------------------------------------------
@@ -296,6 +401,34 @@ export async function updateCurrentUser(
   requireMockAuth()
   currentUser = { ...currentUser, ...update }
   return delay(currentUser)
+}
+
+export async function enrollFace(payload: FaceEnrollRequest): Promise<FaceEnrollResponse> {
+  requireMockAuth()
+  // Same rule as the real backend: enrollment needs camera consent on record.
+  if (!currentUser.camera_consent) {
+    throw new ApiError({
+      kind: 'client',
+      message: 'Camera consent not given',
+      status: 400,
+      detail: 'Camera consent not given',
+    })
+  }
+  if (!payload.image) {
+    throw new ApiError({
+      kind: 'client',
+      message: 'No face detected',
+      status: 400,
+      detail: 'No face detected',
+    })
+  }
+  currentUser = { ...currentUser, face_enrolled: true }
+  return delay({
+    success: true,
+    message: 'Face enrolled successfully',
+    face_enrolled: true,
+    quality_score: 0.85,
+  })
 }
 
 // ---------------------------------------------------------------------------
@@ -464,6 +597,14 @@ export async function appealCheckin(
       kind: 'client',
       message: 'Only rejected or flagged check-ins can be appealed.',
       status: 400,
+    })
+  }
+  if (detail.appealed_at) {
+    throw new ApiError({
+      kind: 'client',
+      message: 'Check-in already appealed',
+      status: 400,
+      detail: 'Check-in already appealed',
     })
   }
   const appealedAt = new Date().toISOString()

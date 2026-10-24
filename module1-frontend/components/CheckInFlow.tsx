@@ -28,7 +28,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import * as api from '@/lib/api'
-import { ApiError } from '@/lib/errors'
+import { ACCOUNT_LOCKED_MESSAGE, ApiError } from '@/lib/errors'
 import { GeolocationRequestError } from '@/lib/geolocation'
 import {
   DeviceIdentityError,
@@ -52,6 +52,8 @@ export interface CheckInFlowProps {
   onExit: () => void
   /** The session is no longer valid (token refresh failed) — return to Sign In. */
   onAuthExpired: () => void
+  /** Open face enrollment (offered when the session needs a face match and none is enrolled). */
+  onEnrollFace?: () => void
 }
 
 type FlowStep = 'consent' | 'photo' | 'review' | 'result'
@@ -76,6 +78,36 @@ const SECONDARY_BUTTON =
 const SESSION_EXPIRED: Failure = {
   message: 'Your session has expired. Please log in again.',
   action: 'login',
+}
+
+/**
+ * The backend gives the reason for refusing a check-in as a short, fixed
+ * sentence in `detail` ("Session not active", "Check-in window closed", …).
+ * Those exact sentences are matched here to show a specific, friendly message;
+ * the raw text itself is never displayed, and anything unrecognised falls back
+ * to a generic message.
+ */
+function describeCheckinRefusal(error: ApiError): string | null {
+  const detail = typeof error.detail === 'string' ? error.detail.toLowerCase() : ''
+  if (detail.includes('window closed')) {
+    return 'This session isn’t open for check-in right now: its check-in window has closed or hasn’t opened yet.'
+  }
+  if (detail.includes('not active')) {
+    return 'This session isn’t active, so it can’t accept check-ins.'
+  }
+  if (detail.includes('not enrolled')) {
+    return 'You aren’t enrolled in this course, so you can’t check in to this session.'
+  }
+  if (detail.includes('qr')) {
+    return 'This session needs a QR code, which this app can’t scan yet. Ask your instructor for help.'
+  }
+  if (detail.includes('already checked in')) {
+    return 'The server reports that you’ve already checked in to this session.'
+  }
+  if (detail.includes('location')) {
+    return 'Check-in isn’t allowed from your current location or network. It is only available from within Singapore (check you aren’t using a VPN).'
+  }
+  return null
 }
 
 /** Static, user-friendly messages — never the raw backend or browser error. */
@@ -123,9 +155,14 @@ function describeSubmitFailure(error: unknown): Failure {
         return SESSION_EXPIRED
       case 'authorization':
         return {
-          message: 'You don’t have permission to check in to this session.',
+          message:
+            describeCheckinRefusal(error) ??
+            'You don’t have permission to check in to this session.',
           action: 'back',
         }
+      case 'account_locked':
+        // Retrying cannot help, so the only next step offered is going back.
+        return { message: ACCOUNT_LOCKED_MESSAGE, action: 'back' }
       case 'rate_limit':
         return {
           message: 'Too many attempts. Please wait a moment and try again.',
@@ -151,6 +188,7 @@ function describeSubmitFailure(error: unknown): Failure {
         if (error.status === 400) {
           return {
             message:
+              describeCheckinRefusal(error) ??
               'This check-in couldn’t be accepted. The session may not be open, its check-in window may have closed, or you may already be checked in.',
             action: 'back',
           }
@@ -171,6 +209,7 @@ function describeSubmitFailure(error: unknown): Failure {
 function describeConsentFailure(error: unknown): Failure {
   if (error instanceof ApiError) {
     if (error.kind === 'authentication') return SESSION_EXPIRED
+    if (error.kind === 'account_locked') return { message: ACCOUNT_LOCKED_MESSAGE, action: 'back' }
     if (error.kind === 'network') {
       return {
         message: 'Unable to reach the server to save your consent. Check your connection and try again.',
@@ -239,7 +278,12 @@ function FailureNotice({
   )
 }
 
-export default function CheckInFlow({ session, onExit, onAuthExpired }: CheckInFlowProps) {
+export default function CheckInFlow({
+  session,
+  onExit,
+  onAuthExpired,
+  onEnrollFace,
+}: CheckInFlowProps) {
   // Set once the preflight completes: session details + the user's profile.
   const [preflightResult, setPreflightResult] = useState<CheckInPreflightResult | null>(
     null,
@@ -371,7 +415,13 @@ export default function CheckInFlow({ session, onExit, onAuthExpired }: CheckInF
   }, [preflightResult, livenessImage])
 
   if (!preflightResult) {
-    return <CheckInPreflight session={session} onReady={setPreflightResult} />
+    return (
+      <CheckInPreflight
+        session={session}
+        onReady={setPreflightResult}
+        onEnrollFace={onEnrollFace}
+      />
+    )
   }
 
   const needsPhoto = preflightResult.sessionDetail.require_liveness_check

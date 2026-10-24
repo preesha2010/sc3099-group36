@@ -127,6 +127,19 @@ export interface UpdateUserRequest {
   geolocation_consent?: boolean
 }
 
+/** POST /users/me/face/enroll — `image` is raw base64 (PNG/JPEG), without a data-URL prefix. */
+export interface FaceEnrollRequest {
+  image: string
+}
+
+/** POST /users/me/face/enroll response (200). `quality_score` can be null (verified in the backend code). */
+export interface FaceEnrollResponse {
+  success: boolean
+  message: string
+  face_enrolled: boolean
+  quality_score: number | null
+}
+
 // ---------------------------------------------------------------------------
 // Sessions — GET /sessions/active, /sessions/my-sessions, /sessions/{id}
 // ---------------------------------------------------------------------------
@@ -363,7 +376,8 @@ export interface Enrollment {
   course_code: string
   course_name: string
   semester: string
-  instructor_name: string
+  /** In the API spec, but the backend does not send it (verified against its code). */
+  instructor_name?: string
   enrolled_at: string
   is_active: boolean
 }
