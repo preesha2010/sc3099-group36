@@ -1,0 +1,19 @@
+# Keep local-only files out of the image build context.
+# .env files hold local settings (e.g. NEXT_PUBLIC_USE_MOCKS=true for mock mode);
+# Next.js would bake them into the browser bundle.
+.env
+.env.*
+
+# Host dependencies and build output (the image installs and builds its own).
+node_modules
+.next
+out
+
+# Logs and local tool artifacts
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+tsconfig.tsbuildinfo
+.DS_Store
+.git
