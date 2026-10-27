@@ -114,9 +114,9 @@ export default function RegisterForm({
   )
 
   return (
-    <div className="max-w-md mx-auto p-6 bg-white rounded-lg shadow">
-      <h2 className="text-2xl font-bold mb-2">Create Account</h2>
-      <p className="text-gray-600 mb-4">Register to start checking in to your sessions.</p>
+    <div className="card">
+      <h2 className="mb-1 text-2xl font-bold">Create Account</h2>
+      <p className="mb-5 text-gray-600">Register to start checking in to your sessions.</p>
 
       {errorMessage && (
         <div
@@ -143,7 +143,7 @@ export default function RegisterForm({
             value={fullName}
             onChange={(event) => setFullName(event.target.value)}
             disabled={isSubmitting}
-            className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
+            className="field"
           />
         </div>
 
@@ -162,7 +162,7 @@ export default function RegisterForm({
             value={email}
             onChange={(event) => setEmail(event.target.value)}
             disabled={isSubmitting}
-            className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
+            className="field"
           />
         </div>
 
@@ -181,7 +181,7 @@ export default function RegisterForm({
             value={password}
             onChange={(event) => setPassword(event.target.value)}
             disabled={isSubmitting}
-            className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
+            className="field"
           />
           <p className="mt-1 text-xs text-gray-400">
             At least {MIN_PASSWORD_LENGTH} characters.
@@ -203,7 +203,7 @@ export default function RegisterForm({
             value={confirmPassword}
             onChange={(event) => setConfirmPassword(event.target.value)}
             disabled={isSubmitting}
-            className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
+            className="field"
           />
         </div>
 
@@ -211,7 +211,7 @@ export default function RegisterForm({
           type="submit"
           disabled={isSubmitting}
           aria-busy={isSubmitting}
-          className="w-full py-2 px-4 rounded bg-blue-600 text-white font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+          className="btn btn-primary"
         >
           {isSubmitting ? 'Creating account…' : 'Register'}
         </button>
@@ -221,7 +221,7 @@ export default function RegisterForm({
         type="button"
         onClick={onSwitchToLogin}
         disabled={isSubmitting}
-        className="mt-4 w-full text-sm text-blue-600 hover:underline focus:outline-none focus:ring-2 focus:ring-blue-500 rounded disabled:opacity-50"
+        className="link mt-5 block w-full text-center text-sm disabled:opacity-50"
       >
         Already have an account? Log In
       </button>

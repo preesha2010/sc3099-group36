@@ -94,7 +94,7 @@ export function presentStatus(
       return {
         headline: 'Check-in received',
         detail: 'Your check-in is pending verification.',
-        boxClasses: 'border-blue-500 bg-blue-50 text-blue-800',
+        boxClasses: 'border-brand-500 bg-brand-50 text-brand-800',
       }
     case 'flagged':
       return {
@@ -113,7 +113,7 @@ export function presentStatus(
       return {
         headline: 'Check-in under appeal',
         detail: 'Your appeal is waiting for review.',
-        boxClasses: 'border-blue-500 bg-blue-50 text-blue-800',
+        boxClasses: 'border-brand-500 bg-brand-50 text-brand-800',
       }
     default:
       return {
@@ -153,7 +153,7 @@ export function statusBadgeClasses(status: CheckinStatus | string): string {
       return 'bg-red-100 text-red-800'
     case 'pending':
     case 'appealed':
-      return 'bg-blue-100 text-blue-800'
+      return 'bg-brand-100 text-brand-800'
     default:
       return 'bg-gray-100 text-gray-800'
   }

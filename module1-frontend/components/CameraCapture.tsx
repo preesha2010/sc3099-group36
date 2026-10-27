@@ -24,12 +24,19 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { CameraIcon } from '@/components/icons'
 
 type CaptureStatus = 'idle' | 'starting' | 'active' | 'captured' | 'error'
 
 export interface CameraCaptureProps {
   /** Called once with a single captured frame as a data URL when the user taps Capture. */
   onCapture: (imageData: string) => void
+  /**
+   * Render only the camera area (no card, title or intro text), for embedding in a
+   * screen that supplies its own heading and instructions, such as the check-in photo
+   * step. Without it the component shows its own card (used by face enrollment).
+   */
+  bare?: boolean
 }
 
 function isCameraSupported(): boolean {
@@ -66,7 +73,7 @@ function describeCameraError(error: unknown): string {
   return 'An unexpected camera error occurred.'
 }
 
-export default function CameraCapture({ onCapture }: CameraCaptureProps) {
+export default function CameraCapture({ onCapture, bare = false }: CameraCaptureProps) {
   const [status, setStatus] = useState<CaptureStatus>('idle')
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [capturedImage, setCapturedImage] = useState<string | null>(null)
@@ -183,13 +190,8 @@ export default function CameraCapture({ onCapture }: CameraCaptureProps) {
 
   const showVideo = status === 'starting' || status === 'active'
 
-  return (
-    <div className="max-w-md mx-auto p-6 bg-white rounded-lg shadow">
-      <h2 className="text-2xl font-bold mb-2">Camera Capture</h2>
-      <p className="text-gray-600 mb-4">
-        Start your camera, then capture a photo when you&rsquo;re ready.
-      </p>
-
+  const body = (
+    <>
       {status === 'error' && errorMessage && (
         <div
           role="alert"
@@ -200,24 +202,46 @@ export default function CameraCapture({ onCapture }: CameraCaptureProps) {
         </div>
       )}
 
-      {/* Always mounted (not conditionally rendered) so the ref is
-          available before the async getUserMedia call resolves; hidden
-          via class when there's no live stream to show. */}
-      <video
-        ref={videoRef}
-        autoPlay
-        playsInline
-        muted
-        onLoadedMetadata={handleVideoLoadedMetadata}
-        aria-label="Live camera preview"
-        className={showVideo ? 'w-full rounded mb-4 bg-black' : 'hidden'}
-      />
+      {/* Before the camera starts: a calm placeholder instead of an empty gap. */}
+      {(status === 'idle' || status === 'error') && (
+        <div className="mb-4 flex aspect-[4/3] flex-col items-center justify-center gap-2 rounded-2xl bg-brand-50 text-brand-700 ring-1 ring-brand-100">
+          <CameraIcon className="h-10 w-10" />
+          <span className="text-sm font-medium">Your camera preview will appear here</span>
+        </div>
+      )}
+
+      {/* The video element is always mounted (not conditionally rendered) so the ref is
+          available before the async getUserMedia call resolves; its frame is hidden via
+          class when there's no live stream to show. The preview is mirrored like a
+          selfie; the captured frame itself is not altered. */}
+      <div
+        className={
+          showVideo
+            ? 'relative mb-4 aspect-[3/4] overflow-hidden rounded-2xl bg-gray-900'
+            : 'hidden'
+        }
+      >
+        <video
+          ref={videoRef}
+          autoPlay
+          playsInline
+          muted
+          onLoadedMetadata={handleVideoLoadedMetadata}
+          aria-label="Live camera preview"
+          className="h-full w-full -scale-x-100 object-cover"
+        />
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute left-1/2 top-1/2 h-[72%] w-[62%] -translate-x-1/2 -translate-y-1/2 rounded-[50%] border-2 border-white/80 shadow-[0_0_0_999px_rgba(15,40,40,0.38)]"
+        />
+      </div>
 
       {status === 'captured' && capturedImage && (
+        // eslint-disable-next-line @next/next/no-img-element
         <img
           src={capturedImage}
           alt="Captured preview"
-          className="w-full rounded mb-4"
+          className="mb-4 w-full rounded-2xl"
         />
       )}
 
@@ -227,7 +251,7 @@ export default function CameraCapture({ onCapture }: CameraCaptureProps) {
             type="button"
             onClick={handleStartCamera}
             aria-label="Start camera"
-            className="flex-1 py-2 px-4 rounded bg-blue-600 text-white font-medium hover:bg-blue-700"
+            className="btn btn-primary"
           >
             Start Camera
           </button>
@@ -239,7 +263,7 @@ export default function CameraCapture({ onCapture }: CameraCaptureProps) {
             disabled
             aria-busy="true"
             aria-label="Starting camera"
-            className="flex-1 py-2 px-4 rounded bg-blue-600 text-white font-medium opacity-50 cursor-not-allowed"
+            className="btn btn-primary"
           >
             Starting camera…
           </button>
@@ -251,7 +275,7 @@ export default function CameraCapture({ onCapture }: CameraCaptureProps) {
             onClick={handleCapture}
             disabled={!isVideoReady}
             aria-label="Capture photo"
-            className="flex-1 py-2 px-4 rounded bg-blue-600 text-white font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-700"
+            className="btn btn-primary"
           >
             {isVideoReady ? 'Capture' : 'Preparing…'}
           </button>
@@ -262,12 +286,24 @@ export default function CameraCapture({ onCapture }: CameraCaptureProps) {
             type="button"
             onClick={handleRetake}
             aria-label="Retake photo"
-            className="flex-1 py-2 px-4 rounded bg-gray-200 text-gray-800 font-medium hover:bg-gray-300"
+            className="btn btn-secondary"
           >
             Retake
           </button>
         )}
       </div>
+    </>
+  )
+
+  if (bare) return body
+
+  return (
+    <div className="card">
+      <h2 className="mb-1 text-2xl font-bold">Camera Capture</h2>
+      <p className="mb-4 text-gray-600">
+        Start your camera, then capture a photo when you&rsquo;re ready.
+      </p>
+      {body}
     </div>
   )
 }

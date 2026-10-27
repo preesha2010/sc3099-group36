@@ -7,10 +7,16 @@
  *
  *   unauthenticated -> LoginForm <-> RegisterForm
  *   authenticated    -> SessionSelector -> CheckInFlow
- *                    -> CheckInHistory   (history + appeals; "My check-ins")
- *                    -> FaceEnrollment   ("Face enrollment", or "Enroll now"
- *                                         from a check-in preflight, which
- *                                         returns to that same session)
+ *                    -> CheckInHistory   (history + appeals; the "My check-ins" tab)
+ *                    -> FaceEnrollment   (the "Face enrollment" tab, the "Enroll
+ *                                         now" prompt on the session list, or
+ *                                         "Enroll now" from a check-in preflight,
+ *                                         which returns to that same session)
+ *
+ * The three main screens (sessions, history, face enrollment) share a tab bar
+ * under the header; it is hidden while a session is being checked in to. A
+ * session the student has already checked in to opens its existing result
+ * (`existingCheckin`) instead of the flow.
  *
  * Auth status is resolved by `api.restoreSession()` — never by touching
  * localStorage directly — and only inside a `useEffect`, so the very
@@ -47,9 +53,10 @@ import CheckInFlow from '@/components/CheckInFlow'
 import CheckInHistory from '@/components/CheckInHistory'
 import FaceEnrollment from '@/components/FaceEnrollment'
 import OfflineBanner from '@/components/OfflineBanner'
+import { LogoMark } from '@/components/icons'
 import { useOnlineStatus } from '@/lib/useOnlineStatus'
 import { ACCOUNT_LOCKED_MESSAGE } from '@/lib/errors'
-import type { Session } from '@/types/api'
+import type { CheckinSummary, Session } from '@/types/api'
 
 // 'unavailable': the session couldn't be restored because the server couldn't
 // be reached (offline, timeout, 5xx). Tokens were kept, so this is a "try again"
@@ -67,6 +74,9 @@ export default function Home() {
   const [loginWarning, setLoginWarning] = useState<string | null>(null)
   const [postAuthView, setPostAuthView] = useState<PostAuthView>('session-select')
   const [selectedSession, setSelectedSession] = useState<Session | null>(null)
+  // Set when the chosen session already has a check-in of the student's own: the
+  // check-in screen then shows that result instead of running the flow again.
+  const [existingCheckin, setExistingCheckin] = useState<CheckinSummary | null>(null)
 
   const isOnline = useOnlineStatus()
 
@@ -142,27 +152,32 @@ export default function Home() {
     setLoginWarning(null)
     setPostAuthView('session-select')
     setSelectedSession(null)
+    setExistingCheckin(null)
   }, [])
 
-  const handleSessionSelected = useCallback((session: Session) => {
+  const handleSessionSelected = useCallback((session: Session, existing?: CheckinSummary | null) => {
     setSelectedSession(session)
+    setExistingCheckin(existing ?? null)
     setPostAuthView('check-in')
   }, [])
 
   const handleChangeSession = useCallback(() => {
     setPostAuthView('session-select')
     setSelectedSession(null)
+    setExistingCheckin(null)
   }, [])
 
   const handleOpenHistory = useCallback(() => {
     setPostAuthView('history')
     setSelectedSession(null)
+    setExistingCheckin(null)
   }, [])
 
   // From the signed-in bar: enrollment is not tied to any session.
   const handleOpenFaceEnrollment = useCallback(() => {
     setPostAuthView('face-enroll')
     setSelectedSession(null)
+    setExistingCheckin(null)
   }, [])
 
   // From a session's preflight: the chosen session is kept, so leaving
@@ -180,129 +195,172 @@ export default function Home() {
   // signed in — never used for any authorization decision.
   const signedInEmail =
     authStatus === 'authenticated' ? auth.decodeAccessTokenClaims()?.email ?? null : null
+  const initial = (signedInEmail ?? '?').charAt(0).toUpperCase()
+
+  // The three main screens share one tab bar. It is hidden while a session is
+  // being checked in to, so that flow stays focused.
+  const showTabs = authStatus === 'authenticated' && !selectedSession && postAuthView !== 'check-in'
+  const tabs: Array<{ view: PostAuthView; label: string; onSelect: () => void }> = [
+    { view: 'session-select', label: 'Check in', onSelect: handleChangeSession },
+    { view: 'history', label: 'My check-ins', onSelect: handleOpenHistory },
+    { view: 'face-enroll', label: 'Face enrollment', onSelect: handleOpenFaceEnrollment },
+  ]
 
   return (
-    <main className="min-h-screen p-8">
-      <h1 className="text-3xl font-bold mb-1 text-center">
-        SAIV - Secure Attendance System
-      </h1>
-      <p className="text-gray-600 mb-8 text-center">Student Check-in</p>
-
-      <OfflineBanner />
-
-      {authStatus === 'loading' && (
-        <p className="text-center text-sm text-gray-400">Loading…</p>
-      )}
-
-      {authStatus === 'unavailable' && (
-        <div className="max-w-md mx-auto p-6 bg-white rounded-lg shadow text-center">
-          <h2 className="text-xl font-bold mb-2">Can’t reach the server</h2>
-          <p className="text-sm text-gray-600 mb-4">
-            {isOnline
-              ? 'We couldn’t reach the server to restore your session. You’re still signed in — please try again.'
-              : 'You’re offline, so we can’t restore your session yet. You’re still signed in — reconnect and try again.'}
-          </p>
-          <button
-            type="button"
-            onClick={restore}
-            className="w-full py-2 px-4 rounded bg-blue-600 text-white font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-          >
-            Try again
-          </button>
-        </div>
-      )}
-
-      {authStatus === 'unauthenticated' && authView === 'login' && (
-        <LoginForm
-          onLoginSuccess={handleLoginSuccess}
-          onSwitchToRegister={handleSwitchToRegister}
-          notice={registerNotice}
-          warning={loginWarning}
-        />
-      )}
-
-      {authStatus === 'unauthenticated' && authView === 'register' && (
-        <RegisterForm
-          onRegisterSuccess={handleRegisterSuccess}
-          onSwitchToLogin={handleSwitchToLogin}
-        />
-      )}
-
-      {authStatus === 'authenticated' && (
-        <>
-          <div className="max-w-md mx-auto mb-4 flex items-center justify-between text-sm">
-            <span className="text-gray-600">
-              {signedInEmail ? `Signed in as ${signedInEmail}` : null}
-            </span>
-            <span className="flex items-center gap-4">
-              {postAuthView === 'session-select' && (
-                <button
-                  type="button"
-                  onClick={handleOpenFaceEnrollment}
-                  className="text-blue-600 hover:underline focus:outline-none focus:ring-2 focus:ring-blue-500 rounded"
-                >
-                  Face enrollment
-                </button>
-              )}
-              {postAuthView === 'session-select' && (
-                <button
-                  type="button"
-                  onClick={handleOpenHistory}
-                  className="text-blue-600 hover:underline focus:outline-none focus:ring-2 focus:ring-blue-500 rounded"
-                >
-                  My check-ins
-                </button>
-              )}
+    <div className="min-h-screen">
+      <header className="sticky top-0 z-10 border-b border-brand-900/10 bg-white/85 backdrop-blur">
+        <div className="mx-auto flex h-16 w-full max-w-md items-center justify-between gap-3 px-4">
+          <div className="flex min-w-0 items-center gap-3">
+            <LogoMark className="h-9 w-9 shrink-0" />
+            <div className="min-w-0 leading-tight">
+              <h1 className="text-base font-bold">SAIV</h1>
+              <p className="truncate text-xs text-gray-500">Student Check-in</p>
+            </div>
+          </div>
+          {authStatus === 'authenticated' && (
+            <div className="flex shrink-0 items-center gap-2">
+              <span
+                aria-hidden="true"
+                title={signedInEmail ?? undefined}
+                className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-100 text-sm font-bold text-brand-800"
+              >
+                {initial}
+              </span>
               <button
                 type="button"
                 onClick={handleLogout}
-                className="text-blue-600 hover:underline focus:outline-none focus:ring-2 focus:ring-blue-500 rounded"
+                className="rounded-xl border border-gray-300 bg-white px-3.5 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
               >
                 Log Out
               </button>
-            </span>
-          </div>
-
-          {postAuthView === 'session-select' && (
-            <SessionSelector onSessionSelected={handleSessionSelected} />
-          )}
-
-          {postAuthView === 'history' && (
-            <CheckInHistory onBack={handleChangeSession} onAuthExpired={handleLogout} />
-          )}
-
-          {postAuthView === 'face-enroll' && (
-            <FaceEnrollment
-              onBack={handleLeaveFaceEnrollment}
-              onAuthExpired={handleLogout}
-              backLabel={selectedSession ? 'Back to check-in' : 'Back to sessions'}
-            />
-          )}
-
-          {postAuthView === 'check-in' && selectedSession && (
-            <div className="max-w-md mx-auto">
-              <div className="mb-4 p-3 rounded border-l-4 border-blue-500 bg-blue-50 text-sm text-blue-700 flex items-center justify-between gap-3">
-                <span>
-                  Checking in to: <strong>{selectedSession.name}</strong>
-                </span>
-                <button
-                  type="button"
-                  onClick={handleChangeSession}
-                  className="text-blue-600 hover:underline whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-blue-500 rounded"
-                >
-                  Change Session
-                </button>
-              </div>
-              <CheckInFlow
-                session={selectedSession}
-                onExit={handleChangeSession}
-                onAuthExpired={handleLogout}
-                onEnrollFace={handleEnrollFromPreflight}
-              />
             </div>
           )}
-        </>
-      )}
-    </main>
+        </div>
+      </header>
+
+      <main className="mx-auto w-full max-w-md px-4 pb-16 pt-6">
+        <OfflineBanner />
+
+        {authStatus === 'loading' && (
+          <p className="text-center text-sm text-gray-500">Loading…</p>
+        )}
+
+        {authStatus === 'unavailable' && (
+          <div className="card text-center">
+            <h2 className="mb-2 text-xl font-bold">Can’t reach the server</h2>
+            <p className="mb-4 text-sm text-gray-600">
+              {isOnline
+                ? 'We couldn’t reach the server to restore your session. You’re still signed in — please try again.'
+                : 'You’re offline, so we can’t restore your session yet. You’re still signed in — reconnect and try again.'}
+            </p>
+            <button type="button" onClick={restore} className="btn btn-primary">
+              Try again
+            </button>
+          </div>
+        )}
+
+        {authStatus === 'unauthenticated' && (
+          <div className="mx-auto mb-6 max-w-md text-center">
+            <p className="text-sm font-semibold uppercase tracking-wider text-brand-700">
+              Secure Attendance System
+            </p>
+            <p className="mt-1 text-sm text-gray-600">
+              Check in to your class in a minute: location, a quick photo, done.
+            </p>
+          </div>
+        )}
+
+        {authStatus === 'unauthenticated' && authView === 'login' && (
+          <LoginForm
+            onLoginSuccess={handleLoginSuccess}
+            onSwitchToRegister={handleSwitchToRegister}
+            notice={registerNotice}
+            warning={loginWarning}
+          />
+        )}
+
+        {authStatus === 'unauthenticated' && authView === 'register' && (
+          <RegisterForm
+            onRegisterSuccess={handleRegisterSuccess}
+            onSwitchToLogin={handleSwitchToLogin}
+          />
+        )}
+
+        {authStatus === 'authenticated' && (
+          <>
+            {signedInEmail && (
+              <p className="mb-3 truncate text-center text-xs text-gray-500">
+                Signed in as {signedInEmail}
+              </p>
+            )}
+
+            {showTabs && (
+              <nav
+                aria-label="Main"
+                className="mb-5 grid grid-cols-3 gap-1 rounded-2xl bg-gray-200/70 p-1"
+              >
+                {tabs.map((tab) => {
+                  const active = postAuthView === tab.view
+                  return (
+                    <button
+                      key={tab.view}
+                      type="button"
+                      onClick={tab.onSelect}
+                      aria-current={active ? 'page' : undefined}
+                      className={`flex min-h-[44px] items-center justify-center rounded-xl px-1.5 text-center text-[13px] font-semibold leading-tight transition focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 ${
+                        active
+                          ? 'bg-white text-brand-800 shadow-sm'
+                          : 'text-gray-600 hover:text-gray-900'
+                      }`}
+                    >
+                      {tab.label}
+                    </button>
+                  )
+                })}
+              </nav>
+            )}
+
+            {postAuthView === 'session-select' && (
+              <SessionSelector
+                onSessionSelected={handleSessionSelected}
+                onEnrollFace={handleOpenFaceEnrollment}
+              />
+            )}
+
+            {postAuthView === 'history' && (
+              <CheckInHistory onBack={handleChangeSession} onAuthExpired={handleLogout} />
+            )}
+
+            {postAuthView === 'face-enroll' && (
+              <FaceEnrollment
+                onBack={handleLeaveFaceEnrollment}
+                onAuthExpired={handleLogout}
+                backLabel={selectedSession ? 'Back to check-in' : 'Back to sessions'}
+              />
+            )}
+
+            {postAuthView === 'check-in' && selectedSession && (
+              <div className="mx-auto w-full max-w-md">
+                <div className="mb-4 flex items-center justify-between gap-3 rounded-2xl bg-brand-50 px-4 py-3 text-sm text-brand-800 ring-1 ring-brand-200">
+                  <span className="min-w-0">
+                    Checking in to: <strong className="break-words">{selectedSession.name}</strong>
+                  </span>
+                  <button type="button" onClick={handleChangeSession} className="link whitespace-nowrap">
+                    Change Session
+                  </button>
+                </div>
+                <CheckInFlow
+                  session={selectedSession}
+                  existingCheckin={existingCheckin}
+                  onExit={handleChangeSession}
+                  onAuthExpired={handleLogout}
+                  onEnrollFace={handleEnrollFromPreflight}
+                />
+              </div>
+            )}
+          </>
+        )}
+      </main>
+    </div>
   )
 }

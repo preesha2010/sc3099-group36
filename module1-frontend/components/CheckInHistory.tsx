@@ -29,6 +29,7 @@ import {
   statusLabel,
 } from '@/lib/checkinPresentation'
 import { useOnlineStatus } from '@/lib/useOnlineStatus'
+import { ChevronLeftIcon } from '@/components/icons'
 import type { CheckinDetail, CheckinSummary } from '@/types/api'
 
 export interface CheckInHistoryProps {
@@ -48,9 +49,9 @@ const MAX_APPEAL_LENGTH = 1000
 const HISTORY_LIMIT = 100
 
 const PRIMARY_BUTTON =
-  'w-full py-2 px-4 rounded bg-blue-600 text-white font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2'
+  'btn btn-primary'
 const SECONDARY_BUTTON =
-  'w-full py-2 px-4 rounded border border-gray-300 text-gray-700 font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2'
+  'btn btn-secondary'
 
 interface Problem {
   message: string
@@ -266,13 +267,14 @@ export default function CheckInHistory({ onBack, onAuthExpired }: CheckInHistory
     const offlineBlocked = !isOnline && !submitting
 
     return (
-      <div className="max-w-md mx-auto p-6 bg-white rounded-lg shadow">
+      <div className="card">
         <button
           type="button"
           onClick={closeDetail}
-          className="mb-4 text-sm text-blue-600 hover:underline focus:outline-none focus:ring-2 focus:ring-blue-500 rounded"
+          className="link mb-4 inline-flex items-center gap-1 text-sm"
         >
-          ← All check-ins
+          <ChevronLeftIcon />
+          All check-ins
         </button>
 
         {detailStatus === 'loading' && (
@@ -355,7 +357,7 @@ export default function CheckInHistory({ onBack, onAuthExpired }: CheckInHistory
             )}
 
             {detail.appealed_at && (
-              <div className="mb-4 p-3 rounded bg-blue-50 text-sm text-blue-800">
+              <div className="mb-4 p-3 rounded bg-brand-50 text-sm text-brand-800">
                 <p className="font-medium">
                   Appeal sent on {formatServerDateTime(detail.appealed_at)}
                 </p>
@@ -398,7 +400,7 @@ export default function CheckInHistory({ onBack, onAuthExpired }: CheckInHistory
                   maxLength={MAX_APPEAL_LENGTH}
                   rows={4}
                   disabled={submitting}
-                  className="w-full p-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="field text-sm"
                 />
                 <p className="mt-1 mb-3 text-xs text-gray-400">
                   {reason.length}/{MAX_APPEAL_LENGTH}
@@ -436,9 +438,9 @@ export default function CheckInHistory({ onBack, onAuthExpired }: CheckInHistory
 
   // ------------------------------------------------------------------ list view
   return (
-    <div className="max-w-md mx-auto p-6 bg-white rounded-lg shadow">
-      <h2 className="text-2xl font-bold mb-2">My check-ins</h2>
-      <p className="text-gray-600 mb-4">Your attendance history, newest first.</p>
+    <div className="card">
+      <h2 className="mb-1 text-2xl font-bold">My check-ins</h2>
+      <p className="mb-5 text-gray-600">Your attendance history, newest first.</p>
 
       {listStatus === 'loading' && (
         <p role="status" className="text-sm text-gray-400">
@@ -472,7 +474,7 @@ export default function CheckInHistory({ onBack, onAuthExpired }: CheckInHistory
               <button
                 type="button"
                 onClick={() => void openDetail(entry.id)}
-                className="w-full text-left p-3 rounded border border-gray-300 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="row-btn"
               >
                 <span className="flex items-start justify-between gap-3">
                   <span>
@@ -485,7 +487,7 @@ export default function CheckInHistory({ onBack, onAuthExpired }: CheckInHistory
                     </span>
                   </span>
                   <span
-                    className={`shrink-0 px-2 py-0.5 rounded text-xs font-medium ${statusBadgeClasses(entry.status)}`}
+                    className={`pill ${statusBadgeClasses(entry.status)}`}
                   >
                     {statusLabel(entry.status)}
                   </span>

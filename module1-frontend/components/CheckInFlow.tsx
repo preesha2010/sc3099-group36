@@ -15,9 +15,15 @@
  *   browser for the camera / location. If recording fails nothing is requested
  *   and the student can retry — we never collect data without consent on record.
  *   Skipped if the profile already has the needed flags set.
- * - Photo: the existing LivenessChallenge (instructions) + CameraCapture take
- *   exactly ONE photo, matching the single `liveness_challenge_response` field
- *   in the API. Skipped entirely when the session needs no liveness photo.
+ * - Photo: one screen with the instructions and CameraCapture takes exactly ONE
+ *   photo, matching the single `liveness_challenge_response` field in the API
+ *   (the liveness check is that photo analysed on the server; there is no separate
+ *   step to perform). Skipped entirely when the session needs no liveness photo.
+ * - Already checked in: when the session selector knows the student already has a
+ *   check-in for this session, `existingCheckin` is passed in and its result is
+ *   shown straight away instead of running any of the steps above. (If that read
+ *   failed, the flow runs as before and the server's "already checked in" refusal
+ *   is turned into the same result after submitting.)
  * - Review & submit: the student explicitly submits. Submission goes through
  *   lib/checkin.ts -> `POST /checkins/`. Success is only shown once the API has
  *   actually answered, and the outcome shown follows the server's `status`.
@@ -38,16 +44,18 @@ import {
 } from '@/lib/checkin'
 import ConsentPrompt from '@/components/ConsentPrompt'
 import CameraCapture from '@/components/CameraCapture'
-import LivenessChallenge from '@/components/LivenessChallenge'
+import { CheckIcon } from '@/components/icons'
 import CheckInPreflight, {
   type CheckInPreflightResult,
 } from '@/components/CheckInPreflight'
 import CheckInResult, { type CheckInOutcome } from '@/components/CheckInResult'
 import { useOnlineStatus } from '@/lib/useOnlineStatus'
-import type { Session } from '@/types/api'
+import type { CheckinSummary, Session } from '@/types/api'
 
 export interface CheckInFlowProps {
   session: Session
+  /** The student's own check-in for this session, if they already have one: its result is shown instead of the flow. */
+  existingCheckin?: CheckinSummary | null
   /** Leave the flow and return to session selection. */
   onExit: () => void
   /** The session is no longer valid (token refresh failed) — return to Sign In. */
@@ -67,13 +75,13 @@ interface Failure {
 const STEP_LABELS: Record<'consent' | 'photo' | 'review', string> = {
   consent: 'Consent',
   photo: 'Photo',
-  review: 'Review & Submit',
+  review: 'Review',
 }
 
 const PRIMARY_BUTTON =
-  'w-full py-2 px-4 rounded bg-blue-600 text-white font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2'
+  'btn btn-primary'
 const SECONDARY_BUTTON =
-  'w-full py-2 px-4 rounded border border-gray-300 text-gray-700 font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2'
+  'btn btn-secondary'
 
 const SESSION_EXPIRED: Failure = {
   message: 'Your session has expired. Please log in again.',
@@ -280,6 +288,7 @@ function FailureNotice({
 
 export default function CheckInFlow({
   session,
+  existingCheckin = null,
   onExit,
   onAuthExpired,
   onEnrollFace,
@@ -294,7 +303,6 @@ export default function CheckInFlow({
 
   // The single liveness photo (a data URL), kept in memory only.
   const [livenessImage, setLivenessImage] = useState<string | null>(null)
-  const [isLivenessCaptureRequested, setIsLivenessCaptureRequested] = useState(false)
 
   const [submitPhase, setSubmitPhase] = useState<SubmitPhase | null>(null)
   const [submitFailure, setSubmitFailure] = useState<Failure | null>(null)
@@ -350,19 +358,13 @@ export default function CheckInFlow({
     setStep(preflightResult.sessionDetail.require_liveness_check ? 'photo' : 'review')
   }, [preflightResult])
 
-  const handleLivenessRequestCapture = useCallback(() => {
-    setIsLivenessCaptureRequested(true)
-  }, [])
-
   const handleLivenessCameraCapture = useCallback((imageData: string) => {
     setLivenessImage(imageData)
-    setIsLivenessCaptureRequested(false)
     setStep('review')
   }, [])
 
   const handleRetakePhoto = useCallback(() => {
     setLivenessImage(null)
-    setIsLivenessCaptureRequested(false)
     setSubmitFailure(null)
     setStep('photo')
   }, [])
@@ -414,6 +416,12 @@ export default function CheckInFlow({
     }
   }, [preflightResult, livenessImage])
 
+  if (existingCheckin) {
+    return (
+      <CheckInResult outcome={{ kind: 'already', checkin: existingCheckin }} onDone={onExit} />
+    )
+  }
+
   if (!preflightResult) {
     return (
       <CheckInPreflight
@@ -439,9 +447,39 @@ export default function CheckInFlow({
   return (
     <div>
       {step !== 'result' && stepNumber > 0 && (
-        <p className="text-center text-sm font-medium text-gray-500 mb-8">
-          {`Step ${stepNumber} of ${stepOrder.length}: ${STEP_LABELS[stepOrder[stepNumber - 1]]}`}
-        </p>
+        <nav aria-label="Check-in progress" className="mx-auto mb-6 w-full max-w-md">
+          <p className="sr-only">
+            {`Step ${stepNumber} of ${stepOrder.length}: ${STEP_LABELS[stepOrder[stepNumber - 1]]}`}
+          </p>
+          <ol className="flex items-start" aria-hidden="true">
+            {stepOrder.map((name, index) => {
+              const done = index + 1 < stepNumber
+              const current = index + 1 === stepNumber
+              return (
+                <li key={name} className="flex flex-1 flex-col items-center gap-1.5">
+                  <div className="flex w-full items-center">
+                    <span className={`h-0.5 flex-1 ${index === 0 ? 'bg-transparent' : done || current ? 'bg-brand-500' : 'bg-gray-300'}`} />
+                    <span
+                      className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold ${
+                        done
+                          ? 'bg-brand-600 text-white'
+                          : current
+                            ? 'bg-brand-600 text-white ring-4 ring-brand-200'
+                            : 'bg-gray-200 text-gray-500'
+                      }`}
+                    >
+                      {done ? <CheckIcon className="h-4 w-4" /> : index + 1}
+                    </span>
+                    <span className={`h-0.5 flex-1 ${index === stepOrder.length - 1 ? 'bg-transparent' : done ? 'bg-brand-500' : 'bg-gray-300'}`} />
+                  </div>
+                  <span className={`text-xs font-semibold ${current ? 'text-brand-800' : 'text-gray-500'}`}>
+                    {STEP_LABELS[name]}
+                  </span>
+                </li>
+              )
+            })}
+          </ol>
+        </nav>
       )}
 
       {step === 'consent' && (
@@ -462,22 +500,20 @@ export default function CheckInFlow({
       )}
 
       {step === 'photo' && (
-        <div className="space-y-6">
-          <LivenessChallenge
-            hasCaptured={livenessImage !== null}
-            onRequestCapture={handleLivenessRequestCapture}
-          />
-
-          {isLivenessCaptureRequested && (
-            <CameraCapture onCapture={handleLivenessCameraCapture} />
-          )}
+        <div className="card">
+          <h2 className="mb-1 text-2xl font-bold">Live photo</h2>
+          <p className="mb-5 text-gray-600">
+            Take one clear photo of your face. Look at the camera in good light and stay still
+            — no head movement or other action is needed.
+          </p>
+          <CameraCapture bare onCapture={handleLivenessCameraCapture} />
         </div>
       )}
 
       {step === 'review' && (
-        <div className="max-w-md mx-auto p-6 bg-white rounded-lg shadow">
-          <h2 className="text-2xl font-bold mb-2">Review &amp; Submit</h2>
-          <p className="text-gray-600 mb-4">
+        <div className="card">
+          <h2 className="mb-1 text-2xl font-bold">Review &amp; Submit</h2>
+          <p className="mb-5 text-gray-600">
             You&rsquo;re about to check in to{' '}
             <strong>{preflightResult.sessionDetail.name}</strong>. Your location will be
             read when you submit.

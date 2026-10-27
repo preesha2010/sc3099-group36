@@ -20,5 +20,7 @@ export function parseServerDate(value: string): Date {
 /** Formats a server timestamp in the viewer's local time; falls back to the raw text if unparsable. */
 export function formatServerDateTime(value: string): string {
   const date = parseServerDate(value)
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleString()
+  return Number.isNaN(date.getTime())
+    ? value
+    : date.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })
 }

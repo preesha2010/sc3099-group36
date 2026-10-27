@@ -29,6 +29,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { getCurrentLocation } from '@/lib/geolocation'
+import { CameraIcon, PinIcon } from '@/components/icons'
 
 type ConsentStatus = 'idle' | 'requesting' | 'error' | 'granted'
 type ConsentStep = 'consent' | 'camera' | 'location'
@@ -196,11 +197,11 @@ export default function ConsentPrompt({
   const isGranted = status === 'granted'
 
   return (
-    <div className="max-w-md mx-auto p-6 bg-white rounded-lg shadow">
-      <h2 className="text-2xl font-bold mb-2">
+    <div className="card">
+      <h2 className="mb-1 text-2xl font-bold">
         {requireCamera ? 'Camera & Location Access' : 'Location Access'}
       </h2>
-      <p className="text-gray-600 mb-4">
+      <p className="mb-5 text-gray-600">
         {requireCamera
           ? 'To check in, SAIV needs permission to use your camera and location for this session.'
           : 'To check in, SAIV needs permission to use your location for this session.'}
@@ -208,17 +209,21 @@ export default function ConsentPrompt({
 
       <ul className="mb-6 space-y-3 text-sm text-gray-700">
         {requireCamera && (
-          <li className="flex gap-2">
-            <span aria-hidden="true">📷</span>
-            <span>
+          <li className="flex items-start gap-3 rounded-2xl bg-gray-50 p-3 ring-1 ring-gray-200">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-100 text-brand-700">
+              <CameraIcon />
+            </span>
+            <span className="pt-0.5">
               <strong>Camera</strong> — used to verify it&rsquo;s really you (face
               verification).
             </span>
           </li>
         )}
-        <li className="flex gap-2">
-          <span aria-hidden="true">📍</span>
-          <span>
+        <li className="flex items-start gap-3 rounded-2xl bg-gray-50 p-3 ring-1 ring-gray-200">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-100 text-brand-700">
+            <PinIcon />
+          </span>
+          <span className="pt-0.5">
             <strong>Location</strong> — used to confirm you&rsquo;re checking in from
             the venue.
           </span>
@@ -245,7 +250,7 @@ export default function ConsentPrompt({
         type="button"
         onClick={handleAllowAndContinue}
         disabled={isRequesting || isGranted}
-        className="w-full py-2 px-4 rounded bg-blue-600 text-white font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-700"
+        className="btn btn-primary"
       >
         {isRequesting
           ? 'Requesting permissions…'

@@ -40,7 +40,7 @@ export default function CheckInResult({ outcome, onDone }: CheckInResultProps) {
   const presentation = presentStatus(checkin.status, submitted?.risk_factors)
 
   return (
-    <div className="max-w-md mx-auto p-6 bg-white rounded-lg shadow">
+    <div className="card">
       {outcome.kind === 'already' && (
         <p className="text-sm text-gray-600 mb-3">
           You’ve already checked in to this session.
@@ -92,7 +92,7 @@ export default function CheckInResult({ outcome, onDone }: CheckInResultProps) {
       <button
         type="button"
         onClick={onDone}
-        className="w-full py-2 px-4 rounded bg-blue-600 text-white font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+        className="btn btn-primary"
       >
         Done
       </button>

@@ -47,9 +47,9 @@ interface Problem {
 }
 
 const PRIMARY_BUTTON =
-  'w-full py-2 px-4 rounded bg-blue-600 text-white font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2'
+  'btn btn-primary'
 const SECONDARY_BUTTON =
-  'w-full py-2 px-4 rounded border border-gray-300 text-gray-700 font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2'
+  'btn btn-secondary'
 
 const SESSION_EXPIRED: Problem = {
   message: 'Your session has expired. Please log in again.',
@@ -225,8 +225,8 @@ export default function FaceEnrollment({
   )
 
   return (
-    <div className="max-w-md mx-auto p-6 bg-white rounded-lg shadow">
-      <h2 className="text-2xl font-bold mb-2">Face enrollment</h2>
+    <div className="card">
+      <h2 className="mb-1 text-2xl font-bold">Face enrollment</h2>
 
       {step === 'loading' && (
         <>
@@ -241,7 +241,7 @@ export default function FaceEnrollment({
 
       {step === 'intro' && (
         <>
-          <p className="text-gray-600 mb-4">
+          <p className="mb-5 text-gray-600">
             Enrolling your face lets SAIV check that it’s really you when you check in. You take
             one photo now; the server keeps a face template made from it, and this app does not
             keep the photo.
@@ -296,7 +296,7 @@ export default function FaceEnrollment({
 
       {step === 'capture' && (
         <>
-          <p className="text-gray-600 mb-4">
+          <p className="mb-5 text-gray-600">
             Face the camera in good light, with nothing covering your face, then capture one photo.
           </p>
           <CameraCapture onCapture={handleCaptured} />

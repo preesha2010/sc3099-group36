@@ -10,10 +10,11 @@
  * — (2) kicks off a best-effort device registration in the background, and
  * (3) shows an informational summary of what the check-in will need.
  *
- * Everything shown here is INFORMATIONAL. Nothing is hard-blocked on the
- * client: the backend remains the sole authority on whether a check-in is
- * accepted, so a notice such as "face match required but not enrolled"
- * warns the user but never stops them from continuing.
+ * Everything shown here is INFORMATIONAL except one thing: "Start check-in" is
+ * held back while the session's check-in window is closed or not yet open (by this
+ * device's clock, see lib/sessionWindow.ts). The backend remains the sole authority
+ * on whether a check-in is accepted, so other notices, such as "face match required
+ * but not enrolled", warn the user but never stop them from continuing.
  *
  * Device registration never blocks this screen or the user: it starts only
  * after the details load, its outcome only updates one line of text, and any
@@ -31,7 +32,9 @@ import {
   type DeviceRegistrationStatus,
 } from '@/lib/deviceBinding'
 import { useOnlineStatus } from '@/lib/useOnlineStatus'
-import { formatServerDateTime, parseServerDate } from '@/lib/dates'
+import { formatServerDateTime } from '@/lib/dates'
+import { formatSessionRange, presentWindow } from '@/lib/sessionWindow'
+import { useNow } from '@/lib/useNow'
 import type { Session, SessionDetail, UserResponse } from '@/types/api'
 
 type PreflightStatus = 'loading' | 'error' | 'ready'
@@ -77,20 +80,6 @@ function describePreflightError(error: unknown): string {
 
 const formatDateTime = formatServerDateTime
 
-/**
- * Whether the session's check-in window looks open, going by this device's
- * clock. Informational only: the server decides, and a device with a wrong
- * clock can be mistaken, so this never blocks anything.
- */
-function checkinWindowState(opensAt: string, closesAt: string): 'open' | 'not-open-yet' | 'closed' {
-  const now = Date.now()
-  const opens = parseServerDate(opensAt).getTime()
-  const closes = parseServerDate(closesAt).getTime()
-  if (!Number.isNaN(closes) && now > closes) return 'closed'
-  if (!Number.isNaN(opens) && now < opens) return 'not-open-yet'
-  return 'open'
-}
-
 function describeDeviceStatus(status: DeviceStatus): string {
   switch (status) {
     case 'checking':
@@ -118,6 +107,7 @@ export default function CheckInPreflight({
   const [result, setResult] = useState<CheckInPreflightResult | null>(null)
   const [deviceStatus, setDeviceStatus] = useState<DeviceStatus>('checking')
   const isOnline = useOnlineStatus()
+  const now = useNow()
   const isMountedRef = useRef(true)
 
   useEffect(() => {
@@ -158,14 +148,24 @@ export default function CheckInPreflight({
     void runPreflight()
   }, [runPreflight])
 
+  // By this device's clock (a hint; the server decides). Start is held back outside the window.
+  const windowInfo = result
+    ? presentWindow(
+        result.sessionDetail.checkin_opens_at,
+        result.sessionDetail.checkin_closes_at,
+        now,
+      )
+    : null
+  const windowOpen = windowInfo?.state === 'open'
+
   const handleStart = useCallback(() => {
-    if (result) onReady(result)
-  }, [result, onReady])
+    if (result && windowOpen) onReady(result)
+  }, [result, windowOpen, onReady])
 
   return (
-    <div className="max-w-md mx-auto p-6 bg-white rounded-lg shadow">
-      <h2 className="text-2xl font-bold mb-2">Ready to Check In</h2>
-      <p className="text-gray-600 mb-4">
+    <div className="card">
+      <h2 className="mb-1 text-2xl font-bold">Ready to Check In</h2>
+      <p className="mb-5 text-gray-600">
         Review what this check-in needs, then start when you&rsquo;re ready.
       </p>
 
@@ -186,7 +186,7 @@ export default function CheckInPreflight({
           <button
             type="button"
             onClick={() => void runPreflight()}
-            className="w-full py-2 px-4 rounded bg-blue-600 text-white font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+            className="btn btn-primary"
           >
             Retry
           </button>
@@ -195,14 +195,20 @@ export default function CheckInPreflight({
 
       {status === 'ready' && result && (
         <>
-          <div className="mb-4 p-4 rounded border border-gray-200 bg-gray-50">
-            <p className="font-semibold">
-              {session.course_code} — {result.sessionDetail.name}
-            </p>
+          <div className="mb-5 rounded-2xl bg-gray-50 p-4 ring-1 ring-gray-200">
+            <div className="flex items-start justify-between gap-2">
+              <p className="font-semibold leading-snug">
+                {session.course_code} — {result.sessionDetail.name}
+              </p>
+              {windowInfo && <span className={`pill ${windowInfo.badgeClasses}`}>{windowInfo.badge}</span>}
+            </div>
             <p className="text-sm text-gray-600">{result.sessionDetail.venue_name}</p>
             <p className="text-sm text-gray-500">
-              {formatDateTime(result.sessionDetail.scheduled_start)} –{' '}
-              {formatDateTime(result.sessionDetail.scheduled_end)}
+              {formatSessionRange(
+                result.sessionDetail.scheduled_start,
+                result.sessionDetail.scheduled_end,
+                now,
+              )}
             </p>
             <p className="text-sm text-gray-500">
               Check-in closes: {formatDateTime(result.sessionDetail.checkin_closes_at)}
@@ -238,24 +244,17 @@ export default function CheckInPreflight({
                 not be accepted.
               </div>
             )}
-            {checkinWindowState(
-              result.sessionDetail.checkin_opens_at,
-              result.sessionDetail.checkin_closes_at,
-            ) === 'closed' && (
+            {windowInfo?.state === 'closed' && (
               <div className={NOTICE_CLASSES}>
                 The check-in window for this session closed at{' '}
-                {formatDateTime(result.sessionDetail.checkin_closes_at)}, so check-in will
-                probably be rejected.
+                {formatDateTime(result.sessionDetail.checkin_closes_at)}, so you can no
+                longer check in to it.
               </div>
             )}
-            {checkinWindowState(
-              result.sessionDetail.checkin_opens_at,
-              result.sessionDetail.checkin_closes_at,
-            ) === 'not-open-yet' && (
+            {windowInfo?.state === 'not-open-yet' && (
               <div className={NOTICE_CLASSES}>
                 Check-in for this session opens at{' '}
-                {formatDateTime(result.sessionDetail.checkin_opens_at)}, so check-in will
-                probably be rejected until then.
+                {formatDateTime(result.sessionDetail.checkin_opens_at)}. You can start then.
               </div>
             )}
             {result.sessionDetail.require_face_match && !result.user.face_enrolled && (
@@ -289,10 +288,14 @@ export default function CheckInPreflight({
           <button
             type="button"
             onClick={handleStart}
-            disabled={!isOnline}
-            className="w-full py-2 px-4 rounded bg-blue-600 text-white font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+            disabled={!isOnline || !windowOpen}
+            className="btn btn-primary"
           >
-            Start check-in
+            {windowInfo?.state === 'closed'
+              ? 'Check-in closed'
+              : windowInfo?.state === 'not-open-yet'
+                ? 'Check-in not open yet'
+                : 'Start check-in'}
           </button>
         </>
       )}
