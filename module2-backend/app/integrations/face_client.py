@@ -174,7 +174,8 @@ class FaceClient:
 
     def _classify(self, path: str, payload: dict[str, Any], parser) -> FaceCall:
         status, body, json_ok = self._request(path, payload)
-        if status is None or status >= 500:
+        # 408 is an upload/read deadline, not an invalid biometric decision.
+        if status is None or status >= 500 or status == 408:
             return _unavailable(status)
         if status >= 400:
             return _client_error(status, body if json_ok else None)

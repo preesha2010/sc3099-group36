@@ -90,6 +90,9 @@ def assess(
 
     if critical_reject:
         status = CheckinStatus.REJECTED.value
+    elif face_match_passed is False:
+        # Explicit failed match is instructor review, not auto-approve or outage.
+        status = CheckinStatus.FLAGGED.value
     elif risk_score >= threshold:
         status = CheckinStatus.FLAGGED.value
     else:

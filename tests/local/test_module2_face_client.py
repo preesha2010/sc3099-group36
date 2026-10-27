@@ -197,6 +197,11 @@ def test_client_error_and_unavailable(client):
         down = client.liveness("img")
     assert down.kind == "unavailable"
 
+    with _fake_http(_FakeResponse(408, {"detail": "Request body read deadline exceeded"})):
+        timed_out_upload = client.liveness("img")
+    assert timed_out_upload.kind == "unavailable"
+    assert timed_out_upload.status == 408
+
     mock_client = Mock()
     mock_client.post.side_effect = httpx.TimeoutException("timeout")
     mock_client.__enter__ = Mock(return_value=mock_client)

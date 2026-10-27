@@ -7,7 +7,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.audit.repository import append_audit
-from app.core.exceptions import bad_request, forbidden, not_found
+from app.core.exceptions import bad_request, forbidden, not_found, service_unavailable
 from app.core.pagination import page_of
 from app.core.utils import (
     client_ip,
@@ -17,7 +17,7 @@ from app.core.utils import (
     utcnow_naive,
 )
 from app.db.enums import AuditAction, CheckinStatus, SessionStatus, UserRole
-from app.integrations.face_client import face_client
+from app.integrations.face_client import FaceCall, face_client
 from app.modules.checkins import repository as checkins_repo
 from app.modules.checkins import risk_service
 from app.modules.checkins.model import CheckIn
@@ -54,11 +54,35 @@ def _staff_for_session(db: Session, current_user: User, session) -> bool:
     return can_staff_course_session(db, current_user, session)
 
 
-def _face_signals(payload: CheckinCreate, current_user: User) -> dict[str, Any]:
+def _raise_for_required_face_call(call: FaceCall, required: bool) -> None:
+    """Outages fail closed only when this request actually needs a live M3 result."""
+    if not required:
+        return
+    if call.kind in {"unavailable", "malformed"}:
+        raise service_unavailable("Face recognition service unavailable")
+    if call.kind == "client_error":
+        raise bad_request("Invalid face image")
+
+
+def _face_required(session, course) -> tuple[bool, bool]:
+    require_liveness = bool(getattr(session, "require_liveness_check", False))
+    require_face = bool(getattr(session, "require_face_match", False))
+    if course is not None:
+        require_face = require_face or bool(getattr(course, "require_face_recognition", False))
+    return require_liveness, require_face
+
+
+def _face_signals(
+    payload: CheckinCreate,
+    current_user: User,
+    *,
+    require_liveness: bool = False,
+    require_face: bool = False,
+) -> dict[str, Any]:
     """Call Module 3 only when a check-in image is present.
 
-    Timeouts, 5xx, and unimplemented Module 3 endpoints leave scores as None so
-    public tests (which omit the image) and pre-Module-3 integration still pass.
+    Image-less check-ins skip Module 3 so public tests that omit the image keep
+    working, including when session.require_liveness_check is true.
     """
     result: dict[str, Any] = {
         "liveness_passed": None,
@@ -72,6 +96,7 @@ def _face_signals(payload: CheckinCreate, current_user: User) -> dict[str, Any]:
         return result
 
     live = face_client.liveness(image)
+    _raise_for_required_face_call(live, require_liveness)
     if live.ok:
         result["liveness_passed"] = live.data["liveness_passed"]
         result["liveness_score"] = live.data["liveness_score"]
@@ -82,6 +107,7 @@ def _face_signals(payload: CheckinCreate, current_user: User) -> dict[str, Any]:
     reference = current_user.face_embedding_hash
     if reference:
         verified = face_client.verify(image, reference)
+        _raise_for_required_face_call(verified, require_face)
         if verified.ok:
             result["face_match_passed"] = verified.data["match_passed"]
             result["face_match_score"] = verified.data["match_score"]
@@ -143,9 +169,14 @@ def submit_checkin(db: Session, payload: CheckinCreate, current_user: User, requ
         else:
             device = None
 
-    face = _face_signals(payload, current_user)
-
     course = session.course
+    require_liveness, require_face = _face_required(session, course)
+    face = _face_signals(
+        payload,
+        current_user,
+        require_liveness=require_liveness,
+        require_face=require_face,
+    )
     threshold = session.risk_threshold
     if threshold is None and course is not None:
         threshold = course.risk_threshold
