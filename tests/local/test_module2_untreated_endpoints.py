@@ -36,6 +36,15 @@ def _register_login(client, role: str, full_name: str | None = None) -> dict:
     }
 
 
+def _assign_instructor(client, course_id: str, instructor_id: str, admin_headers: dict) -> None:
+    assigned = client.post(
+        f"/api/v1/admin/courses/{course_id}/instructors",
+        headers=admin_headers,
+        json={"instructor_id": instructor_id},
+    )
+    assert assigned.status_code in (200, 201), assigned.text
+
+
 def _create_session(client, course_id: str, instructor_headers: dict, admin_headers: dict, **extra) -> dict:
     now = datetime.now(timezone.utc).replace(tzinfo=None)
     payload = {
@@ -347,12 +356,14 @@ class TestEnrollmentBulkDelete:
         self,
         client,
         test_course,
+        test_instructor,
         test_student,
         test_enrollment,
         test_session,
         auth_headers_instructor,
         auth_headers_admin,
     ):
+        _assign_instructor(client, test_course["id"], test_instructor["id"], auth_headers_admin)
         other = _register_login(client, "student")
         unknown = _email("missing")
         bulk = client.post(
@@ -486,10 +497,12 @@ class TestEnrollmentCreateAndRosterAuthz:
         self,
         client,
         test_course,
+        test_instructor,
         test_session,
         auth_headers_instructor,
         auth_headers_admin,
     ):
+        _assign_instructor(client, test_course["id"], test_instructor["id"], auth_headers_admin)
         student = _register_login(client, "student")
         created = client.post(
             "/api/v1/enrollments/",
@@ -560,12 +573,14 @@ class TestEnrollmentCreateAndRosterAuthz:
         self,
         client,
         test_course,
+        test_instructor,
         test_enrollment,
         test_session,
         auth_headers_instructor,
         auth_headers_admin,
         auth_headers_student,
     ):
+        _assign_instructor(client, test_course["id"], test_instructor["id"], auth_headers_admin)
         owner = client.get(
             f"/api/v1/enrollments/course/{test_course['id']}",
             headers=auth_headers_instructor,
@@ -609,10 +624,12 @@ class TestEnrollmentCreateAndRosterAuthz:
         self,
         client,
         test_course,
+        test_instructor,
         test_session,
         auth_headers_instructor,
         auth_headers_admin,
     ):
+        _assign_instructor(client, test_course["id"], test_instructor["id"], auth_headers_admin)
         token = uuid.uuid4().hex[:6]
         alice = _register_login(client, "student", full_name=f"Alice Filter{token}")
         bob = _register_login(client, "student", full_name=f"Bob Filter{token}")
@@ -708,12 +725,14 @@ class TestCourseAttendanceExport:
         self,
         client,
         test_course,
+        test_instructor,
         test_session,
         test_enrollment,
         auth_headers_student,
         auth_headers_instructor,
         auth_headers_admin,
     ):
+        _assign_instructor(client, test_course["id"], test_instructor["id"], auth_headers_admin)
         created = _checkin(client, test_session["id"], auth_headers_student)
         assert created.status_code == 201, created.text
 
@@ -840,8 +859,16 @@ class TestOtherUntestedRoutes:
         assert ok.status_code == 200
 
     def test_get_user_by_id_instructor_scope(
-        self, client, test_student, test_enrollment, test_session, auth_headers_instructor
+        self,
+        client,
+        test_student,
+        test_instructor,
+        test_enrollment,
+        test_session,
+        auth_headers_instructor,
+        auth_headers_admin,
     ):
+        _assign_instructor(client, test_enrollment["course_id"], test_instructor["id"], auth_headers_admin)
         allowed = client.get(
             f"/api/v1/users/{test_student['id']}",
             headers=auth_headers_instructor,

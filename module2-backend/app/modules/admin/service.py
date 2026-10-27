@@ -1,13 +1,15 @@
-from typing import Any
+from typing import Any, Optional
 
 from fastapi import Request
 from sqlalchemy.orm import Session
 
 from app.audit.repository import append_audit
-from app.core.exceptions import not_found
+from app.core.exceptions import bad_request, not_found
 from app.core.security import hash_password
-from app.core.utils import sanitize_text
+from app.core.utils import sanitize_text, utcnow_naive
 from app.db.enums import AuditAction, SessionStatus, UserRole
+from app.modules.courses import repository as courses_repo
+from app.modules.courses.instructor_model import CourseInstructor
 from app.modules.enrollments.schemas import EnrollmentCreate
 from app.modules.enrollments.service import create_enrollment as enroll_student
 from app.modules.sessions import repository as sessions_repo
@@ -145,3 +147,98 @@ def create_enrollment(
     db: Session, payload: EnrollmentCreate, current_user: User, request: Request
 ) -> dict[str, Any]:
     return enroll_student(db, payload, current_user, request)
+
+
+def _assignment_payload(row: CourseInstructor, instructor: Optional[User] = None) -> dict[str, Any]:
+    person = instructor if instructor is not None else row.instructor
+    return {
+        "id": row.id,
+        "course_id": row.course_id,
+        "instructor_id": row.instructor_id,
+        "instructor_email": person.email if person is not None else None,
+        "instructor_name": person.full_name if person is not None else None,
+        "is_active": row.is_active,
+        "assigned_at": row.assigned_at,
+    }
+
+
+def assign_course_instructor(
+    db: Session, course_id: str, instructor_id: str, current_user: User, request: Request
+) -> dict[str, Any]:
+    course = courses_repo.get_by_id(db, course_id)
+    if course is None:
+        raise not_found("Course not found")
+    instructor = users_repo.get_by_id(db, instructor_id)
+    if instructor is None:
+        raise not_found("Instructor not found")
+    if instructor.role != UserRole.INSTRUCTOR.value:
+        raise bad_request("User is not an instructor")
+    row = courses_repo.get_assignment(db, course_id, instructor_id)
+    created = False
+    if row is None:
+        row = CourseInstructor(
+            course_id=course_id,
+            instructor_id=instructor_id,
+            is_active=True,
+            assigned_by_id=current_user.id,
+        )
+        created = True
+    else:
+        row.is_active = True
+        row.assigned_by_id = current_user.id
+        row.assigned_at = utcnow_naive()
+    courses_repo.save_assignment(db, row)
+    append_audit(
+        db,
+        AuditAction.COURSE_INSTRUCTOR_ASSIGNED.value,
+        user_id=current_user.id,
+        resource_type="course",
+        resource_id=course_id,
+        details={"instructor_id": instructor_id},
+        request=request,
+    )
+    db.commit()
+    db.refresh(row)
+    payload = _assignment_payload(row, instructor)
+    payload["created"] = created
+    payload["message"] = "Instructor assigned to course"
+    return payload
+
+
+def revoke_course_instructor(
+    db: Session, course_id: str, instructor_id: str, current_user: User, request: Request
+) -> dict[str, Any]:
+    course = courses_repo.get_by_id(db, course_id)
+    if course is None:
+        raise not_found("Course not found")
+    row = courses_repo.get_assignment(db, course_id, instructor_id)
+    if row is None:
+        raise not_found("Assignment not found")
+    row.is_active = False
+    courses_repo.save_assignment(db, row)
+    append_audit(
+        db,
+        AuditAction.COURSE_INSTRUCTOR_REVOKED.value,
+        user_id=current_user.id,
+        resource_type="course",
+        resource_id=course_id,
+        details={"instructor_id": instructor_id},
+        request=request,
+    )
+    db.commit()
+    db.refresh(row)
+    instructor = users_repo.get_by_id(db, instructor_id)
+    payload = _assignment_payload(row, instructor)
+    payload["message"] = "Instructor revoked from course"
+    return payload
+
+
+def list_course_instructors(db: Session, course_id: str) -> dict[str, Any]:
+    course = courses_repo.get_by_id(db, course_id)
+    if course is None:
+        raise not_found("Course not found")
+    rows = courses_repo.list_assignments(db, course_id)
+    return {
+        "course_id": course_id,
+        "instructors": [_assignment_payload(row) for row in rows],
+    }

@@ -26,7 +26,7 @@ from app.modules.checkins.schemas import AppealRequest, CheckinCreate, ReviewReq
 from app.modules.devices import repository as devices_repo
 from app.modules.enrollments import repository as enrollments_repo
 from app.modules.sessions import repository as sessions_repo
-from app.modules.sessions.service import can_staff_session
+from app.modules.sessions.service import can_staff_course_session
 from app.modules.users.model import User
 
 
@@ -50,8 +50,8 @@ def _checkin_create_payload(checkin: CheckIn) -> dict[str, Any]:
     }
 
 
-def _staff_for_session(current_user: User, session) -> bool:
-    return can_staff_session(current_user, session)
+def _staff_for_session(db: Session, current_user: User, session) -> bool:
+    return can_staff_course_session(db, current_user, session)
 
 
 def _face_signals(payload: CheckinCreate, current_user: User) -> dict[str, Any]:
@@ -322,7 +322,7 @@ def session_checkins(db: Session, session_id: str, current_user: User) -> Any:
     session = sessions_repo.get_by_id(db, session_id)
     if session is None:
         raise not_found("Session not found")
-    if not _staff_for_session(current_user, session):
+    if not _staff_for_session(db, current_user, session):
         raise forbidden()
     rows = checkins_repo.list_for_session(db, session_id)
     items = []
@@ -374,7 +374,7 @@ def get_checkin(db: Session, checkin_id: str, current_user: User) -> dict[str, A
     if checkin is None:
         raise not_found("Check-in not found")
     session = checkin.session
-    if checkin.student_id != current_user.id and not _staff_for_session(current_user, session):
+    if checkin.student_id != current_user.id and not _staff_for_session(db, current_user, session):
         raise forbidden()
     signals = []
     for row in checkin.risk_signals or []:
@@ -455,7 +455,7 @@ def review(db: Session, checkin_id: str, payload: ReviewRequest, current_user: U
     if checkin is None:
         raise not_found("Check-in not found")
     session = checkin.session
-    if not _staff_for_session(current_user, session):
+    if not _staff_for_session(db, current_user, session):
         raise forbidden()
     if checkin.status not in {CheckinStatus.FLAGGED.value, CheckinStatus.APPEALED.value}:
         raise bad_request("Only flagged or appealed check-ins can be reviewed")

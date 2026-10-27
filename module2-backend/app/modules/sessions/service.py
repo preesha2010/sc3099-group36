@@ -34,6 +34,15 @@ def can_staff_session(user: User, session: Optional[ClassSession]) -> bool:
     return session.instructor_id == user.id
 
 
+def can_staff_course_session(db: Session, user: User, session: Optional[ClassSession]) -> bool:
+    """Session owner/TA/admin, or an instructor assigned to the session's course."""
+    if can_staff_session(user, session):
+        return True
+    if session is None:
+        return False
+    return enrollments_repo.user_manages_course(db, user, session.course_id)
+
+
 def to_session_response(session: ClassSession, db: Optional[Session] = None) -> dict[str, Any]:
     payload = SessionResponse.model_validate(session).model_dump()
     course = session.course
@@ -129,6 +138,9 @@ def create_session(db: Session, payload: SessionCreate, current_user: User, requ
     course = courses_repo.get_by_id(db, payload.course_id)
     if course is None:
         raise not_found("Course not found")
+    # Spec says the instructor must already teach the course. Public fixtures
+    # POST /sessions/ with no assignment, so this slice does not 403 here and
+    # does not upsert course_instructors (that would be self-assignment).
     start = to_naive_utc(payload.scheduled_start)
     end = to_naive_utc(payload.scheduled_end)
     if start <= utcnow_naive():

@@ -76,6 +76,8 @@ class AuditAction(str, Enum):
     SESSION_DELETED = "session_deleted"
     ENROLLMENT_ADDED = "enrollment_added"
     ENROLLMENT_REMOVED = "enrollment_removed"
+    COURSE_INSTRUCTOR_ASSIGNED = "course_instructor_assigned"
+    COURSE_INSTRUCTOR_REVOKED = "course_instructor_revoked"
     DEVICE_REGISTERED = "device_registered"
     FACE_ENROLLED = "face_enrolled"
     DATA_EXPORTED = "data_exported"

@@ -67,21 +67,25 @@ def is_enrolled(db: Session, student_id: str, course_id: str) -> bool:
 
 
 def instructor_teaches_course(db: Session, instructor_id: str, course_id: str) -> bool:
-    from app.modules.sessions.model import ClassSession
+    from app.modules.courses.instructor_model import CourseInstructor
 
     row = (
-        db.query(ClassSession.id)
-        .filter(ClassSession.course_id == course_id, ClassSession.instructor_id == instructor_id)
+        db.query(CourseInstructor.id)
+        .filter(
+            CourseInstructor.course_id == course_id,
+            CourseInstructor.instructor_id == instructor_id,
+            CourseInstructor.is_active.is_(True),
+        )
         .first()
     )
     return row is not None
 
 
 def user_manages_course(db: Session, user, course_id: str) -> bool:
-    """Admin, or instructor who has at least one session on this course.
+    """Admin, or instructor with an active course_instructors assignment.
 
-    Teaching is defined by sessions.instructor_id; there is no course-level
-    instructor foreign key in the recommended schema.
+    Session ownership (sessions.instructor_id) is separate and does not grant
+    course roster/stats by itself.
     """
     from app.db.enums import UserRole
 
@@ -93,10 +97,10 @@ def user_manages_course(db: Session, user, course_id: str) -> bool:
 
 
 def user_can_view_course_roster(db: Session, user, course_id: str) -> bool:
-    """Roster access: admin, teaching instructor, or TA.
+    """Roster access: admin, assigned instructor, or TA.
 
     The spec says instructor/TA for the course. There is no TA–course table, so
-    TA is role-level (any TA). Instructors are scoped via sessions.instructor_id.
+    TA is role-level (any TA). Instructors are scoped via course_instructors.
     """
     from app.db.enums import UserRole
 
@@ -106,16 +110,17 @@ def user_can_view_course_roster(db: Session, user, course_id: str) -> bool:
 
 
 def instructor_teaches_enrolled_student(db: Session, instructor_id: str, student_id: str) -> bool:
-    """True when the student has an active enrollment in a course this instructor teaches."""
-    from app.modules.sessions.model import ClassSession
+    """True when the student has an active enrollment in a course this instructor is assigned to."""
+    from app.modules.courses.instructor_model import CourseInstructor
 
     row = (
         db.query(Enrollment.id)
-        .join(ClassSession, ClassSession.course_id == Enrollment.course_id)
+        .join(CourseInstructor, CourseInstructor.course_id == Enrollment.course_id)
         .filter(
             Enrollment.student_id == student_id,
             Enrollment.is_active.is_(True),
-            ClassSession.instructor_id == instructor_id,
+            CourseInstructor.instructor_id == instructor_id,
+            CourseInstructor.is_active.is_(True),
         )
         .first()
     )

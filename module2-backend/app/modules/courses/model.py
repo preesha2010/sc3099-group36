@@ -28,3 +28,4 @@ class Course(Base):
 
     enrollments = relationship("Enrollment", back_populates="course")
     sessions = relationship("ClassSession", back_populates="course")
+    instructor_links = relationship("CourseInstructor", back_populates="course")

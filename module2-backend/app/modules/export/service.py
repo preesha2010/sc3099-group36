@@ -13,6 +13,7 @@ from app.modules.checkins import repository as checkins_repo
 from app.modules.courses import repository as courses_repo
 from app.modules.enrollments import repository as enrollments_repo
 from app.modules.sessions import repository as sessions_repo
+from app.modules.sessions.service import can_manage_session
 from app.modules.users.model import User
 
 
@@ -133,7 +134,10 @@ def session_export(db: Session, session_id: str, current_user: User, request: Re
     session = sessions_repo.get_by_id(db, session_id)
     if session is None:
         raise not_found("Session not found")
-    if not enrollments_repo.user_manages_course(db, current_user, session.course_id):
+    if not (
+        can_manage_session(current_user, session)
+        or enrollments_repo.user_manages_course(db, current_user, session.course_id)
+    ):
         raise forbidden()
     enrolled = enrollments_repo.list_for_course(db, session.course_id, active_only=True)
     checkins = checkins_repo.list_for_session(db, session.id)

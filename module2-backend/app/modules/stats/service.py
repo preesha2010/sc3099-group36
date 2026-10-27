@@ -13,7 +13,7 @@ from app.modules.enrollments import repository as enrollments_repo
 from app.modules.enrollments.model import Enrollment
 from app.modules.sessions import repository as sessions_repo
 from app.modules.sessions.model import ClassSession
-from app.modules.sessions.service import can_staff_session
+from app.modules.sessions.service import can_staff_course_session
 from app.modules.users import repository as users_repo
 from app.modules.users.model import User
 
@@ -131,10 +131,7 @@ def session_stats(db: Session, session_id: str, current_user: User) -> dict[str,
     session = sessions_repo.get_by_id(db, session_id)
     if session is None:
         raise not_found("Session not found")
-    if not (
-        can_staff_session(current_user, session)
-        or enrollments_repo.user_manages_course(db, current_user, session.course_id)
-    ):
+    if not can_staff_course_session(db, current_user, session):
         raise forbidden()
     course = session.course
     enrolled = enrollments_repo.list_for_course(db, session.course_id, active_only=True)

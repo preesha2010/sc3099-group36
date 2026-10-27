@@ -23,6 +23,15 @@ def _register_and_login(client, role: str) -> dict:
     return {"id": register.json()["id"], "headers": {"Authorization": f"Bearer {token}"}}
 
 
+def _assign_instructor(client, course_id: str, instructor_id: str, admin_headers: dict) -> None:
+    assigned = client.post(
+        f"/api/v1/admin/courses/{course_id}/instructors",
+        headers=admin_headers,
+        json={"instructor_id": instructor_id},
+    )
+    assert assigned.status_code in (200, 201), assigned.text
+
+
 @pytest.mark.points(0, category="spec_authz")
 def test_session_get_requires_auth(client, test_session):
     response = client.get(f"/api/v1/sessions/{test_session['id']}")
@@ -249,7 +258,7 @@ def test_session_stats_owner_admin_ta_and_unrelated(
     assert missing.status_code == 404
 
     co_teacher = _register_and_login(client, "instructor")
-    _create_session(client, test_session["course_id"], co_teacher["headers"])
+    _assign_instructor(client, test_session["course_id"], co_teacher["id"], auth_headers_admin)
     co_teacher_ok = client.get(
         f"/api/v1/stats/sessions/{test_session['id']}",
         headers=co_teacher["headers"],
@@ -261,11 +270,13 @@ def test_session_stats_owner_admin_ta_and_unrelated(
 def test_course_stats_teaching_instructor_admin_and_unrelated(
     client,
     test_course,
+    test_instructor,
     test_session,
     auth_headers_instructor,
     auth_headers_admin,
     auth_headers_student,
 ):
+    _assign_instructor(client, test_course["id"], test_instructor["id"], auth_headers_admin)
     owner = client.get(
         f"/api/v1/stats/courses/{test_course['id']}",
         headers=auth_headers_instructor,
@@ -306,7 +317,7 @@ def test_course_stats_teaching_instructor_admin_and_unrelated(
 
 
 @pytest.mark.points(0, category="spec_authz")
-def test_course_stats_requires_teaching_session(
+def test_course_stats_requires_assignment(
     client, test_course, auth_headers_instructor
 ):
     denied = client.get(
@@ -320,6 +331,7 @@ def test_course_stats_requires_teaching_session(
 def test_student_stats_teaching_instructor_admin_and_unrelated(
     client,
     test_course,
+    test_instructor,
     test_student,
     test_enrollment,
     test_session,
@@ -327,6 +339,7 @@ def test_student_stats_teaching_instructor_admin_and_unrelated(
     auth_headers_admin,
     auth_headers_student,
 ):
+    _assign_instructor(client, test_course["id"], test_instructor["id"], auth_headers_admin)
     owner = client.get(
         f"/api/v1/stats/students/{test_student['id']}",
         headers=auth_headers_instructor,
@@ -349,6 +362,7 @@ def test_student_stats_teaching_instructor_admin_and_unrelated(
     other_instructor = _register_and_login(client, "instructor")
     other_course = _create_course(client, auth_headers_admin)
     _create_session(client, other_course["id"], other_instructor["headers"])
+    _assign_instructor(client, other_course["id"], other_instructor["id"], auth_headers_admin)
     other_course_denied = client.get(
         f"/api/v1/stats/students/{test_student['id']}",
         headers=other_instructor["headers"],
@@ -376,7 +390,7 @@ def test_student_stats_teaching_instructor_admin_and_unrelated(
 
 
 @pytest.mark.points(0, category="spec_authz")
-def test_student_stats_requires_teaching_session(
+def test_student_stats_requires_assignment(
     client, test_student, test_enrollment, auth_headers_instructor
 ):
     denied = client.get(
@@ -390,6 +404,7 @@ def test_student_stats_requires_teaching_session(
 def test_student_stats_hides_other_instructors_courses(
     client,
     test_course,
+    test_instructor,
     test_student,
     test_enrollment,
     test_session,
@@ -397,8 +412,10 @@ def test_student_stats_hides_other_instructors_courses(
     auth_headers_admin,
     auth_headers_student,
 ):
+    _assign_instructor(client, test_course["id"], test_instructor["id"], auth_headers_admin)
     other_instructor = _register_and_login(client, "instructor")
     other_course = _create_course(client, auth_headers_admin)
+    _assign_instructor(client, other_course["id"], other_instructor["id"], auth_headers_admin)
     other_session = _create_active_session(
         client, other_course["id"], other_instructor["headers"], auth_headers_admin
     )
@@ -485,11 +502,13 @@ def test_student_stats_hides_other_instructors_courses(
 def test_stats_overview_unfiltered_and_course_scoped(
     client,
     test_course,
+    test_instructor,
     test_session,
     auth_headers_instructor,
     auth_headers_admin,
     auth_headers_student,
 ):
+    _assign_instructor(client, test_course["id"], test_instructor["id"], auth_headers_admin)
     unfiltered = client.get("/api/v1/stats/overview", headers=auth_headers_instructor)
     assert unfiltered.status_code == 200, unfiltered.text
 

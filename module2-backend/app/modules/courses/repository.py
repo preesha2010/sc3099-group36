@@ -1,9 +1,10 @@
 from typing import Optional, Sequence
 
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.core.pagination import clamp_page
 from app.core.utils import utcnow_naive
+from app.modules.courses.instructor_model import CourseInstructor
 from app.modules.courses.model import Course
 
 
@@ -55,3 +56,30 @@ def list_courses(
         .all()
     )
     return items, total, limit, offset
+
+
+def get_assignment(db: Session, course_id: str, instructor_id: str) -> Optional[CourseInstructor]:
+    return (
+        db.query(CourseInstructor)
+        .filter(
+            CourseInstructor.course_id == course_id,
+            CourseInstructor.instructor_id == instructor_id,
+        )
+        .first()
+    )
+
+
+def list_assignments(db: Session, course_id: str) -> Sequence[CourseInstructor]:
+    return (
+        db.query(CourseInstructor)
+        .options(joinedload(CourseInstructor.instructor))
+        .filter(CourseInstructor.course_id == course_id)
+        .order_by(CourseInstructor.assigned_at.desc())
+        .all()
+    )
+
+
+def save_assignment(db: Session, row: CourseInstructor) -> CourseInstructor:
+    db.add(row)
+    db.flush()
+    return row
