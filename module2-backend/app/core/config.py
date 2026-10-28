@@ -35,6 +35,11 @@ class Settings(BaseSettings):
     ACCOUNT_LOCKOUT_ATTEMPTS: int = 10
     DATA_RETENTION_DAYS: int = 30
 
+    # Decoded image cap for face enroll and check-in photos. Public-suite and
+    # sample_images payloads stay under 600 KiB; Module 3 in this tree has no
+    # documented size limit, so Module 2 rejects first.
+    FACE_IMAGE_MAX_BYTES: int = 1_048_576
+
     CORS_ORIGINS: str = "http://localhost:3000,http://localhost:8501"
 
     @property

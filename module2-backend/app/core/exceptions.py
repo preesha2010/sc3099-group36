@@ -27,3 +27,7 @@ def bad_request(detail: str = "Invalid input data") -> HTTPException:
 
 def service_unavailable(detail: str = "Service unavailable") -> HTTPException:
     return HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=detail)
+
+
+def payload_too_large(detail: str = "Image payload too large") -> HTTPException:
+    return HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail=detail)

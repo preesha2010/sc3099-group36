@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.audit.repository import append_audit
 from app.core.exceptions import bad_request, forbidden, not_found, service_unavailable
+from app.core.image_limits import ensure_face_image_within_limit
 from app.core.pagination import page_of
 from app.integrations.face_client import face_client
 from app.db.enums import AuditAction, UserRole
@@ -56,6 +57,7 @@ def enroll_face(
 ) -> dict[str, Any]:
     if not current_user.camera_consent:
         raise bad_request("Camera consent not given")
+    ensure_face_image_within_limit(payload.image)
     result = face_client.enroll(current_user.id, payload.image, True)
     if result.kind in {"unavailable", "malformed"}:
         raise service_unavailable("Face recognition service unavailable")

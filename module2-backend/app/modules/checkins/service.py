@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.audit.repository import append_audit
 from app.core.exceptions import bad_request, forbidden, not_found, service_unavailable
+from app.core.image_limits import ensure_face_image_within_limit
 from app.core.pagination import page_of
 from app.core.utils import (
     client_ip,
@@ -177,6 +178,7 @@ def _face_signals(
     image = payload.liveness_challenge_response
     if not image:
         return result
+    ensure_face_image_within_limit(image)
 
     live = face_client.liveness(image)
     _raise_for_required_face_call(live, require_liveness)
@@ -202,6 +204,7 @@ def _face_signals(
 
 
 def submit_checkin(db: Session, payload: CheckinCreate, current_user: User, request: Request) -> dict[str, Any]:
+    ensure_face_image_within_limit(payload.liveness_challenge_response)
     session = sessions_repo.get_by_id(db, payload.session_id)
     if session is None:
         raise not_found("Session not found")

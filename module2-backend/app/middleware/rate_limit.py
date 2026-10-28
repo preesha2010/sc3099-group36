@@ -5,7 +5,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
 
 from app.core.config import get_settings
-from app.core.redis import get_redis
+from app.core.redis import REDIS_TRANSIENT_ERRORS, get_redis, invalidate_redis
 from app.core.utils import client_ip
 
 settings = get_settings()
@@ -13,15 +13,7 @@ settings = get_settings()
 _memory_counters: dict[str, tuple[int, float]] = {}
 
 
-def _incr(key: str, window: int) -> int:
-    r = get_redis()
-    if r is not None:
-        pipe = r.pipeline()
-        pipe.incr(key)
-        pipe.expire(key, window)
-        current, _ = pipe.execute()
-        return int(current)
-
+def _memory_incr(key: str, window: int) -> int:
     import time
 
     now = time.time()
@@ -31,6 +23,20 @@ def _incr(key: str, window: int) -> int:
     count += 1
     _memory_counters[key] = (count, expires)
     return count
+
+
+def _incr(key: str, window: int) -> int:
+    r = get_redis()
+    if r is not None:
+        try:
+            pipe = r.pipeline()
+            pipe.incr(key)
+            pipe.expire(key, window)
+            current, _ = pipe.execute()
+            return int(current)
+        except REDIS_TRANSIENT_ERRORS:
+            invalidate_redis()
+    return _memory_incr(key, window)
 
 
 def check_rate_limit(key: str, limit: int, window: int) -> bool:
