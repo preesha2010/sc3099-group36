@@ -38,7 +38,7 @@ def list_checkins(
     limit: int = Query(default=50, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles("instructor", "ta", "admin")),
+    current_user: User = Depends(require_roles("instructor", "admin")),
 ):
     return service.list_checkins(
         db,
