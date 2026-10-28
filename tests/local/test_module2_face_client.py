@@ -268,3 +268,73 @@ def test_face_signals_client_error_does_not_set_liveness_false():
         signals = _face_signals(payload, user)
     mock_face.verify.assert_not_called()
     assert signals["liveness_passed"] is None
+
+
+def _valid_risk_body(**overrides):
+    body = {
+        "risk_score": 0.22,
+        "risk_level": "LOW",
+        "pass_threshold": True,
+        "risk_threshold": 0.50,
+        "signal_breakdown": {
+            "liveness": 0.025,
+            "face_match": 0.0125,
+            "device": 0.1,
+            "network": 0.075,
+            "geolocation": 0.075,
+        },
+        "recommendations": ["Device trust is unverified; verify a signed server challenge"],
+    }
+    body.update(overrides)
+    return body
+
+
+def test_assess_risk_valid_response(client):
+    with _fake_http(_FakeResponse(200, _valid_risk_body())):
+        result = client.assess_risk({"liveness_score": 0.9, "face_match_score": 0.95})
+    assert result.kind == "ok"
+    assert result.data["risk_score"] == 0.22
+    assert result.data["risk_level"] == "LOW"
+    assert result.data["pass_threshold"] is True
+    assert result.data["signal_breakdown"]["liveness"] == 0.025
+
+
+def test_assess_risk_timeout_5xx_408_and_malformed(client):
+    with _fake_http(_FakeResponse(503, {"detail": "busy"})):
+        assert client.assess_risk({"liveness_score": 0.9}).kind == "unavailable"
+
+    with _fake_http(_FakeResponse(408, {"risk_score": 0.1, "risk_level": "LOW", "pass_threshold": True, "signal_breakdown": {}})):
+        timed_out = client.assess_risk({"liveness_score": 0.9})
+    assert timed_out.kind == "unavailable"
+    assert timed_out.status == 408
+
+    with _fake_http(_FakeResponse(200, json_error=True)):
+        assert client.assess_risk({"liveness_score": 0.9}).kind == "malformed"
+
+    with _fake_http(_FakeResponse(200, {"risk_score": "high", "risk_level": "LOW", "pass_threshold": True, "signal_breakdown": {}})):
+        assert client.assess_risk({"liveness_score": 0.9}).kind == "malformed"
+
+    with _fake_http(_FakeResponse(200, {"risk_score": 0.2, "risk_level": "SAFE", "pass_threshold": True, "signal_breakdown": {}})):
+        assert client.assess_risk({"liveness_score": 0.9}).kind == "malformed"
+
+    with _fake_http(
+        _FakeResponse(
+            200,
+            {"risk_score": 0.2, "risk_level": "LOW", "pass_threshold": True, "signal_breakdown": {"liveness": math.nan}},
+        )
+    ):
+        assert client.assess_risk({"liveness_score": 0.9}).kind == "malformed"
+
+    mock_client = Mock()
+    mock_client.post.side_effect = httpx.TimeoutException("timeout")
+    mock_client.__enter__ = Mock(return_value=mock_client)
+    mock_client.__exit__ = Mock(return_value=False)
+    with patch("app.integrations.face_client.httpx.Client", return_value=mock_client):
+        assert client.assess_risk({"liveness_score": 0.9}).kind == "unavailable"
+
+
+def test_assess_risk_client_error_is_not_success(client):
+    with _fake_http(_FakeResponse(400, {"detail": "liveness_score must be between 0 and 1"})):
+        result = client.assess_risk({"liveness_score": 1.5})
+    assert result.kind == "client_error"
+    assert result.status == 400

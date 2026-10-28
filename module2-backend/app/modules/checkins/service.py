@@ -1,4 +1,5 @@
 import json
+import logging
 from datetime import datetime, timedelta
 from typing import Any, Optional
 
@@ -17,7 +18,7 @@ from app.core.utils import (
     utcnow_naive,
 )
 from app.db.enums import AuditAction, CheckinStatus, SessionStatus, UserRole
-from app.integrations.face_client import FaceCall, face_client
+from app.integrations.face_client import FaceCall, _finite_unit_score, face_client
 from app.modules.checkins import repository as checkins_repo
 from app.modules.checkins import risk_service
 from app.modules.checkins.model import CheckIn
@@ -28,6 +29,88 @@ from app.modules.enrollments import repository as enrollments_repo
 from app.modules.sessions import repository as sessions_repo
 from app.modules.sessions.service import can_staff_course_session
 from app.modules.users.model import User
+
+logger = logging.getLogger("saiv.checkins.advisory_risk")
+
+# Keys allowed in advisory diagnostic records. No images, templates, IPs, or ids.
+_ADVISORY_LOG_ALLOWED = frozenset(
+    {
+        "event",
+        "outcome",
+        "http_status",
+        "sent_signals",
+        "m3_risk_score",
+        "m3_risk_level",
+        "m3_breakdown",
+    }
+)
+
+
+def _advisory_risk_payload(face: dict[str, Any]) -> Optional[dict[str, float]]:
+    """Build /risk/assess body from validated biometric scores only.
+
+    Does not send images, templates, IP, user-agent, coordinates, fingerprints,
+    or invented device-attestation evidence. M3 treats those other fields as
+    optional and fills missing device/network/geo with its own defaults.
+    """
+    payload: dict[str, float] = {}
+    for key in ("liveness_score", "face_match_score"):
+        score = _finite_unit_score(face.get(key))
+        if score is not None:
+            payload[key] = score
+    return payload or None
+
+
+def _advisory_risk_record(call: FaceCall, sent_signals: list[str]) -> dict[str, Any]:
+    record: dict[str, Any] = {
+        "event": "m3_advisory_risk",
+        "outcome": call.kind,
+        "http_status": call.status,
+        "sent_signals": list(sent_signals),
+    }
+    if call.ok:
+        record["m3_risk_score"] = call.data.get("risk_score")
+        record["m3_risk_level"] = call.data.get("risk_level")
+        record["m3_breakdown"] = call.data.get("signal_breakdown")
+    return {key: value for key, value in record.items() if key in _ADVISORY_LOG_ALLOWED}
+
+
+def _consult_advisory_risk(face: dict[str, Any]) -> None:
+    """Ask M3 /risk/assess after biometric verification. Advisory only.
+
+    A typed success is logged and ignored for attendance: M2 still stores
+    risk_service.assess() and applies the session threshold, GPS/liveness
+    rejects, and failed-match flagging. M3 pass_threshold is ignored.
+
+    If this call is actually made and is not a typed success (timeout, 408,
+    5xx, unavailable, malformed, or transport failure), raise 503 and do
+    not create a check-in. Local M2 scoring is not an equivalent fallback.
+    Skip entirely when there is no validated biometric score so image-less
+    check-ins never depend on M3. Required biometric outages still 503 in
+    _face_signals before this runs.
+    """
+    payload = _advisory_risk_payload(face)
+    if payload is None:
+        return
+    try:
+        call = face_client.assess_risk(payload)
+    except Exception:
+        logger.warning("advisory M3 risk call failed", exc_info=False)
+        raise service_unavailable("Face recognition service unavailable")
+    if not isinstance(call, FaceCall) or not call.ok:
+        logger.warning(
+            "advisory M3 risk unavailable outcome=%s http_status=%s",
+            getattr(call, "kind", "invalid"),
+            getattr(call, "status", None),
+        )
+        raise service_unavailable("Face recognition service unavailable")
+    record = _advisory_risk_record(call, list(payload))
+    logger.info(
+        "advisory M3 risk_score=%s level=%s breakdown=%s",
+        record.get("m3_risk_score"),
+        record.get("m3_risk_level"),
+        record.get("m3_breakdown"),
+    )
 
 
 def _checkin_create_payload(checkin: CheckIn) -> dict[str, Any]:
@@ -192,6 +275,8 @@ def submit_checkin(db: Session, payload: CheckinCreate, current_user: User, requ
         unknown_device=unknown_device,
         threshold=float(threshold),
     )
+    # Advisory only: local assessment above is the stored score and status.
+    _consult_advisory_risk(face)
 
     checkin = CheckIn(
         session_id=session.id,

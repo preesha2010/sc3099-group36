@@ -1,6 +1,7 @@
 """Required face-verification outages and failed-match review (Workstream B phase 1)."""
 from __future__ import annotations
 
+import logging
 import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -18,7 +19,14 @@ from app.db.enums import CheckinStatus  # noqa: E402
 from app.integrations.face_client import FaceCall  # noqa: E402
 from app.modules.checkins import risk_service  # noqa: E402
 from app.modules.checkins.schemas import CheckinCreate  # noqa: E402
-from app.modules.checkins.service import _face_signals, submit_checkin  # noqa: E402
+from app.modules.checkins.service import (  # noqa: E402
+    _ADVISORY_LOG_ALLOWED,
+    _advisory_risk_payload,
+    _advisory_risk_record,
+    _consult_advisory_risk,
+    _face_signals,
+    submit_checkin,
+)
 
 VALID_HASH = "a" * 64
 LIVE_OK = FaceCall(
@@ -212,6 +220,17 @@ def _payload(*, image="img"):
     )
 
 
+def _advisory_ok(**overrides):
+    data = {
+        "risk_score": 0.88,
+        "risk_level": "CRITICAL",
+        "pass_threshold": False,
+        "signal_breakdown": {"liveness": 0.02, "face_match": 0.01, "device": 0.1, "network": 0.15, "geolocation": 0.15},
+    }
+    data.update(overrides)
+    return FaceCall(kind="ok", status=200, data=data)
+
+
 def _run_submit(session, user, payload, mock_face, *, existing=None):
     created = []
 
@@ -219,6 +238,9 @@ def _run_submit(session, user, payload, mock_face, *, existing=None):
         checkin.id = "chk-1"
         created.append(checkin)
         return checkin
+
+    if not isinstance(mock_face.assess_risk.return_value, FaceCall):
+        mock_face.assess_risk.return_value = _advisory_ok()
 
     db = Mock()
     with (
@@ -253,6 +275,7 @@ def test_required_timeout_returns_503_and_does_not_create_row():
     assert error.status_code == 503
     assert created == []
     db.commit.assert_not_called()
+    mock_face.assess_risk.assert_not_called()
 
 
 def test_required_5xx_and_malformed_return_503_without_row():
@@ -360,7 +383,218 @@ def test_image_less_submit_still_creates_row_when_liveness_required():
     assert result["liveness_passed"] is None
     assert len(created) == 1
     mock_face.liveness.assert_not_called()
+    mock_face.assess_risk.assert_not_called()
     db.commit.assert_called()
+
+
+def test_advisory_success_does_not_change_m2_score_or_status():
+    mock_face = Mock()
+    mock_face.liveness.return_value = LIVE_OK
+    mock_face.verify.return_value = MATCH_OK
+    mock_face.assess_risk.return_value = _advisory_ok()
+    result, created, db = _run_submit(
+        _active_session(require_liveness=True, require_face=True),
+        _student(face_hash=VALID_HASH),
+        _payload(),
+        mock_face,
+    )
+    local = risk_service.assess(
+        distance_m=0.0,
+        geofence_m=100.0,
+        liveness_passed=True,
+        face_match_passed=True,
+        unknown_device=True,
+        threshold=0.5,
+    )
+    assert not isinstance(result, HTTPException)
+    assert result["status"] == local["status"]
+    assert result["risk_score"] == local["risk_score"]
+    assert result["status"] != CheckinStatus.REJECTED.value
+    mock_face.assess_risk.assert_called_once()
+    sent = mock_face.assess_risk.call_args.args[0]
+    assert sent == {"liveness_score": 0.9, "face_match_score": 0.95}
+    assert set(sent) <= {"liveness_score", "face_match_score"}
+    db.commit.assert_called()
+    assert len(created) == 1
+
+
+def test_risk_service_outage_returns_503_without_row():
+    for call in (
+        FaceCall(kind="unavailable", status=None),
+        FaceCall(kind="unavailable", status=503),
+        FaceCall(kind="unavailable", status=408),
+        FaceCall(kind="client_error", status=400),
+    ):
+        mock_face = Mock()
+        mock_face.liveness.return_value = LIVE_OK
+        mock_face.verify.return_value = MATCH_OK
+        mock_face.assess_risk.return_value = call
+        error, created, db = _run_submit(
+            _active_session(require_liveness=True, require_face=True),
+            _student(face_hash=VALID_HASH),
+            _payload(),
+            mock_face,
+        )
+        assert isinstance(error, HTTPException), call.status
+        assert error.status_code == 503
+        assert created == []
+        db.commit.assert_not_called()
+        mock_face.assess_risk.assert_called_once()
+
+
+def test_malformed_risk_response_returns_503_without_row():
+    mock_face = Mock()
+    mock_face.liveness.return_value = LIVE_OK
+    mock_face.verify.return_value = MATCH_OK
+    mock_face.assess_risk.return_value = FaceCall(
+        kind="malformed", status=200, detail="non-object risk body"
+    )
+    error, created, db = _run_submit(
+        _active_session(require_liveness=True, require_face=True),
+        _student(face_hash=VALID_HASH),
+        _payload(),
+        mock_face,
+    )
+    assert isinstance(error, HTTPException)
+    assert error.status_code == 503
+    assert created == []
+    db.commit.assert_not_called()
+
+
+def test_retry_after_risk_service_recovery_creates_checkin():
+    session = _active_session(require_liveness=True, require_face=True)
+    user = _student(face_hash=VALID_HASH)
+    payload = _payload()
+
+    mock_face = Mock()
+    mock_face.liveness.return_value = LIVE_OK
+    mock_face.verify.return_value = MATCH_OK
+    mock_face.assess_risk.return_value = FaceCall(kind="unavailable", status=503)
+    error, created, db = _run_submit(session, user, payload, mock_face)
+    assert isinstance(error, HTTPException)
+    assert error.status_code == 503
+    assert created == []
+    db.commit.assert_not_called()
+
+    mock_face.assess_risk.return_value = _advisory_ok()
+    result, created, db = _run_submit(session, user, payload, mock_face)
+    local = risk_service.assess(
+        distance_m=0.0,
+        geofence_m=100.0,
+        liveness_passed=True,
+        face_match_passed=True,
+        unknown_device=True,
+        threshold=0.5,
+    )
+    assert not isinstance(result, HTTPException)
+    assert result["status"] == local["status"]
+    assert result["risk_score"] == local["risk_score"]
+    assert len(created) == 1
+    db.commit.assert_called()
+
+
+def test_failed_match_stays_flagged_when_advisory_says_low():
+    mock_face = Mock()
+    mock_face.liveness.return_value = LIVE_OK
+    mock_face.verify.return_value = MATCH_FAIL
+    mock_face.assess_risk.return_value = _advisory_ok(
+        risk_score=0.05, risk_level="LOW", pass_threshold=True
+    )
+    result, created, _db = _run_submit(
+        _active_session(require_liveness=True, require_face=True),
+        _student(face_hash=VALID_HASH),
+        _payload(),
+        mock_face,
+    )
+    assert result["status"] == CheckinStatus.FLAGGED.value
+    assert result["face_match_passed"] is False
+    assert len(created) == 1
+    mock_face.assess_risk.assert_called_once()
+
+
+def test_failed_liveness_stays_rejected_when_advisory_says_low():
+    mock_face = Mock()
+    mock_face.liveness.return_value = LIVE_FAIL
+    mock_face.assess_risk.return_value = _advisory_ok(
+        risk_score=0.05, risk_level="LOW", pass_threshold=True
+    )
+    result, created, _db = _run_submit(
+        _active_session(require_liveness=True),
+        _student(),
+        _payload(),
+        mock_face,
+    )
+    assert result["status"] == CheckinStatus.REJECTED.value
+    assert result["liveness_passed"] is False
+    assert len(created) == 1
+    sent = mock_face.assess_risk.call_args.args[0]
+    assert sent == {"liveness_score": 0.1}
+    assert "face_match_score" not in sent
+
+
+def test_advisory_payload_omits_incompatible_and_sensitive_fields():
+    payload = _advisory_risk_payload(
+        {
+            "liveness_score": 0.9,
+            "face_match_score": 0.95,
+            "liveness_passed": True,
+            "face_match_passed": True,
+            "face_embedding_hash": VALID_HASH,
+        }
+    )
+    assert payload == {"liveness_score": 0.9, "face_match_score": 0.95}
+    assert _advisory_risk_payload({"liveness_passed": True}) is None
+    assert _advisory_risk_payload({"liveness_score": None, "face_match_score": None}) is None
+
+
+def test_advisory_log_record_has_no_sensitive_fields():
+    call = _advisory_ok()
+    record = _advisory_risk_record(call, ["liveness_score", "face_match_score"])
+    assert set(record) <= _ADVISORY_LOG_ALLOWED
+    dumped = str(record)
+    for forbidden in (
+        "image",
+        "template",
+        "hash",
+        "ip_address",
+        "user_agent",
+        "latitude",
+        "longitude",
+        "device_fingerprint",
+        "student",
+        "email",
+        "pass_threshold",
+    ):
+        assert forbidden not in dumped
+
+
+def test_consult_advisory_outage_raises_503():
+    mock_face = Mock()
+    mock_face.assess_risk.return_value = FaceCall(kind="unavailable", status=503)
+    with patch("app.modules.checkins.service.face_client", mock_face):
+        with pytest.raises(HTTPException) as exc:
+            _consult_advisory_risk({"liveness_score": 0.9})
+    assert exc.value.status_code == 503
+    mock_face.assess_risk.assert_called_once()
+
+
+def test_consult_advisory_logs_without_templates_or_ids(caplog):
+    mock_face = Mock()
+    mock_face.assess_risk.return_value = _advisory_ok()
+    with patch("app.modules.checkins.service.face_client", mock_face):
+        with caplog.at_level(logging.INFO, logger="saiv.checkins.advisory_risk"):
+            _consult_advisory_risk(
+                {
+                    "liveness_score": 0.9,
+                    "face_match_score": 0.95,
+                    "face_embedding_hash": VALID_HASH,
+                }
+            )
+    assert VALID_HASH not in caplog.text
+    assert "face_embedding_hash" not in caplog.text
+    assert "CRITICAL" in caplog.text
+    _consult_advisory_risk({"liveness_score": None})
+    mock_face.assess_risk.assert_called_once()
 
 
 def test_inactive_session_still_rejected_before_face_call():

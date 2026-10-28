@@ -142,6 +142,45 @@ def _parse_liveness_body(body: Any, status: int) -> FaceCall:
     )
 
 
+_RISK_LEVELS = {"LOW", "MEDIUM", "HIGH", "CRITICAL"}
+
+
+def _parse_risk_body(body: Any, status: int) -> FaceCall:
+    """Accept only typed advisory fields. pass_threshold is parsed, never applied."""
+    if not isinstance(body, dict):
+        return _malformed(status, "non-object risk body")
+    score = _finite_unit_score(body.get("risk_score"))
+    level = body.get("risk_level")
+    passed = body.get("pass_threshold")
+    breakdown = body.get("signal_breakdown")
+    if score is None or not isinstance(level, str) or level not in _RISK_LEVELS:
+        return _malformed(status, "risk response missing typed score or level")
+    if not _is_bool(passed):
+        return _malformed(status, "pass_threshold must be a boolean")
+    if not isinstance(breakdown, dict):
+        return _malformed(status, "signal_breakdown must be an object")
+    parsed_breakdown: dict[str, float] = {}
+    for key, value in breakdown.items():
+        if not isinstance(key, str):
+            return _malformed(status, "signal_breakdown keys must be strings")
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            return _malformed(status, "signal_breakdown values must be numbers")
+        number = float(value)
+        if not math.isfinite(number):
+            return _malformed(status, "signal_breakdown values must be finite")
+        parsed_breakdown[key] = number
+    return FaceCall(
+        kind="ok",
+        status=status,
+        data={
+            "risk_score": score,
+            "risk_level": level,
+            "pass_threshold": passed,
+            "signal_breakdown": parsed_breakdown,
+        },
+    )
+
+
 class FaceClient:
     """HTTP client for Module 3. Timeouts and 5xx/network errors return unavailable
     so check-in can continue without face signals (INTEGRATION-GUIDE.md)."""
@@ -214,11 +253,9 @@ class FaceClient:
             _parse_liveness_body,
         )
 
-    def assess_risk(self, signals: dict[str, Any]) -> Optional[dict[str, Any]]:
-        status, body, json_ok = self._request("/risk/assess", signals)
-        if status is None or status >= 500 or not json_ok or not isinstance(body, dict):
-            return None
-        return {"_status": status, **body}
+    def assess_risk(self, signals: dict[str, Any]) -> FaceCall:
+        """POST /risk/assess. Advisory only; 408/5xx/timeout are unavailable."""
+        return self._classify("/risk/assess", signals, _parse_risk_body)
 
 
 face_client = FaceClient()
