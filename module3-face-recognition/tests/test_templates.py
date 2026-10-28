@@ -5,6 +5,13 @@ from fastapi import HTTPException
 from app.services import templates
 
 
+@pytest.mark.parametrize("mode,expected", [
+    ("sha256", "sha256_normalized_face_pixels_v1"), ("simhash", "sface_simhash64_signed_v1")])
+def test_explicit_format_metadata_does_not_select_or_change_template_mode(monkeypatch, mode, expected):
+    monkeypatch.setenv("FACE_TEMPLATE_MODE", mode)
+    assert templates.template_format_id() == expected and templates.template_mode() == mode
+
+
 @pytest.fixture
 def simhash(monkeypatch):
     monkeypatch.setenv("FACE_TEMPLATE_MODE", "simhash")

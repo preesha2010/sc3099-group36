@@ -20,6 +20,12 @@ PREFIX = b"SF\x01\x00"
 SCORE_POLICY = "gaussian_query_margin_agreement_v3"
 
 
+def template_format_id() -> str:
+    """Describe opaque bytes; never infer format from length or expose the key."""
+    return ("sface_simhash64_signed_v1" if template_mode() == "simhash"
+            else "sha256_normalized_face_pixels_v1")
+
+
 def score_distance(distance: int, bits: int = 64) -> float:
     """Unshipped bit-only cosine diagnostic, NOT the live query-margin policy."""
     if type(distance) is not int or type(bits) is not int or bits <= 0 or not 0 <= distance <= bits:

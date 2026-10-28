@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 
 import anyio.to_thread
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, PlainTextResponse
@@ -32,8 +32,8 @@ from app.schemas import (
 from app.services.face import detect_face, extract_face_embedding, generate_face_hash
 from app.services.image import calculate_quality_score, decode_base64_image
 from app.services.liveness import assess_passive_liveness
-from app.services.risk import assess_risk
-from app.services.templates import match_templates, template_mode, validate_reference, SCORE_POLICY, match_query_to_template
+from app.risk_policy import RISK_POLICY_ID, RISK_POLICY_SHA256, assess_payload, policy_document
+from app.services.templates import match_templates, template_mode, validate_reference, SCORE_POLICY, match_query_to_template, template_format_id
 
 
 @asynccontextmanager
@@ -134,7 +134,10 @@ async def root():
         "service": "SAIV Face Recognition & Risk Service",
         "version": "1.0.0",
         "template_mode": template_mode(),
+        "template_format": template_format_id(),
         "match_score_policy": SCORE_POLICY if template_mode() == "simhash" else "exact_sha256_v1",
+        "risk_policy_id": RISK_POLICY_ID,
+        "risk_policy_sha256": RISK_POLICY_SHA256,
         "endpoints": [
             "/health",
             "/ready",
@@ -144,6 +147,7 @@ async def root():
             "/face/match",
             "/liveness/check",
             "/risk/assess",
+            "/risk/policy",
         ],
     }
 
@@ -175,6 +179,8 @@ def enroll_face(request: FaceEnrollRequest):
             "face_detection_confidence": float(detection["confidence"]),
             "image_quality": image_quality,
             "template_mode": template_mode(),
+            "template_format": template_format_id(),
+            "match_score_policy": SCORE_POLICY if template_mode() == "simhash" else "exact_sha256_v1",
         },
     )
 
@@ -255,14 +261,14 @@ def check_liveness(request: LivenessRequest):
 
 
 @app.post("/risk/assess", response_model=RiskAssessResponse)
-def assess_checkin_risk(request: RiskAssessRequest):
+def assess_checkin_risk(request: RiskAssessRequest, response: Response):
     """Apply the documented weighted multi-signal risk policy."""
-    risk_score, risk_level, signal_breakdown, recommendations = assess_risk(request)
-    return RiskAssessResponse(
-        risk_score=risk_score,
-        risk_level=risk_level,
-        pass_threshold=risk_score < 0.50,
-        risk_threshold=0.50,
-        signal_breakdown=signal_breakdown,
-        recommendations=recommendations,
-    )
+    response.headers["X-Risk-Policy-ID"] = RISK_POLICY_ID
+    response.headers["X-Risk-Policy-SHA256"] = RISK_POLICY_SHA256
+    return assess_payload(request.model_dump())
+
+
+@app.get("/risk/policy")
+async def risk_policy():
+    """Discover numerical semantics; this is not an attendance-approval policy."""
+    return policy_document()

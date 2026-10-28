@@ -3,7 +3,13 @@
 Internal FastAPI service on port 8001. No backend, database or Redis is needed
 to run its endpoints or standalone tests. Only files in this module are modified.
 
-**Latest handoff (2026-10-23):** see `VALIDATION-20261023.md`,
+**Latest integration update (2026-10-28):** see `INTEGRATION-CONTRACT.md` and
+`VALIDATION-20261028.md`. Risk policy discovery, 45 shared synthetic vectors,
+strict score inputs, template metadata and fail-closed conformance tooling are
+available. M2 fallback and its no-insert/retry transaction policy still need M2
+implementation; no M3 test claims those are complete. See `TEAM-UPDATE.md`.
+
+**Previous standalone handoff (2026-10-23):** see `VALIDATION-20261023.md`,
 `STANDALONE-COMPLETION.md`, `MODULE2-INTEGRATION.md` and `TEAM-UPDATE.md`.
 181 module-local tests, both public profiles and the existing-sample
 classification gate pass. This completes the bounded standalone engineering
@@ -32,6 +38,22 @@ python -m uvicorn app.main:app --host 127.0.0.1 --port 8001 --no-access-log
 
 Open `http://localhost:8001/docs` for executable API examples. In Docker,
 the existing backend URL is `http://face-recognition:8001`.
+
+### Risk/fallback contract checks
+
+```powershell
+python scripts/check_risk_contract.py
+python scripts/check_risk_contract.py --candidate app.risk_policy:assess_payload
+```
+
+`GET /risk/policy` advertises current numerical semantics, policy ID and hash.
+Successful risk responses carry `X-Risk-Policy-ID`/`X-Risk-Policy-SHA256`;
+existing response body fields and numerical weights/thresholds are unchanged.
+Risk score inputs must be finite JSON numbers, not booleans or numeric strings.
+The new checker runs automatically before the release wrapper's transport/client
+and classification checks. Read `INTEGRATION-CONTRACT.md` before enabling any
+M2 fallback: required evidence, typed error classification and a matching corpus
+are prerequisites. A numerical risk pass alone does not approve attendance.
 
 ## Enable cross-photo recognition and pretrained anti-spoofing
 

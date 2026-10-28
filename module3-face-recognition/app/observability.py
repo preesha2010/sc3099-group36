@@ -8,7 +8,7 @@ import os
 from functools import wraps
 
 ROUTES = {"/", "/health", "/ready", "/metrics", "/face/enroll", "/face/verify",
-          "/face/match", "/liveness/check", "/risk/assess"}
+          "/face/match", "/liveness/check", "/risk/assess", "/risk/policy"}
 BUCKETS = (.01, .05, .1, .25, .5, 1, 2, 5, 10, 30)
 
 

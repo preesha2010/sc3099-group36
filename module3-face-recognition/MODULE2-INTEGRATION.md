@@ -1,4 +1,23 @@
-# Module 2 / Module 3 boundary handoff (2026-10-23)
+# Module 2 / Module 3 boundary handoff (updated 2026-10-28)
+
+**Latest:** `INTEGRATION-CONTRACT.md` records the recent required-image,
+503/no-insert/retry and conditional risk-fallback discussion.
+`GET /risk/policy` + successful risk policy headers now publish
+`weighted_signals_v1`. The 45 synthetic risk vectors pass over the actual M2
+client in each profile, in addition to the 28 named boundary checks and 12
+visual outcome probes. These vectors check forwarding, NOT M2's local fallback.
+
+**New risk-client caveat:** real probes show `FaceClient.assess_risk` still
+returns None for both 503 and non-JSON 200; an empty 200 object remains a legacy
+status dictionary. M2 needs typed risk outcomes and field validation before
+fallback eligibility. The visual-client malformed-response fix described below
+remains valid; it does not cover the risk method. Reports mark this explicitly
+as `integration_pending`, not completed attendance/fallback work.
+
+Enrollment details/root now include `template_format` alongside mode and score
+policy. Default mode, key/format/weights and matching formula are unchanged.
+Risk request booleans/numeric strings now return 422; valid JSON numbers/null
+retain their established numerical semantics. See `VALIDATION-20261028.md`.
 
 Read-only comparison target: `module2-backend` at
 `7963b06641dc5ed5f3f4f5df8a843b61b068f53c`.

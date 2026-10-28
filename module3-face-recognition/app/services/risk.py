@@ -12,9 +12,7 @@ from cryptography.exceptions import UnsupportedAlgorithm
 from cryptography.hazmat.primitives.serialization import load_pem_public_key
 
 from app.schemas import RiskAssessRequest
-
-
-WEIGHTS = {"liveness": 0.25, "face_match": 0.25, "device": 0.20, "network": 0.15, "geolocation": 0.15}
+from app.risk_policy import WEIGHTS, LEVEL_BOUNDARIES
 
 
 def detect_vpn_proxy(ip_address: str, user_agent: str) -> Tuple[bool, float]:
@@ -95,5 +93,7 @@ def assess_risk(request: RiskAssessRequest) -> Tuple[float, str, Dict[str, float
     signals = {name: float(Decimal(str(risk)) * Decimal(str(WEIGHTS[name])))
                for name, risk in raw_signals.items()}
     risk_score = float(sum(Decimal(str(value)) for value in signals.values()))
-    risk_level = "LOW" if risk_score < 0.3 else "MEDIUM" if risk_score < 0.5 else "HIGH" if risk_score < 0.7 else "CRITICAL"
+    risk_level = ("LOW" if risk_score < LEVEL_BOUNDARIES["MEDIUM"] else "MEDIUM"
+                  if risk_score < LEVEL_BOUNDARIES["HIGH"] else "HIGH"
+                  if risk_score < LEVEL_BOUNDARIES["CRITICAL"] else "CRITICAL")
     return risk_score, risk_level, signals, recommendations

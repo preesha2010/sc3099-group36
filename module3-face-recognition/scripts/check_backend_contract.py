@@ -26,6 +26,7 @@ import json
 from PIL import Image
 
 from support import MODULE, local_service, report_target, save_report
+from check_risk_contract import corpus as risk_corpus, check_cases as risk_case_checks
 
 CLIENT_PATH = "module2-backend/app/integrations/face_client.py"
 
@@ -141,6 +142,19 @@ def failure_checks(cls):
             if fault == "malformed":
                 observation = {"non_json_200_status_only": response == {"_status": 200},
                                "non_json_200_is_success": client.is_success(response)}
+        if callable(getattr(cls, "assess_risk", None)):
+            observed = []
+            for fault in ("unavailable", "malformed", "empty"):
+                response = cls(base_url=base + "/" + fault, timeout=5.).assess_risk({})
+                status, body, ok, kind = outcome(response)
+                observed.append({"probe": fault, "outcome_kind": kind, "http_status": status,
+                                 "transport_success": ok,
+                                 "required_score_present": "risk_score" in body})
+            observation["risk_method_outcomes"] = observed
+            observation["risk_outage_distinguished_from_non_json"] = (
+                (observed[0]["outcome_kind"], observed[0]["http_status"])
+                != (observed[1]["outcome_kind"], observed[1]["http_status"]))
+            observation["risk_empty_object_rejected"] = not observed[2]["transport_success"]
     finally:
         server.shutdown()
         server.server_close()
@@ -177,6 +191,8 @@ def run_checks(face, profile, record, wire=None):
             require(info["template_mode"] == ("simhash" if profile == "enhanced" else "sha256"))
             require(info["match_score_policy"] == ("gaussian_query_margin_agreement_v3" if profile == "enhanced"
                                                    else "exact_sha256_v1"))
+            require(info["template_format"] == ("sface_simhash64_signed_v1" if profile == "enhanced"
+                                                 else "sha256_normalized_face_pixels_v1"))
 
     check("enroll_data_url_and_64_hex_template", enrollment)
 
@@ -252,7 +268,7 @@ def main(argv=None):
     args = parser.parse_args(argv)
     target = report_target(args.report)
     report = {"timestamp_utc": datetime.now(timezone.utc).isoformat(), "completed": False, "passed": False,
-              "profiles": {}, "backend_modified": False,
+              "profiles": {}, "risk_corpus": {}, "backend_modified": False,
               "limitations": ["Only the actual FaceClient/Module 3 HTTP boundary; not backend auth, DB or attendance decisions.",
                               "Only the backend settings import is stubbed, not client methods or HTTP responses.",
                               "Classification correctness and deployment capacity are separate release gates."]}
@@ -262,6 +278,10 @@ def main(argv=None):
         cls = client_class(source)
         faults, observation = failure_checks(cls)
         report.update(fault_checks=faults, caller_observations=observation)
+        if observation.get("risk_outage_distinguished_from_non_json") is False or observation.get("risk_empty_object_rejected") is False:
+            report["integration_pending"] = [
+                "M2 assess_risk still conflates unavailable/non-JSON results or accepts missing score fields.",
+                "Classify and validate risk outcomes before enabling fallback; this report does not enable or verify M2 fallback."]
         if observation["non_json_200_is_success"]:
             report["caller_warnings"] = ["FaceClient.is_success accepts a non-JSON 200 based on status alone; validate required typed fields before using biometric evidence."]
         for profile in (("sha256", "enhanced") if args.profile == "both" else (args.profile,)):
@@ -270,11 +290,23 @@ def main(argv=None):
                                         "INFERENCE_CONCURRENCY": "8", "INFERENCE_PENDING": "32",
                                         "INFERENCE_QUEUE_SECONDS": "2"}) as service:
                 run_checks(cls(base_url=str(service.base_url), timeout=5.), profile, checks, wire=service)
+                caller = cls(base_url=str(service.base_url), timeout=5.)
+
+                def risk_call(payload):
+                    status, body, ok, _ = outcome(caller.assess_risk(payload))
+                    if ok != (status == 200):
+                        raise ValueError("Unexpected risk outcome classification")
+                    return status, body
+
+                manifest, digest, vectors = risk_corpus()
+                report["risk_policy_id"], report["risk_policy_sha256"] = manifest["policy_id"], digest
+                report["risk_corpus"][profile] = risk_case_checks(vectors, risk_call)
             print(f"{profile}: {sum(row['passed'] for row in checks)}/{len(checks)} client boundary checks passed", flush=True)
             save_report(target, report)
         report["completed"] = True
         report["passed"] = all(row["passed"] for row in faults) and all(
-            rows and all(row["passed"] for row in rows) for rows in report["profiles"].values())
+            rows and all(row["passed"] for row in rows)
+            for group in ("profiles", "risk_corpus") for rows in report[group].values())
     except Exception as exc:
         report["failure_type"] = type(exc).__name__
     finally:

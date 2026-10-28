@@ -1,0 +1,829 @@
+{
+  "format_version": 1,
+  "policy_id": "weighted_signals_v1",
+  "description": "Synthetic, independently specified numerical contract cases; no faces/keys/identities, no attendance-approval claims.",
+  "cases": [
+    {
+      "id": "all_missing",
+      "input": {},
+      "status": 200,
+      "expected": {
+        "risk_score": 0.5,
+        "risk_level": "HIGH",
+        "pass_threshold": false,
+        "risk_threshold": 0.5,
+        "signal_breakdown": {
+          "liveness": 0.125,
+          "face_match": 0.125,
+          "device": 0.1,
+          "network": 0.075,
+          "geolocation": 0.075
+        }
+      }
+    },
+    {
+      "id": "explicit_nulls",
+      "input": {
+        "liveness_score": null,
+        "face_match_score": null,
+        "geolocation": null,
+        "device_signature": null,
+        "device_public_key": null,
+        "ip_address": null,
+        "user_agent": null
+      },
+      "status": 200,
+      "expected": {
+        "risk_score": 0.5,
+        "risk_level": "HIGH",
+        "pass_threshold": false,
+        "risk_threshold": 0.5,
+        "signal_breakdown": {
+          "liveness": 0.125,
+          "face_match": 0.125,
+          "device": 0.1,
+          "network": 0.075,
+          "geolocation": 0.075
+        }
+      }
+    },
+    {
+      "id": "normal",
+      "input": {
+        "liveness_score": 0.95,
+        "face_match_score": 0.95,
+        "ip_address": "8.8.8.8",
+        "user_agent": "Browser",
+        "geolocation": {
+          "latitude": 1,
+          "longitude": 103,
+          "accuracy": 10
+        }
+      },
+      "status": 200,
+      "expected": {
+        "risk_score": 0.125,
+        "risk_level": "LOW",
+        "pass_threshold": true,
+        "risk_threshold": 0.5,
+        "signal_breakdown": {
+          "liveness": 0.0125,
+          "face_match": 0.0125,
+          "device": 0.1,
+          "network": 0,
+          "geolocation": 0
+        }
+      }
+    },
+    {
+      "id": "highest_risk",
+      "input": {
+        "liveness_score": 0,
+        "face_match_score": 0,
+        "device_signature": "invalid",
+        "device_public_key": "invalid",
+        "ip_address": "invalid",
+        "user_agent": "vpn",
+        "geolocation": {
+          "latitude": 1,
+          "longitude": 103,
+          "accuracy": 5001
+        }
+      },
+      "status": 200,
+      "expected": {
+        "risk_score": 1,
+        "risk_level": "CRITICAL",
+        "pass_threshold": false,
+        "risk_threshold": 0.5,
+        "signal_breakdown": {
+          "liveness": 0.25,
+          "face_match": 0.25,
+          "device": 0.2,
+          "network": 0.15,
+          "geolocation": 0.15
+        }
+      }
+    },
+    {
+      "id": "missing_face_is_not_authorization",
+      "input": {
+        "liveness_score": 1,
+        "ip_address": "8.8.8.8",
+        "geolocation": {
+          "latitude": 1,
+          "longitude": 103,
+          "accuracy": 10
+        }
+      },
+      "status": 200,
+      "expected": {
+        "risk_score": 0.225,
+        "risk_level": "LOW",
+        "pass_threshold": true,
+        "risk_threshold": 0.5,
+        "signal_breakdown": {
+          "liveness": 0,
+          "face_match": 0.125,
+          "device": 0.1,
+          "network": 0,
+          "geolocation": 0
+        }
+      }
+    },
+    {
+      "id": "failed_face_low_total_still_requires_gate",
+      "input": {
+        "liveness_score": 1,
+        "face_match_score": 0,
+        "ip_address": "8.8.8.8",
+        "geolocation": {
+          "latitude": 1,
+          "longitude": 103,
+          "accuracy": 10
+        }
+      },
+      "status": 200,
+      "expected": {
+        "risk_score": 0.35,
+        "risk_level": "MEDIUM",
+        "pass_threshold": true,
+        "risk_threshold": 0.5,
+        "signal_breakdown": {
+          "liveness": 0,
+          "face_match": 0.25,
+          "device": 0.1,
+          "network": 0,
+          "geolocation": 0
+        }
+      }
+    },
+    {
+      "id": "below_medium",
+      "input": {
+        "liveness_score": 1,
+        "face_match_score": 0.800004
+      },
+      "status": 200,
+      "expected": {
+        "risk_score": 0.299999,
+        "risk_level": "LOW",
+        "pass_threshold": true,
+        "risk_threshold": 0.5,
+        "signal_breakdown": {
+          "liveness": 0,
+          "face_match": 0.049999,
+          "device": 0.1,
+          "network": 0.075,
+          "geolocation": 0.075
+        }
+      }
+    },
+    {
+      "id": "at_medium",
+      "input": {
+        "liveness_score": 1,
+        "face_match_score": 0.8
+      },
+      "status": 200,
+      "expected": {
+        "risk_score": 0.3,
+        "risk_level": "MEDIUM",
+        "pass_threshold": true,
+        "risk_threshold": 0.5,
+        "signal_breakdown": {
+          "liveness": 0,
+          "face_match": 0.05,
+          "device": 0.1,
+          "network": 0.075,
+          "geolocation": 0.075
+        }
+      }
+    },
+    {
+      "id": "above_medium",
+      "input": {
+        "liveness_score": 1,
+        "face_match_score": 0.799996
+      },
+      "status": 200,
+      "expected": {
+        "risk_score": 0.300001,
+        "risk_level": "MEDIUM",
+        "pass_threshold": true,
+        "risk_threshold": 0.5,
+        "signal_breakdown": {
+          "liveness": 0,
+          "face_match": 0.050001,
+          "device": 0.1,
+          "network": 0.075,
+          "geolocation": 0.075
+        }
+      }
+    },
+    {
+      "id": "below_high",
+      "input": {
+        "liveness_score": 0.000004,
+        "face_match_score": 1
+      },
+      "status": 200,
+      "expected": {
+        "risk_score": 0.499999,
+        "risk_level": "MEDIUM",
+        "pass_threshold": true,
+        "risk_threshold": 0.5,
+        "signal_breakdown": {
+          "liveness": 0.249999,
+          "face_match": 0,
+          "device": 0.1,
+          "network": 0.075,
+          "geolocation": 0.075
+        }
+      }
+    },
+    {
+      "id": "at_high",
+      "input": {
+        "liveness_score": 0,
+        "face_match_score": 1
+      },
+      "status": 200,
+      "expected": {
+        "risk_score": 0.5,
+        "risk_level": "HIGH",
+        "pass_threshold": false,
+        "risk_threshold": 0.5,
+        "signal_breakdown": {
+          "liveness": 0.25,
+          "face_match": 0,
+          "device": 0.1,
+          "network": 0.075,
+          "geolocation": 0.075
+        }
+      }
+    },
+    {
+      "id": "above_high",
+      "input": {
+        "liveness_score": 0,
+        "face_match_score": 0.999996
+      },
+      "status": 200,
+      "expected": {
+        "risk_score": 0.500001,
+        "risk_level": "HIGH",
+        "pass_threshold": false,
+        "risk_threshold": 0.5,
+        "signal_breakdown": {
+          "liveness": 0.25,
+          "face_match": 0.000001,
+          "device": 0.1,
+          "network": 0.075,
+          "geolocation": 0.075
+        }
+      }
+    },
+    {
+      "id": "below_critical",
+      "input": {
+        "liveness_score": 0,
+        "face_match_score": 0.200004
+      },
+      "status": 200,
+      "expected": {
+        "risk_score": 0.699999,
+        "risk_level": "HIGH",
+        "pass_threshold": false,
+        "risk_threshold": 0.5,
+        "signal_breakdown": {
+          "liveness": 0.25,
+          "face_match": 0.199999,
+          "device": 0.1,
+          "network": 0.075,
+          "geolocation": 0.075
+        }
+      }
+    },
+    {
+      "id": "at_critical",
+      "input": {
+        "liveness_score": 0,
+        "face_match_score": 0.2
+      },
+      "status": 200,
+      "expected": {
+        "risk_score": 0.7,
+        "risk_level": "CRITICAL",
+        "pass_threshold": false,
+        "risk_threshold": 0.5,
+        "signal_breakdown": {
+          "liveness": 0.25,
+          "face_match": 0.2,
+          "device": 0.1,
+          "network": 0.075,
+          "geolocation": 0.075
+        }
+      }
+    },
+    {
+      "id": "above_critical",
+      "input": {
+        "liveness_score": 0,
+        "face_match_score": 0.199996
+      },
+      "status": 200,
+      "expected": {
+        "risk_score": 0.700001,
+        "risk_level": "CRITICAL",
+        "pass_threshold": false,
+        "risk_threshold": 0.5,
+        "signal_breakdown": {
+          "liveness": 0.25,
+          "face_match": 0.200001,
+          "device": 0.1,
+          "network": 0.075,
+          "geolocation": 0.075
+        }
+      }
+    },
+    {
+      "id": "geo_100",
+      "input": {
+        "liveness_score": 1,
+        "face_match_score": 1,
+        "ip_address": "8.8.8.8",
+        "geolocation": {
+          "latitude": 1,
+          "longitude": 103,
+          "accuracy": 100
+        }
+      },
+      "status": 200,
+      "expected": {
+        "risk_score": 0.1,
+        "risk_level": "LOW",
+        "pass_threshold": true,
+        "risk_threshold": 0.5,
+        "signal_breakdown": {
+          "liveness": 0,
+          "face_match": 0,
+          "device": 0.1,
+          "network": 0,
+          "geolocation": 0
+        }
+      }
+    },
+    {
+      "id": "geo_over_100",
+      "input": {
+        "liveness_score": 1,
+        "face_match_score": 1,
+        "ip_address": "8.8.8.8",
+        "geolocation": {
+          "latitude": 1,
+          "longitude": 103,
+          "accuracy": 100.001
+        }
+      },
+      "status": 200,
+      "expected": {
+        "risk_score": 0.175,
+        "risk_level": "LOW",
+        "pass_threshold": true,
+        "risk_threshold": 0.5,
+        "signal_breakdown": {
+          "liveness": 0,
+          "face_match": 0,
+          "device": 0.1,
+          "network": 0,
+          "geolocation": 0.075
+        }
+      }
+    },
+    {
+      "id": "geo_5000",
+      "input": {
+        "liveness_score": 1,
+        "face_match_score": 1,
+        "ip_address": "8.8.8.8",
+        "geolocation": {
+          "latitude": 1,
+          "longitude": 103,
+          "accuracy": 5000
+        }
+      },
+      "status": 200,
+      "expected": {
+        "risk_score": 0.175,
+        "risk_level": "LOW",
+        "pass_threshold": true,
+        "risk_threshold": 0.5,
+        "signal_breakdown": {
+          "liveness": 0,
+          "face_match": 0,
+          "device": 0.1,
+          "network": 0,
+          "geolocation": 0.075
+        }
+      }
+    },
+    {
+      "id": "geo_over_5000",
+      "input": {
+        "liveness_score": 1,
+        "face_match_score": 1,
+        "ip_address": "8.8.8.8",
+        "geolocation": {
+          "latitude": 1,
+          "longitude": 103,
+          "accuracy": 5000.001
+        }
+      },
+      "status": 200,
+      "expected": {
+        "risk_score": 0.25,
+        "risk_level": "LOW",
+        "pass_threshold": true,
+        "risk_threshold": 0.5,
+        "signal_breakdown": {
+          "liveness": 0,
+          "face_match": 0,
+          "device": 0.1,
+          "network": 0,
+          "geolocation": 0.15
+        }
+      }
+    },
+    {
+      "id": "public_network",
+      "input": {
+        "ip_address": "8.8.8.8"
+      },
+      "status": 200,
+      "expected": {
+        "risk_score": 0.425,
+        "risk_level": "MEDIUM",
+        "pass_threshold": true,
+        "risk_threshold": 0.5,
+        "signal_breakdown": {
+          "liveness": 0.125,
+          "face_match": 0.125,
+          "device": 0.1,
+          "network": 0,
+          "geolocation": 0.075
+        }
+      }
+    },
+    {
+      "id": "ipv6_public",
+      "input": {
+        "ip_address": "2001:4860:4860::8888"
+      },
+      "status": 200,
+      "expected": {
+        "risk_score": 0.425,
+        "risk_level": "MEDIUM",
+        "pass_threshold": true,
+        "risk_threshold": 0.5,
+        "signal_breakdown": {
+          "liveness": 0.125,
+          "face_match": 0.125,
+          "device": 0.1,
+          "network": 0,
+          "geolocation": 0.075
+        }
+      }
+    },
+    {
+      "id": "private_network",
+      "input": {
+        "ip_address": "10.0.0.1"
+      },
+      "status": 200,
+      "expected": {
+        "risk_score": 0.5,
+        "risk_level": "HIGH",
+        "pass_threshold": false,
+        "risk_threshold": 0.5,
+        "signal_breakdown": {
+          "liveness": 0.125,
+          "face_match": 0.125,
+          "device": 0.1,
+          "network": 0.075,
+          "geolocation": 0.075
+        }
+      }
+    },
+    {
+      "id": "loopback_network",
+      "input": {
+        "ip_address": "127.0.0.1"
+      },
+      "status": 200,
+      "expected": {
+        "risk_score": 0.5,
+        "risk_level": "HIGH",
+        "pass_threshold": false,
+        "risk_threshold": 0.5,
+        "signal_breakdown": {
+          "liveness": 0.125,
+          "face_match": 0.125,
+          "device": 0.1,
+          "network": 0.075,
+          "geolocation": 0.075
+        }
+      }
+    },
+    {
+      "id": "ipv6_loopback",
+      "input": {
+        "ip_address": "::1"
+      },
+      "status": 200,
+      "expected": {
+        "risk_score": 0.5,
+        "risk_level": "HIGH",
+        "pass_threshold": false,
+        "risk_threshold": 0.5,
+        "signal_breakdown": {
+          "liveness": 0.125,
+          "face_match": 0.125,
+          "device": 0.1,
+          "network": 0.075,
+          "geolocation": 0.075
+        }
+      }
+    },
+    {
+      "id": "invalid_ip",
+      "input": {
+        "ip_address": "invalid"
+      },
+      "status": 200,
+      "expected": {
+        "risk_score": 0.5,
+        "risk_level": "HIGH",
+        "pass_threshold": false,
+        "risk_threshold": 0.5,
+        "signal_breakdown": {
+          "liveness": 0.125,
+          "face_match": 0.125,
+          "device": 0.1,
+          "network": 0.075,
+          "geolocation": 0.075
+        }
+      }
+    },
+    {
+      "id": "vpn_word",
+      "input": {
+        "user_agent": "VPN client"
+      },
+      "status": 200,
+      "expected": {
+        "risk_score": 0.5,
+        "risk_level": "HIGH",
+        "pass_threshold": false,
+        "risk_threshold": 0.5,
+        "signal_breakdown": {
+          "liveness": 0.125,
+          "face_match": 0.125,
+          "device": 0.1,
+          "network": 0.075,
+          "geolocation": 0.075
+        }
+      }
+    },
+    {
+      "id": "word_boundary",
+      "input": {
+        "user_agent": "Motorola browser"
+      },
+      "status": 200,
+      "expected": {
+        "risk_score": 0.425,
+        "risk_level": "MEDIUM",
+        "pass_threshold": true,
+        "risk_threshold": 0.5,
+        "signal_breakdown": {
+          "liveness": 0.125,
+          "face_match": 0.125,
+          "device": 0.1,
+          "network": 0,
+          "geolocation": 0.075
+        }
+      }
+    },
+    {
+      "id": "private_and_proxy",
+      "input": {
+        "ip_address": "10.0.0.1",
+        "user_agent": "proxy"
+      },
+      "status": 200,
+      "expected": {
+        "risk_score": 0.575,
+        "risk_level": "HIGH",
+        "pass_threshold": false,
+        "risk_threshold": 0.5,
+        "signal_breakdown": {
+          "liveness": 0.125,
+          "face_match": 0.125,
+          "device": 0.1,
+          "network": 0.15,
+          "geolocation": 0.075
+        }
+      }
+    },
+    {
+      "id": "only_signature",
+      "input": {
+        "device_signature": "YQ=="
+      },
+      "status": 200,
+      "expected": {
+        "risk_score": 0.6,
+        "risk_level": "HIGH",
+        "pass_threshold": false,
+        "risk_threshold": 0.5,
+        "signal_breakdown": {
+          "liveness": 0.125,
+          "face_match": 0.125,
+          "device": 0.2,
+          "network": 0.075,
+          "geolocation": 0.075
+        }
+      }
+    },
+    {
+      "id": "malformed_key",
+      "input": {
+        "device_signature": "YQ==",
+        "device_public_key": "invalid"
+      },
+      "status": 200,
+      "expected": {
+        "risk_score": 0.6,
+        "risk_level": "HIGH",
+        "pass_threshold": false,
+        "risk_threshold": 0.5,
+        "signal_breakdown": {
+          "liveness": 0.125,
+          "face_match": 0.125,
+          "device": 0.2,
+          "network": 0.075,
+          "geolocation": 0.075
+        }
+      }
+    },
+    {
+      "id": "parseable_device_not_verified",
+      "input": {
+        "device_signature": "YQ==",
+        "device_public_key": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=\n-----END PUBLIC KEY-----\n"
+      },
+      "status": 200,
+      "expected": {
+        "risk_score": 0.5,
+        "risk_level": "HIGH",
+        "pass_threshold": false,
+        "risk_threshold": 0.5,
+        "signal_breakdown": {
+          "liveness": 0.125,
+          "face_match": 0.125,
+          "device": 0.1,
+          "network": 0.075,
+          "geolocation": 0.075
+        }
+      }
+    },
+    {
+      "id": "empty_signature",
+      "input": {
+        "device_signature": "",
+        "device_public_key": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=\n-----END PUBLIC KEY-----\n"
+      },
+      "status": 200,
+      "expected": {
+        "risk_score": 0.6,
+        "risk_level": "HIGH",
+        "pass_threshold": false,
+        "risk_threshold": 0.5,
+        "signal_breakdown": {
+          "liveness": 0.125,
+          "face_match": 0.125,
+          "device": 0.2,
+          "network": 0.075,
+          "geolocation": 0.075
+        }
+      }
+    },
+    {
+      "id": "negative_score",
+      "input": {
+        "face_match_score": -0.1
+      },
+      "status": 422
+    },
+    {
+      "id": "score_over_one",
+      "input": {
+        "liveness_score": 1.1
+      },
+      "status": 422
+    },
+    {
+      "id": "boolean_score",
+      "input": {
+        "face_match_score": true
+      },
+      "status": 422
+    },
+    {
+      "id": "boolean_liveness",
+      "input": {
+        "liveness_score": false
+      },
+      "status": 422
+    },
+    {
+      "id": "string_score",
+      "input": {
+        "face_match_score": "0.8"
+      },
+      "status": 422
+    },
+    {
+      "id": "nan_string",
+      "input": {
+        "liveness_score": "NaN"
+      },
+      "status": 422
+    },
+    {
+      "id": "array_score",
+      "input": {
+        "face_match_score": []
+      },
+      "status": 422
+    },
+    {
+      "id": "object_score",
+      "input": {
+        "liveness_score": {}
+      },
+      "status": 422
+    },
+    {
+      "id": "invalid_latitude",
+      "input": {
+        "geolocation": {
+          "latitude": 91,
+          "longitude": 1,
+          "accuracy": 10
+        }
+      },
+      "status": 422
+    },
+    {
+      "id": "invalid_longitude",
+      "input": {
+        "geolocation": {
+          "latitude": 1,
+          "longitude": 181,
+          "accuracy": 10
+        }
+      },
+      "status": 422
+    },
+    {
+      "id": "negative_accuracy",
+      "input": {
+        "geolocation": {
+          "latitude": 1,
+          "longitude": 1,
+          "accuracy": -1
+        }
+      },
+      "status": 422
+    },
+    {
+      "id": "missing_geo_field",
+      "input": {
+        "geolocation": {
+          "latitude": 1,
+          "longitude": 1
+        }
+      },
+      "status": 422
+    },
+    {
+      "id": "numeric_public_key",
+      "input": {
+        "device_public_key": 123
+      },
+      "status": 422
+    }
+  ]
+}

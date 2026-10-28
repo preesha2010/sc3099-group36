@@ -1,5 +1,11 @@
 # Module 3 handoff checklist
 
+**2026-10-28 integration continuation:** start with `INTEGRATION-CONTRACT.md`
+and `VALIDATION-20261028.md`. New policy discovery, strict numeric inputs,
+template metadata and shared conformance tooling support the team's fallback/
+retry discussions. No M2 fallback, attendance transaction or final template/
+review decision is implemented by this M3-only update.
+
 **Current 2026-10-23 handoff:** read `VALIDATION-20261023.md` and
 `STANDALONE-COMPLETION.md` first. Standalone regression, both public profiles,
 the existing-sample classification gate, transport and the latest Module 2

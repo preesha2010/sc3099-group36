@@ -61,7 +61,8 @@ def test_failed_checkpoint_replace_preserves_previous_report(tmp_path, monkeypat
     assert list(tmp_path.glob("*.tmp")) == []
 
 
-@pytest.mark.parametrize("statuses,expected,calls", [([0, 2], 2, 2), ([1], 1, 1), ([0, 0], 0, 2)])
+@pytest.mark.parametrize("statuses,expected,calls", [
+    ([0, 0, 2], 2, 3), ([0, 2], 2, 2), ([1], 1, 1), ([0, 0, 0], 0, 3)])
 def test_release_wrapper_preserves_failed_gate_and_stops(statuses, expected, calls, monkeypatch):
     pending = iter(statuses)
     commands = []

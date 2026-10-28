@@ -5,7 +5,7 @@ from typing import Annotated, Any, Dict, List, Literal, Optional
 from pydantic import BaseModel, Field, StrictBool
 
 
-Score = Annotated[float, Field(ge=0.0, le=1.0, allow_inf_nan=False)]
+Score = Annotated[float, Field(ge=0.0, le=1.0, allow_inf_nan=False, strict=True)]
 TemplateHash = Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
 
 

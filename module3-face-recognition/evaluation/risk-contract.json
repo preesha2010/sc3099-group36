@@ -1,0 +1,200 @@
+{
+  "timestamp_utc": "2026-10-28T05:07:52.021881+00:00",
+  "completed": true,
+  "passed": true,
+  "target": "owned_loopback",
+  "checks": [
+    {
+      "case": "policy_discovery",
+      "passed": true
+    },
+    {
+      "case": "all_missing",
+      "passed": true
+    },
+    {
+      "case": "explicit_nulls",
+      "passed": true
+    },
+    {
+      "case": "normal",
+      "passed": true
+    },
+    {
+      "case": "highest_risk",
+      "passed": true
+    },
+    {
+      "case": "missing_face_is_not_authorization",
+      "passed": true
+    },
+    {
+      "case": "failed_face_low_total_still_requires_gate",
+      "passed": true
+    },
+    {
+      "case": "below_medium",
+      "passed": true
+    },
+    {
+      "case": "at_medium",
+      "passed": true
+    },
+    {
+      "case": "above_medium",
+      "passed": true
+    },
+    {
+      "case": "below_high",
+      "passed": true
+    },
+    {
+      "case": "at_high",
+      "passed": true
+    },
+    {
+      "case": "above_high",
+      "passed": true
+    },
+    {
+      "case": "below_critical",
+      "passed": true
+    },
+    {
+      "case": "at_critical",
+      "passed": true
+    },
+    {
+      "case": "above_critical",
+      "passed": true
+    },
+    {
+      "case": "geo_100",
+      "passed": true
+    },
+    {
+      "case": "geo_over_100",
+      "passed": true
+    },
+    {
+      "case": "geo_5000",
+      "passed": true
+    },
+    {
+      "case": "geo_over_5000",
+      "passed": true
+    },
+    {
+      "case": "public_network",
+      "passed": true
+    },
+    {
+      "case": "ipv6_public",
+      "passed": true
+    },
+    {
+      "case": "private_network",
+      "passed": true
+    },
+    {
+      "case": "loopback_network",
+      "passed": true
+    },
+    {
+      "case": "ipv6_loopback",
+      "passed": true
+    },
+    {
+      "case": "invalid_ip",
+      "passed": true
+    },
+    {
+      "case": "vpn_word",
+      "passed": true
+    },
+    {
+      "case": "word_boundary",
+      "passed": true
+    },
+    {
+      "case": "private_and_proxy",
+      "passed": true
+    },
+    {
+      "case": "only_signature",
+      "passed": true
+    },
+    {
+      "case": "malformed_key",
+      "passed": true
+    },
+    {
+      "case": "parseable_device_not_verified",
+      "passed": true
+    },
+    {
+      "case": "empty_signature",
+      "passed": true
+    },
+    {
+      "case": "negative_score",
+      "passed": true
+    },
+    {
+      "case": "score_over_one",
+      "passed": true
+    },
+    {
+      "case": "boolean_score",
+      "passed": true
+    },
+    {
+      "case": "boolean_liveness",
+      "passed": true
+    },
+    {
+      "case": "string_score",
+      "passed": true
+    },
+    {
+      "case": "nan_string",
+      "passed": true
+    },
+    {
+      "case": "array_score",
+      "passed": true
+    },
+    {
+      "case": "object_score",
+      "passed": true
+    },
+    {
+      "case": "invalid_latitude",
+      "passed": true
+    },
+    {
+      "case": "invalid_longitude",
+      "passed": true
+    },
+    {
+      "case": "negative_accuracy",
+      "passed": true
+    },
+    {
+      "case": "missing_geo_field",
+      "passed": true
+    },
+    {
+      "case": "numeric_public_key",
+      "passed": true
+    }
+  ],
+  "limitations": [
+    "Synthetic numerical contract only; not full fallback equivalence, DB transactions or attendance authorization.",
+    "A candidate result applies only to that candidate and runtime, not the current M2 branch automatically.",
+    "Required evidence, unavailable vs disabled states, fallback eligibility and final status are M2 responsibilities."
+  ],
+  "policy_id": "weighted_signals_v1",
+  "policy_sha256": "5b3a07c3a6f2c3392599e24766ac8b2fff9290eaa6458b39b2cba4b5643f9d5d",
+  "corpus_sha256": "e0cab3257f72ec3264490dad6e791930e2dd3f61acacf2c26fddc26962f3352c"
+}

@@ -1,5 +1,11 @@
 # Standalone completion boundary, 2026-10-23
 
+**2026-10-28 continuation:** subsequent team discussions opened a new integration
+phase. M3-side risk policy discovery, shared vectors and conformance tooling are
+now implemented; see `INTEGRATION-CONTRACT.md`/`VALIDATION-20261028.md`.
+The checklist below records the previous bounded standalone phase, not a claim
+that the newly discussed M2 fallback/transaction rules are already implemented.
+
 Scope: existing branch `module3-face-recognition`, this directory ONLY. No Docker,
 other-module/root/shared-test changes, new face collection, new keys, threshold
 fitting or external deployment. The user explicitly authorized scoring changes
