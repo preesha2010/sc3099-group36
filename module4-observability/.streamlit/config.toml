@@ -1,0 +1,18 @@
+# Surfaces are pinned so the charts render against the exact colours the
+# palette was validated on. Leaving Streamlit's defaults would mean the
+# contrast numbers in WEEK9.md describe a different background.
+[theme]
+base = "light"
+primaryColor = "#2a78d6"
+backgroundColor = "#f9f9f7"
+secondaryBackgroundColor = "#fcfcfb"
+textColor = "#0b0b0b"
+font = "sans serif"
+
+[server]
+headless = true
+enableCORS = false
+enableXsrfProtection = true
+
+[browser]
+gatherUsageStats = false

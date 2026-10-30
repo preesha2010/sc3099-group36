@@ -1,0 +1,21 @@
+# Same relocation as datasources.yml: this has to live in
+# provisioning/dashboards for Grafana to read it.
+#
+# `path` points at this same directory. Grafana loads the .json files it
+# finds there and ignores the .yml, so the provider and the dashboards it
+# provisions sit side by side.
+apiVersion: 1
+
+providers:
+  - name: 'SAIV Dashboards'
+    orgId: 1
+    folder: ''
+    type: file
+    disableDeletion: false
+    # Edits made in the UI are kept until the file on disk changes. Without
+    # this, Grafana overwrites your unsaved panel every 10 seconds.
+    allowUiUpdates: true
+    updateIntervalSeconds: 30
+    options:
+      path: /etc/grafana/provisioning/dashboards
+      foldersFromFilesStructure: false

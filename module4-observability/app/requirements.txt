@@ -1,0 +1,14 @@
+streamlit==1.30.0
+pandas==2.2.0
+# Streamlit 1.30 imports pyarrow but does not pin it. Current pyarrow needs
+# NumPy 2, while pandas 2.2.0 pulls NumPy 1.x, so an unpinned fresh build
+# crashes on import.
+pyarrow==15.0.2
+plotly==5.18.0
+requests==2.31.0
+prometheus-client==0.19.0
+
+# Observability
+opentelemetry-api==1.22.0
+opentelemetry-sdk==1.22.0
+opentelemetry-exporter-otlp==1.22.0
