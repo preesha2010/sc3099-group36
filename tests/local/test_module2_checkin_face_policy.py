@@ -274,7 +274,7 @@ def test_required_timeout_returns_503_and_does_not_create_row():
     assert isinstance(error, HTTPException)
     assert error.status_code == 503
     assert created == []
-    db.commit.assert_not_called()
+    db.commit.assert_called()
     mock_face.assess_risk.assert_not_called()
 
 
@@ -291,7 +291,7 @@ def test_required_5xx_and_malformed_return_503_without_row():
         assert isinstance(error, HTTPException), call.kind
         assert error.status_code == 503
         assert created == []
-        db.commit.assert_not_called()
+        db.commit.assert_called()
 
 
 def test_retry_after_recovery_creates_checkin():
@@ -363,7 +363,7 @@ def test_invalid_image_is_400_not_503_and_creates_no_row():
     assert isinstance(error, HTTPException)
     assert error.status_code == 400
     assert created == []
-    db.commit.assert_not_called()
+    db.commit.assert_called()
 
 
 def test_image_less_submit_still_creates_row_when_liveness_required():
@@ -438,7 +438,7 @@ def test_risk_service_outage_returns_503_without_row():
         assert isinstance(error, HTTPException), call.status
         assert error.status_code == 503
         assert created == []
-        db.commit.assert_not_called()
+        db.commit.assert_called()
         mock_face.assess_risk.assert_called_once()
 
 
@@ -458,7 +458,7 @@ def test_malformed_risk_response_returns_503_without_row():
     assert isinstance(error, HTTPException)
     assert error.status_code == 503
     assert created == []
-    db.commit.assert_not_called()
+    db.commit.assert_called()
 
 
 def test_retry_after_risk_service_recovery_creates_checkin():
@@ -474,7 +474,7 @@ def test_retry_after_risk_service_recovery_creates_checkin():
     assert isinstance(error, HTTPException)
     assert error.status_code == 503
     assert created == []
-    db.commit.assert_not_called()
+    db.commit.assert_called()
 
     mock_face.assess_risk.return_value = _advisory_ok()
     result, created, db = _run_submit(session, user, payload, mock_face)
@@ -606,7 +606,7 @@ def test_inactive_session_still_rejected_before_face_call():
     assert error.status_code == 400
     mock_face.liveness.assert_not_called()
     assert created == []
-    db.commit.assert_not_called()
+    db.commit.assert_called()
 
 
 def test_duplicate_checkin_still_rejected_before_face_call():
@@ -622,7 +622,7 @@ def test_duplicate_checkin_still_rejected_before_face_call():
     assert error.status_code == 400
     mock_face.liveness.assert_not_called()
     assert created == []
-    db.commit.assert_not_called()
+    db.commit.assert_called()
 
 
 # ---------------------------------------------------------------------------

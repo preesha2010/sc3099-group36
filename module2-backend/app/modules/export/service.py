@@ -7,14 +7,37 @@ from fastapi import Request
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
+from app.audit.repository import append_audit
 from app.core.exceptions import bad_request, forbidden, not_found
 from app.core.utils import to_naive_utc
+from app.db.enums import AuditAction
 from app.modules.checkins import repository as checkins_repo
 from app.modules.courses import repository as courses_repo
 from app.modules.enrollments import repository as enrollments_repo
 from app.modules.sessions import repository as sessions_repo
 from app.modules.sessions.service import can_manage_session
 from app.modules.users.model import User
+
+
+def _record_data_exported(
+    db: Session,
+    current_user: User,
+    request: Request,
+    *,
+    export_type: str,
+    resource_type: str,
+    resource_id: str,
+) -> None:
+    append_audit(
+        db,
+        AuditAction.DATA_EXPORTED.value,
+        user_id=current_user.id,
+        resource_type=resource_type,
+        resource_id=resource_id,
+        details={"export_type": export_type},
+        request=request,
+    )
+    db.commit()
 
 
 def _rate(numerator: float, denominator: float) -> float:
@@ -92,6 +115,14 @@ def attendance_export(
     records = _attendance_rows(db, course, start_date, end_date)
     kind = (fmt or "csv").lower()
     if kind == "json":
+        _record_data_exported(
+            db,
+            current_user,
+            request,
+            export_type="attendance_json",
+            resource_type="course",
+            resource_id=course.id,
+        )
         return records
     if kind == "csv":
         buf = io.StringIO()
@@ -122,6 +153,14 @@ def attendance_export(
                     row["risk_score"] if row["risk_score"] is not None else "",
                 ]
             )
+        _record_data_exported(
+            db,
+            current_user,
+            request,
+            export_type="attendance_csv",
+            resource_type="course",
+            resource_id=course.id,
+        )
         return Response(
             content=buf.getvalue(),
             media_type="text/csv",
@@ -155,6 +194,14 @@ def session_export(db: Session, session_id: str, current_user: User, request: Re
     }
     kind = (fmt or "csv").lower()
     if kind == "json":
+        _record_data_exported(
+            db,
+            current_user,
+            request,
+            export_type="session_json",
+            resource_type="session",
+            resource_id=session.id,
+        )
         return payload
     if kind == "csv":
         buf = io.StringIO()
@@ -186,6 +233,14 @@ def session_export(db: Session, session_id: str, current_user: User, request: Re
                     row["risk_score"] if row["risk_score"] is not None else "",
                 ]
             )
+        _record_data_exported(
+            db,
+            current_user,
+            request,
+            export_type="session_csv",
+            resource_type="session",
+            resource_id=session.id,
+        )
         return Response(
             content=buf.getvalue(),
             media_type="text/csv",

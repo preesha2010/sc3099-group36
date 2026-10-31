@@ -3,7 +3,7 @@ import logging
 from datetime import datetime, timedelta
 from typing import Any, Optional
 
-from fastapi import Request
+from fastapi import HTTPException, Request
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -203,7 +203,101 @@ def _face_signals(
     return result
 
 
+_ATTEMPT_REASON_BY_DETAIL = {
+    "Session not found": "session_not_found",
+    "Session not active": "session_not_active",
+    "Invalid or missing QR code": "invalid_qr",
+    "Check-in window closed": "window_closed",
+    "Student is not enrolled in this course": "not_enrolled",
+    "Already checked in": "already_checked_in",
+    "Check-in not allowed from this location": "location_denied",
+    "Image payload too large": "image_too_large",
+    "Face recognition service unavailable": "face_unavailable",
+    "Invalid face image": "invalid_face_image",
+}
+
+
+def _attempt_details(
+    payload: CheckinCreate,
+    current_user: User,
+    *,
+    reason: Optional[str] = None,
+    http_status: Optional[int] = None,
+) -> dict[str, Any]:
+    details: dict[str, Any] = {
+        "student_id": current_user.id,
+        "session_id": payload.session_id,
+        "location": (
+            "provided"
+            if payload.latitude is not None and payload.longitude is not None
+            else "omitted"
+        ),
+    }
+    if reason:
+        details["reason"] = reason
+    if http_status is not None:
+        details["http_status"] = http_status
+    return details
+
+
+def persist_failed_checkin_attempt(
+    db: Session,
+    current_user: User,
+    request: Request,
+    payload: CheckinCreate,
+    *,
+    reason: str,
+    http_status: int,
+    violation_type: Optional[str] = None,
+) -> None:
+    """Write checkin_attempted after rollback so failed submits still persist."""
+    db.rollback()
+    append_audit(
+        db,
+        AuditAction.CHECKIN_ATTEMPTED.value,
+        user_id=current_user.id,
+        resource_type="session",
+        resource_id=payload.session_id,
+        success=False,
+        details=_attempt_details(payload, current_user, reason=reason, http_status=http_status),
+        request=request,
+    )
+    if violation_type:
+        append_audit(
+            db,
+            AuditAction.SECURITY_VIOLATION.value,
+            user_id=current_user.id,
+            resource_type="session",
+            resource_id=payload.session_id,
+            success=False,
+            details={"violation_type": violation_type},
+            request=request,
+        )
+    db.commit()
+
+
 def submit_checkin(db: Session, payload: CheckinCreate, current_user: User, request: Request) -> dict[str, Any]:
+    try:
+        return _submit_checkin(db, payload, current_user, request)
+    except HTTPException as exc:
+        reason = _ATTEMPT_REASON_BY_DETAIL.get(str(exc.detail), "rejected")
+        violation = "checkin_location_denied" if reason == "location_denied" else None
+        try:
+            persist_failed_checkin_attempt(
+                db,
+                current_user,
+                request,
+                payload,
+                reason=reason,
+                http_status=exc.status_code,
+                violation_type=violation,
+            )
+        except Exception:
+            logger.exception("failed to persist checkin_attempted")
+        raise
+
+
+def _submit_checkin(db: Session, payload: CheckinCreate, current_user: User, request: Request) -> dict[str, Any]:
     ensure_face_image_within_limit(payload.liveness_challenge_response)
     session = sessions_repo.get_by_id(db, payload.session_id)
     if session is None:
@@ -316,6 +410,16 @@ def submit_checkin(db: Session, payload: CheckinCreate, current_user: User, requ
             action = AuditAction.CHECKIN_FLAGGED.value
         elif assessment["status"] == CheckinStatus.REJECTED.value:
             action = AuditAction.CHECKIN_REJECTED.value
+        append_audit(
+            db,
+            AuditAction.CHECKIN_ATTEMPTED.value,
+            user_id=current_user.id,
+            resource_type="session",
+            resource_id=session.id,
+            success=True,
+            details=_attempt_details(payload, current_user),
+            request=request,
+        )
         append_audit(
             db,
             action,

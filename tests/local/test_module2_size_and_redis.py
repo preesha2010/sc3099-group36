@@ -244,7 +244,7 @@ class TestCheckinImageLimit:
         assert created == []
         checkins_repo.create.assert_not_called()
         face.liveness.assert_not_called()
-        db.commit.assert_not_called()
+        db.commit.assert_called()
 
 
 class TestImageSizeHttp:

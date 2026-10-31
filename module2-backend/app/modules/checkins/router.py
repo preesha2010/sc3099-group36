@@ -1,10 +1,11 @@
 from datetime import datetime
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Query, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.orm import Session
 
 from app.core.dependencies import get_current_user, require_roles
+from app.db.enums import UserRole
 from app.db.session import get_db
 from app.middleware.rate_limit import rate_limit_checkin
 from app.modules.checkins import service
@@ -19,9 +20,33 @@ def submit_checkin(
     payload: CheckinCreate,
     request: Request,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles("student")),
+    current_user: User = Depends(get_current_user),
 ):
-    rate_limit_checkin(current_user.id)
+    if current_user.role != UserRole.STUDENT.value:
+        service.persist_failed_checkin_attempt(
+            db,
+            current_user,
+            request,
+            payload,
+            reason="not_student",
+            http_status=status.HTTP_403_FORBIDDEN,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions"
+        )
+    try:
+        rate_limit_checkin(current_user.id)
+    except HTTPException as exc:
+        if exc.status_code == status.HTTP_429_TOO_MANY_REQUESTS:
+            service.persist_failed_checkin_attempt(
+                db,
+                current_user,
+                request,
+                payload,
+                reason="rate_limited",
+                http_status=exc.status_code,
+            )
+        raise
     return service.submit_checkin(db, payload, current_user, request)
 
 
