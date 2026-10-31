@@ -1,5 +1,8 @@
 # Module 3 handoff checklist
 
+**2026-10-31:** latest M2 typed-risk client alignment and current limitations
+are recorded in `VALIDATION-20261031.md` and `MODULE2-INTEGRATION.md`.
+
 **2026-10-28 integration continuation:** start with `INTEGRATION-CONTRACT.md`
 and `VALIDATION-20261028.md`. New policy discovery, strict numeric inputs,
 template metadata and shared conformance tooling support the team's fallback/

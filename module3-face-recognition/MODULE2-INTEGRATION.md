@@ -1,5 +1,32 @@
-# Module 2 / Module 3 boundary handoff (updated 2026-10-28)
+# Module 2 / Module 3 boundary handoff (updated 2026-10-31)
 
+**Current M2 target:** `f1dfd77e1744d5f0c6f31066d0c2e658b259dd5b`.
+The new risk method returns typed FaceCall data and distinguishes 503,
+non-JSON 200 and empty 200. The October 28 observations immediately below are
+historical and apply to the old `7963b06` target, not this new revision.
+
+The current client deliberately strips `risk_threshold`. Our checker now
+compares its retained fields to a separate M3 raw-wire response and validates
+the complete wire result against each golden vector, including its threshold.
+This does not imply that M2's local risk calculation matches M3. M2 still uses
+M3's risk response as advisory and applies its own local score/status rules.
+
+New controlled probes show that the current M2 parser accepts synthetic
+responses with inconsistent score/breakdown, pass flag or risk level. Its
+current advisory use does not apply those values to attendance. The inconsistency
+must be addressed before using the M3 result as an authoritative decision input.
+The service also still allows image-less check-in with required liveness; the
+documented API/test conflict remains for the team or teaching staff to resolve.
+
+M2 now implements course assignments, failed-face review and required-visual
+outage handling. In the intended integration DB, verify the teaching-assignment
+table/schema and active TA assignments; the M3 boundary checks do not inspect
+that DB. Its isolated E2E tests use SHA/heuristic and do not prove enhanced
+cross-photo or production-camera behaviour. Read `VALIDATION-20261031.md`.
+
+---
+
+**Historical 2026-10-28 update (old M2 revision):**
 **Latest:** `INTEGRATION-CONTRACT.md` records the recent required-image,
 503/no-insert/retry and conditional risk-fallback discussion.
 `GET /risk/policy` + successful risk policy headers now publish

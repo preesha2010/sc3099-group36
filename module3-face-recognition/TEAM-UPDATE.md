@@ -1,13 +1,11 @@
-just pushed the M3 integration-contract updates to `module3-face-recognition`! 305 module-local tests and 15/15 public face-service tests in each profile pass.
+just pushed the M3 compatibility update to `module3-face-recognition`!
 
-- added `GET /risk/policy` plus policy ID/hash headers on risk responses; existing numerical weights, thresholds and required response fields are unchanged
-- published 45 synthetic risk cases and a fail-closed checker for HTTP services or a future local fallback implementation; the same 45 cases pass through the actual M2 client in both profiles
-- risk score inputs now reject booleans/numeric strings with 422; normal JSON numbers and null retain their established behaviour
-- enrollment/root now expose matching template mode, format and score-policy metadata; default mode, template bytes, key/projection, model weights and matching formula are unchanged
-- important M2 follow-up: `assess_risk` currently returns None for both outages and non-JSON responses, and accepts an empty 200 object as a legacy dictionary. Typed risk outcomes and response validation are needed before enabling fallback
-- M2 still owns required-image checks, 503 without creating a check-in, equivalent fallback scoring, final attendance decisions and real DB retry/uniqueness tests. A numerical risk pass alone cannot approve a required failed biometric check
-- only M3 was changed; no Docker work. The final template-mode choice and genuine failure review/reject policy still need confirmation
+- aligned the M3 boundary checker with the latest M2 typed FaceCall response while separately validating M3’s complete raw risk response, including `risk_threshold`
+- against M2 `f1dfd77`, both profiles pass 28/28 named boundary checks, 12/12 visual outcome probes and all 45 risk vectors per profile
+- the full M3 release checks pass: 310 local tests and 15/15 public face tests in each profile
+- enhanced mode passed the existing cross-photo and PAD smoke checks using a fixed, non-production test key and checked public models. The old temporary test key was unavailable, so previously enrolled templates were not tested against that key
+- note for risk integration: M2 now distinguishes 503, non-JSON and empty risk responses, but still accepts some synthetic responses with inconsistent score/breakdown, pass flag or level. M3’s score remains advisory; this needs checking before it drives attendance
+- required-liveness without an image and the final risk/template policies remain joint decisions; no M2 database, Docker or frontend E2E was run in this phase
+- only M3 files changed. Existing weights, thresholds, template format and deployment keys were not changed
 
-The full release pipeline, real transport/privacy checks and existing correlated classification gate pass. This does not certify M2's local fallback, DB transactions or real-world biometric accuracy.
-
-Contract/reproduction: `INTEGRATION-CONTRACT.md`. Results and remaining work: `VALIDATION-20261028.md`.
+Details and reproducible evidence: `VALIDATION-20261031.md` and `MODULE2-INTEGRATION.md`.

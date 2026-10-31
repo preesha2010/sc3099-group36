@@ -26,7 +26,7 @@ import json
 from PIL import Image
 
 from support import MODULE, local_service, report_target, save_report
-from check_risk_contract import corpus as risk_corpus, check_cases as risk_case_checks
+from check_risk_contract import corpus as risk_corpus, check_cases as risk_case_checks, agrees
 
 CLIENT_PATH = "module2-backend/app/integrations/face_client.py"
 
@@ -82,6 +82,20 @@ def outcome(result):
     return result.status, result.data, result.ok, result.kind
 
 
+def risk_projection_agrees(data, raw):
+    """Check caller-visible fields against the complete independent wire result."""
+    if not isinstance(data, dict) or not isinstance(raw, dict) or "risk_threshold" not in raw:
+        return False
+    # New FaceCall intentionally omits risk_threshold. If a legacy client returns
+    # it, verify that value too; never overwrite a caller-supplied bad threshold.
+    projected = dict(data)
+    projected.setdefault("risk_threshold", raw["risk_threshold"])
+    try:
+        return agrees(raw, raw) and agrees(projected, raw)
+    except (KeyError, TypeError, ValueError):
+        return False
+
+
 def failure_checks(cls):
     """Real local HTTP faults; only this tiny diagnostic server is controlled."""
     class Handler(BaseHTTPRequestHandler):
@@ -104,10 +118,15 @@ def failure_checks(cls):
                 time.sleep(.2)
             status = {"unavailable": 503, "error": 500, "schema": 422, "upload": 408}.get(fault, 200)
             valid = {"match_passed": False, "match_score": 0., "face_detected": False, "current_template_hash": ""}
+            risk = {"risk_score": .4, "risk_level": "MEDIUM", "pass_threshold": True, "risk_threshold": .5,
+                    "signal_breakdown": {"liveness": .1, "face_match": .1, "device": .1, "network": .05, "geolocation": .05}}
             bodies = {"empty": {}, "boolean_score": {**valid, "match_score": True},
                       "string_boolean": {**valid, "match_passed": "false"},
                       "nan_score": {**valid, "match_score": float("nan")},
-                      "bad_hash": {**valid, "current_template_hash": "invalid"}, "valid_negative": valid}
+                      "bad_hash": {**valid, "current_template_hash": "invalid"}, "valid_negative": valid,
+                      "risk_bad_sum": {**risk, "signal_breakdown": dict.fromkeys(risk["signal_breakdown"], 0.)},
+                      "risk_bad_pass": {**risk, "pass_threshold": False},
+                      "risk_bad_level": {**risk, "risk_level": "LOW"}}
             body = b"not-json" if fault == "malformed" else json.dumps(bodies.get(fault, {"detail": "diagnostic"})).encode()
             self.send_response(status)
             self.send_header("Content-Length", str(len(body)))
@@ -144,7 +163,7 @@ def failure_checks(cls):
                                "non_json_200_is_success": client.is_success(response)}
         if callable(getattr(cls, "assess_risk", None)):
             observed = []
-            for fault in ("unavailable", "malformed", "empty"):
+            for fault in ("unavailable", "malformed", "empty", "risk_bad_sum", "risk_bad_pass", "risk_bad_level"):
                 response = cls(base_url=base + "/" + fault, timeout=5.).assess_risk({})
                 status, body, ok, kind = outcome(response)
                 observed.append({"probe": fault, "outcome_kind": kind, "http_status": status,
@@ -155,6 +174,7 @@ def failure_checks(cls):
                 (observed[0]["outcome_kind"], observed[0]["http_status"])
                 != (observed[1]["outcome_kind"], observed[1]["http_status"]))
             observation["risk_empty_object_rejected"] = not observed[2]["transport_success"]
+            observation["risk_inconsistent_response_accepted"] = any(item["transport_success"] for item in observed[3:])
     finally:
         server.shutdown()
         server.server_close()
@@ -224,9 +244,17 @@ def run_checks(face, profile, record, wire=None):
     check("passive_liveness_fields_and_same_template", liveness)
 
     def risk():
-        status, data, ok, _ = outcome(face.assess_risk({"face_match_score": .85, "liveness_score": .92}))
+        payload = {"face_match_score": .85, "liveness_score": .92}
+        status, data, ok, _ = outcome(face.assess_risk(payload))
         require(ok and status == 200 and math.isfinite(data["risk_score"]))
-        require(0 <= data["risk_score"] <= 1 and data["risk_threshold"] == .5)
+        if wire is not None:
+            response = wire.post("/risk/assess", json=payload)
+            require(response.status_code == 200)
+            raw = response.json()
+            require(raw["risk_threshold"] == .5 and risk_projection_agrees(data, raw))
+        else:
+            require(data.get("risk_threshold") == .5)
+        require(0 <= data["risk_score"] <= 1)
         require(data["pass_threshold"] == (data["risk_score"] < .5))
         require(abs(sum(data["signal_breakdown"].values()) - data["risk_score"]) < 1e-9)
 
@@ -271,6 +299,8 @@ def main(argv=None):
               "profiles": {}, "risk_corpus": {}, "backend_modified": False,
               "limitations": ["Only the actual FaceClient/Module 3 HTTP boundary; not backend auth, DB or attendance decisions.",
                               "Only the backend settings import is stubbed, not client methods or HTTP responses.",
+                              "The M2 local risk calculator, fallback and final attendance policy are not validated.",
+                              "M3 raw threshold is verified over HTTP; newer FaceCall strips this field.",
                               "Classification correctness and deployment capacity are separate release gates."]}
     try:
         commit, source = backend_source(args.backend_ref)
@@ -279,9 +309,12 @@ def main(argv=None):
         faults, observation = failure_checks(cls)
         report.update(fault_checks=faults, caller_observations=observation)
         if observation.get("risk_outage_distinguished_from_non_json") is False or observation.get("risk_empty_object_rejected") is False:
-            report["integration_pending"] = [
+            report.setdefault("integration_pending", []).extend([
                 "M2 assess_risk still conflates unavailable/non-JSON results or accepts missing score fields.",
-                "Classify and validate risk outcomes before enabling fallback; this report does not enable or verify M2 fallback."]
+                "Classify and validate risk outcomes before enabling fallback; this report does not enable or verify M2 fallback."])
+        if observation.get("risk_inconsistent_response_accepted") is True:
+            report.setdefault("integration_pending", []).append(
+                "M2 risk parser accepts at least one inconsistent synthetic response; verify score, decision and breakdown consistency before using it for attendance.")
         if observation["non_json_200_is_success"]:
             report["caller_warnings"] = ["FaceClient.is_success accepts a non-JSON 200 based on status alone; validate required typed fields before using biometric evidence."]
         for profile in (("sha256", "enhanced") if args.profile == "both" else (args.profile,)):
@@ -296,7 +329,12 @@ def main(argv=None):
                     status, body, ok, _ = outcome(caller.assess_risk(payload))
                     if ok != (status == 200):
                         raise ValueError("Unexpected risk outcome classification")
-                    return status, body
+                    wire_response = service.post("/risk/assess", json=payload)
+                    require(wire_response.status_code == status)
+                    raw = wire_response.json()
+                    if status == 200:
+                        require(risk_projection_agrees(body, raw))
+                    return status, raw
 
                 manifest, digest, vectors = risk_corpus()
                 report["risk_policy_id"], report["risk_policy_sha256"] = manifest["policy_id"], digest

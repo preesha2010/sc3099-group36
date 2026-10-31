@@ -11,6 +11,29 @@ import check_backend_contract as contract
 import release_check
 
 
+def test_risk_projection_checks_typed_and_legacy_client_against_complete_wire():
+    raw = {"risk_score": .4, "risk_level": "MEDIUM", "pass_threshold": True, "risk_threshold": .5,
+           "signal_breakdown": {"liveness": .1, "face_match": .1, "device": .1, "network": .05, "geolocation": .05}}
+    typed = {name: value for name, value in raw.items() if name != "risk_threshold"}
+    assert contract.risk_projection_agrees(typed, raw)
+    assert contract.risk_projection_agrees({**raw, "_status": 200}, raw)
+    assert not contract.risk_projection_agrees({**typed, "risk_score": .3}, raw)
+    assert not contract.risk_projection_agrees({**typed, "pass_threshold": False}, raw)
+    assert not contract.risk_projection_agrees({**typed, "risk_level": "LOW"}, raw)
+    assert not contract.risk_projection_agrees({**typed, "signal_breakdown": {}}, raw)
+    assert not contract.risk_projection_agrees({**typed, "risk_threshold": .6}, raw)
+    assert not contract.risk_projection_agrees(typed, {**raw, "risk_threshold": .3})
+    assert not contract.risk_projection_agrees(typed, {key: value for key, value in raw.items() if key != "risk_threshold"})
+
+
+@pytest.mark.parametrize("missing", ["risk_score", "risk_level", "pass_threshold", "signal_breakdown"])
+def test_risk_projection_does_not_invent_other_typed_fields(missing):
+    raw = {"risk_score": .5, "risk_level": "HIGH", "pass_threshold": False, "risk_threshold": .5,
+           "signal_breakdown": {"liveness": .125, "face_match": .125, "device": .1, "network": .075, "geolocation": .075}}
+    typed = {name: value for name, value in raw.items() if name not in {"risk_threshold", missing}}
+    assert not contract.risk_projection_agrees(typed, raw)
+
+
 def test_source_loader_only_stubs_backend_settings():
     source = '''
 import httpx

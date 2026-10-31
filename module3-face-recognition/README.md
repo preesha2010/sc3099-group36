@@ -3,6 +3,14 @@
 Internal FastAPI service on port 8001. No backend, database or Redis is needed
 to run its endpoints or standalone tests. Only files in this module are modified.
 
+**Latest M2 client alignment (2026-10-31):** see `VALIDATION-20261031.md` and
+`MODULE2-INTEGRATION.md`. The actual M2 risk client returns typed FaceCall data
+without `risk_threshold`; the M3 checker validates the complete threshold on
+the raw M3 HTTP response and separately compares the fields retained by M2.
+M2 still uses its own final risk calculation and currently accepts certain
+internally inconsistent risk responses. Full check-in/database behaviour and
+team risk policy remain separate integration work.
+
 **Latest integration update (2026-10-28):** see `INTEGRATION-CONTRACT.md` and
 `VALIDATION-20261028.md`. Risk policy discovery, 45 shared synthetic vectors,
 strict score inputs, template metadata and fail-closed conformance tooling are

@@ -1,5 +1,13 @@
 # M2/M3 integration contract, 2026-10-28
 
+**2026-10-31 update:** M2 revision `f1dfd77` now returns typed risk outcomes;
+its client removes `risk_threshold`, so the M3 boundary checker validates
+the full raw M3 response separately from the retained client fields. The old
+`7963b06` risk-client observations later in this document are historical.
+Current M2 still treats M3 risk as advisory and accepts some contradictory
+synthetic score/level/pass/breakdown responses. Required-liveness image-less
+behaviour and real enhanced-mode E2E remain open. See `VALIDATION-20261031.md`.
+
 This records the recent team discussion and the M3-side implementation. It is
 not a claim that M2 has implemented these rules, that a local fallback is already
 equivalent, or that the remaining template/review choices have been approved.

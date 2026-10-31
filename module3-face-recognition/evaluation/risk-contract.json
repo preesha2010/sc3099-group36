@@ -1,5 +1,5 @@
 {
-  "timestamp_utc": "2026-10-28T05:07:52.021881+00:00",
+  "timestamp_utc": "2026-10-31T12:23:45.453518+00:00",
   "completed": true,
   "passed": true,
   "target": "owned_loopback",
@@ -196,5 +196,5 @@
   ],
   "policy_id": "weighted_signals_v1",
   "policy_sha256": "5b3a07c3a6f2c3392599e24766ac8b2fff9290eaa6458b39b2cba4b5643f9d5d",
-  "corpus_sha256": "e0cab3257f72ec3264490dad6e791930e2dd3f61acacf2c26fddc26962f3352c"
+  "corpus_sha256": "1d551d54be1742593a49d91536059ee9cf56cbc58092fc92c7d793f99e018bff"
 }

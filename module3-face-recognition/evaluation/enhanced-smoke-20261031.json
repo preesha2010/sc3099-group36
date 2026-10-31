@@ -1,0 +1,153 @@
+{
+  "timestamp_utc": "2026-10-31T12:24:31.418082+00:00",
+  "python": "3.12.14",
+  "platform": "Windows",
+  "opencv": "4.11.0",
+  "model_workers": 4,
+  "template_mode": "simhash",
+  "liveness_backend": "minifasnet",
+  "identity": [
+    {
+      "image": "obama.jpg",
+      "expected_match": true,
+      "actual_match": true,
+      "score": 0.968761
+    },
+    {
+      "image": "obama2.jpg",
+      "expected_match": true,
+      "actual_match": true,
+      "score": 0.814409
+    },
+    {
+      "image": "obama3.jpg",
+      "expected_match": true,
+      "actual_match": true,
+      "score": 0.835168
+    },
+    {
+      "image": "biden.jpg",
+      "expected_match": false,
+      "actual_match": false,
+      "score": 0.697629
+    }
+  ],
+  "pad": [
+    {
+      "image": "image_F1.jpg",
+      "expected_live": false,
+      "actual_live": false,
+      "score": 0.072331,
+      "neural_score": 0.072331
+    },
+    {
+      "image": "image_F2.jpg",
+      "expected_live": false,
+      "actual_live": false,
+      "score": 0.181286,
+      "neural_score": 0.181286
+    },
+    {
+      "image": "image_T1.jpg",
+      "expected_live": true,
+      "actual_live": true,
+      "score": 0.993568,
+      "neural_score": 0.993568
+    }
+  ],
+  "load": {
+    "/face/verify": [
+      {
+        "clients": 10,
+        "successful": 10,
+        "successful_within_target": 10,
+        "http_status_counts": {
+          "200": 10
+        },
+        "elapsed_seconds": 0.391,
+        "p50_seconds": 0.234,
+        "p95_seconds": 0.328,
+        "maximum_seconds": 0.328,
+        "health_maximum_seconds": 0.031,
+        "health_failures": 0,
+        "repetition": 1
+      }
+    ],
+    "/liveness/check": [
+      {
+        "clients": 10,
+        "successful": 10,
+        "successful_within_target": 10,
+        "http_status_counts": {
+          "200": 10
+        },
+        "elapsed_seconds": 0.484,
+        "p50_seconds": 0.297,
+        "p95_seconds": 0.421,
+        "maximum_seconds": 0.421,
+        "health_maximum_seconds": 0.031,
+        "health_failures": 0,
+        "repetition": 1
+      }
+    ]
+  },
+  "inference_pending": 128,
+  "inference_queue_seconds": 30,
+  "native_threads": 1,
+  "repetitions": 1,
+  "inference_concurrency": 8,
+  "state": "complete",
+  "functional_checks_passed": true,
+  "latency_checks_passed": true,
+  "local_latency_target_seconds": 5.0,
+  "limitations": [
+    "Identity corpus has only two people; no general FAR/FRR claim.",
+    "PAD samples are three publisher demos, not independent camera/attack validation.",
+    "These are local process timings, not Docker or full-system performance."
+  ],
+  "public_test_exit_code": 0,
+  "final_metrics": "# TYPE module3_http_requests_total counter\nmodule3_http_requests_total{route=\"/\",status=\"200\"} 1\nmodule3_http_requests_total{route=\"/face/enroll\",status=\"201\"} 9\nmodule3_http_requests_total{route=\"/face/enroll\",status=\"400\"} 2\nmodule3_http_requests_total{route=\"/face/verify\",status=\"200\"} 18\nmodule3_http_requests_total{route=\"/health\",status=\"200\"} 16\nmodule3_http_requests_total{route=\"/liveness/check\",status=\"200\"} 14\nmodule3_http_requests_total{route=\"/ready\",status=\"200\"} 1\nmodule3_http_requests_total{route=\"/risk/assess\",status=\"200\"} 3\n# TYPE module3_stage_seconds histogram\nmodule3_stage_seconds_bucket{stage=\"admission_wait\",le=\"0.01\"} 39\nmodule3_stage_seconds_bucket{stage=\"admission_wait\",le=\"0.05\"} 39\nmodule3_stage_seconds_bucket{stage=\"admission_wait\",le=\"0.1\"} 40\nmodule3_stage_seconds_bucket{stage=\"admission_wait\",le=\"0.25\"} 43\nmodule3_stage_seconds_bucket{stage=\"admission_wait\",le=\"0.5\"} 43\nmodule3_stage_seconds_bucket{stage=\"admission_wait\",le=\"1\"} 43\nmodule3_stage_seconds_bucket{stage=\"admission_wait\",le=\"2\"} 43\nmodule3_stage_seconds_bucket{stage=\"admission_wait\",le=\"5\"} 43\nmodule3_stage_seconds_bucket{stage=\"admission_wait\",le=\"10\"} 43\nmodule3_stage_seconds_bucket{stage=\"admission_wait\",le=\"30\"} 43\nmodule3_stage_seconds_bucket{stage=\"admission_wait\",le=\"+Inf\"} 43\nmodule3_stage_seconds_count{stage=\"admission_wait\"} 43\nmodule3_stage_seconds_sum{stage=\"admission_wait\"} 0.583736700\nmodule3_stage_seconds_bucket{stage=\"anti_spoof\",le=\"0.01\"} 0\nmodule3_stage_seconds_bucket{stage=\"anti_spoof\",le=\"0.05\"} 12\nmodule3_stage_seconds_bucket{stage=\"anti_spoof\",le=\"0.1\"} 14\nmodule3_stage_seconds_bucket{stage=\"anti_spoof\",le=\"0.25\"} 14\nmodule3_stage_seconds_bucket{stage=\"anti_spoof\",le=\"0.5\"} 14\nmodule3_stage_seconds_bucket{stage=\"anti_spoof\",le=\"1\"} 14\nmodule3_stage_seconds_bucket{stage=\"anti_spoof\",le=\"2\"} 14\nmodule3_stage_seconds_bucket{stage=\"anti_spoof\",le=\"5\"} 14\nmodule3_stage_seconds_bucket{stage=\"anti_spoof\",le=\"10\"} 14\nmodule3_stage_seconds_bucket{stage=\"anti_spoof\",le=\"30\"} 14\nmodule3_stage_seconds_bucket{stage=\"anti_spoof\",le=\"+Inf\"} 14\nmodule3_stage_seconds_count{stage=\"anti_spoof\"} 14\nmodule3_stage_seconds_sum{stage=\"anti_spoof\"} 0.588119600\nmodule3_stage_seconds_bucket{stage=\"detector_cleanup\",le=\"0.01\"} 25\nmodule3_stage_seconds_bucket{stage=\"detector_cleanup\",le=\"0.05\"} 42\nmodule3_stage_seconds_bucket{stage=\"detector_cleanup\",le=\"0.1\"} 42\nmodule3_stage_seconds_bucket{stage=\"detector_cleanup\",le=\"0.25\"} 42\nmodule3_stage_seconds_bucket{stage=\"detector_cleanup\",le=\"0.5\"} 42\nmodule3_stage_seconds_bucket{stage=\"detector_cleanup\",le=\"1\"} 42\nmodule3_stage_seconds_bucket{stage=\"detector_cleanup\",le=\"2\"} 42\nmodule3_stage_seconds_bucket{stage=\"detector_cleanup\",le=\"5\"} 42\nmodule3_stage_seconds_bucket{stage=\"detector_cleanup\",le=\"10\"} 42\nmodule3_stage_seconds_bucket{stage=\"detector_cleanup\",le=\"30\"} 42\nmodule3_stage_seconds_bucket{stage=\"detector_cleanup\",le=\"+Inf\"} 42\nmodule3_stage_seconds_count{stage=\"detector_cleanup\"} 42\nmodule3_stage_seconds_sum{stage=\"detector_cleanup\"} 0.384480600\nmodule3_stage_seconds_bucket{stage=\"embedding\",le=\"0.01\"} 0\nmodule3_stage_seconds_bucket{stage=\"embedding\",le=\"0.05\"} 0\nmodule3_stage_seconds_bucket{stage=\"embedding\",le=\"0.1\"} 22\nmodule3_stage_seconds_bucket{stage=\"embedding\",le=\"0.25\"} 40\nmodule3_stage_seconds_bucket{stage=\"embedding\",le=\"0.5\"} 40\nmodule3_stage_seconds_bucket{stage=\"embedding\",le=\"1\"} 40\nmodule3_stage_seconds_bucket{stage=\"embedding\",le=\"2\"} 40\nmodule3_stage_seconds_bucket{stage=\"embedding\",le=\"5\"} 40\nmodule3_stage_seconds_bucket{stage=\"embedding\",le=\"10\"} 40\nmodule3_stage_seconds_bucket{stage=\"embedding\",le=\"30\"} 40\nmodule3_stage_seconds_bucket{stage=\"embedding\",le=\"+Inf\"} 40\nmodule3_stage_seconds_count{stage=\"embedding\"} 40\nmodule3_stage_seconds_sum{stage=\"embedding\"} 4.097115600\nmodule3_stage_seconds_bucket{stage=\"embedding_cleanup\",le=\"0.01\"} 0\nmodule3_stage_seconds_bucket{stage=\"embedding_cleanup\",le=\"0.05\"} 37\nmodule3_stage_seconds_bucket{stage=\"embedding_cleanup\",le=\"0.1\"} 40\nmodule3_stage_seconds_bucket{stage=\"embedding_cleanup\",le=\"0.25\"} 40\nmodule3_stage_seconds_bucket{stage=\"embedding_cleanup\",le=\"0.5\"} 40\nmodule3_stage_seconds_bucket{stage=\"embedding_cleanup\",le=\"1\"} 40\nmodule3_stage_seconds_bucket{stage=\"embedding_cleanup\",le=\"2\"} 40\nmodule3_stage_seconds_bucket{stage=\"embedding_cleanup\",le=\"5\"} 40\nmodule3_stage_seconds_bucket{stage=\"embedding_cleanup\",le=\"10\"} 40\nmodule3_stage_seconds_bucket{stage=\"embedding_cleanup\",le=\"30\"} 40\nmodule3_stage_seconds_bucket{stage=\"embedding_cleanup\",le=\"+Inf\"} 40\nmodule3_stage_seconds_count{stage=\"embedding_cleanup\"} 40\nmodule3_stage_seconds_sum{stage=\"embedding_cleanup\"} 1.646825600\nmodule3_stage_seconds_bucket{stage=\"face_detect\",le=\"0.01\"} 2\nmodule3_stage_seconds_bucket{stage=\"face_detect\",le=\"0.05\"} 42\nmodule3_stage_seconds_bucket{stage=\"face_detect\",le=\"0.1\"} 42\nmodule3_stage_seconds_bucket{stage=\"face_detect\",le=\"0.25\"} 42\nmodule3_stage_seconds_bucket{stage=\"face_detect\",le=\"0.5\"} 42\nmodule3_stage_seconds_bucket{stage=\"face_detect\",le=\"1\"} 42\nmodule3_stage_seconds_bucket{stage=\"face_detect\",le=\"2\"} 42\nmodule3_stage_seconds_bucket{stage=\"face_detect\",le=\"5\"} 42\nmodule3_stage_seconds_bucket{stage=\"face_detect\",le=\"10\"} 42\nmodule3_stage_seconds_bucket{stage=\"face_detect\",le=\"30\"} 42\nmodule3_stage_seconds_bucket{stage=\"face_detect\",le=\"+Inf\"} 42\nmodule3_stage_seconds_count{stage=\"face_detect\"} 42\nmodule3_stage_seconds_sum{stage=\"face_detect\"} 0.920794300\nmodule3_stage_seconds_bucket{stage=\"http__\",le=\"0.01\"} 1\nmodule3_stage_seconds_bucket{stage=\"http__\",le=\"0.05\"} 1\nmodule3_stage_seconds_bucket{stage=\"http__\",le=\"0.1\"} 1\nmodule3_stage_seconds_bucket{stage=\"http__\",le=\"0.25\"} 1\nmodule3_stage_seconds_bucket{stage=\"http__\",le=\"0.5\"} 1\nmodule3_stage_seconds_bucket{stage=\"http__\",le=\"1\"} 1\nmodule3_stage_seconds_bucket{stage=\"http__\",le=\"2\"} 1\nmodule3_stage_seconds_bucket{stage=\"http__\",le=\"5\"} 1\nmodule3_stage_seconds_bucket{stage=\"http__\",le=\"10\"} 1\nmodule3_stage_seconds_bucket{stage=\"http__\",le=\"30\"} 1\nmodule3_stage_seconds_bucket{stage=\"http__\",le=\"+Inf\"} 1\nmodule3_stage_seconds_count{stage=\"http__\"} 1\nmodule3_stage_seconds_sum{stage=\"http__\"} 0.000453800\nmodule3_stage_seconds_bucket{stage=\"http__face_enroll\",le=\"0.01\"} 1\nmodule3_stage_seconds_bucket{stage=\"http__face_enroll\",le=\"0.05\"} 2\nmodule3_stage_seconds_bucket{stage=\"http__face_enroll\",le=\"0.1\"} 2\nmodule3_stage_seconds_bucket{stage=\"http__face_enroll\",le=\"0.25\"} 11\nmodule3_stage_seconds_bucket{stage=\"http__face_enroll\",le=\"0.5\"} 11\nmodule3_stage_seconds_bucket{stage=\"http__face_enroll\",le=\"1\"} 11\nmodule3_stage_seconds_bucket{stage=\"http__face_enroll\",le=\"2\"} 11\nmodule3_stage_seconds_bucket{stage=\"http__face_enroll\",le=\"5\"} 11\nmodule3_stage_seconds_bucket{stage=\"http__face_enroll\",le=\"10\"} 11\nmodule3_stage_seconds_bucket{stage=\"http__face_enroll\",le=\"30\"} 11\nmodule3_stage_seconds_bucket{stage=\"http__face_enroll\",le=\"+Inf\"} 11\nmodule3_stage_seconds_count{stage=\"http__face_enroll\"} 11\nmodule3_stage_seconds_sum{stage=\"http__face_enroll\"} 1.252621000\nmodule3_stage_seconds_bucket{stage=\"http__face_verify\",le=\"0.01\"} 0\nmodule3_stage_seconds_bucket{stage=\"http__face_verify\",le=\"0.05\"} 1\nmodule3_stage_seconds_bucket{stage=\"http__face_verify\",le=\"0.1\"} 1\nmodule3_stage_seconds_bucket{stage=\"http__face_verify\",le=\"0.25\"} 13\nmodule3_stage_seconds_bucket{stage=\"http__face_verify\",le=\"0.5\"} 18\nmodule3_stage_seconds_bucket{stage=\"http__face_verify\",le=\"1\"} 18\nmodule3_stage_seconds_bucket{stage=\"http__face_verify\",le=\"2\"} 18\nmodule3_stage_seconds_bucket{stage=\"http__face_verify\",le=\"5\"} 18\nmodule3_stage_seconds_bucket{stage=\"http__face_verify\",le=\"10\"} 18\nmodule3_stage_seconds_bucket{stage=\"http__face_verify\",le=\"30\"} 18\nmodule3_stage_seconds_bucket{stage=\"http__face_verify\",le=\"+Inf\"} 18\nmodule3_stage_seconds_count{stage=\"http__face_verify\"} 18\nmodule3_stage_seconds_sum{stage=\"http__face_verify\"} 3.493638700\nmodule3_stage_seconds_bucket{stage=\"http__liveness_check\",le=\"0.01\"} 0\nmodule3_stage_seconds_bucket{stage=\"http__liveness_check\",le=\"0.05\"} 0\nmodule3_stage_seconds_bucket{stage=\"http__liveness_check\",le=\"0.1\"} 0\nmodule3_stage_seconds_bucket{stage=\"http__liveness_check\",le=\"0.25\"} 7\nmodule3_stage_seconds_bucket{stage=\"http__liveness_check\",le=\"0.5\"} 14\nmodule3_stage_seconds_bucket{stage=\"http__liveness_check\",le=\"1\"} 14\nmodule3_stage_seconds_bucket{stage=\"http__liveness_check\",le=\"2\"} 14\nmodule3_stage_seconds_bucket{stage=\"http__liveness_check\",le=\"5\"} 14\nmodule3_stage_seconds_bucket{stage=\"http__liveness_check\",le=\"10\"} 14\nmodule3_stage_seconds_bucket{stage=\"http__liveness_check\",le=\"30\"} 14\nmodule3_stage_seconds_bucket{stage=\"http__liveness_check\",le=\"+Inf\"} 14\nmodule3_stage_seconds_count{stage=\"http__liveness_check\"} 14\nmodule3_stage_seconds_sum{stage=\"http__liveness_check\"} 3.730350700\nmodule3_stage_seconds_bucket{stage=\"http__risk_assess\",le=\"0.01\"} 2\nmodule3_stage_seconds_bucket{stage=\"http__risk_assess\",le=\"0.05\"} 2\nmodule3_stage_seconds_bucket{stage=\"http__risk_assess\",le=\"0.1\"} 2\nmodule3_stage_seconds_bucket{stage=\"http__risk_assess\",le=\"0.25\"} 3\nmodule3_stage_seconds_bucket{stage=\"http__risk_assess\",le=\"0.5\"} 3\nmodule3_stage_seconds_bucket{stage=\"http__risk_assess\",le=\"1\"} 3\nmodule3_stage_seconds_bucket{stage=\"http__risk_assess\",le=\"2\"} 3\nmodule3_stage_seconds_bucket{stage=\"http__risk_assess\",le=\"5\"} 3\nmodule3_stage_seconds_bucket{stage=\"http__risk_assess\",le=\"10\"} 3\nmodule3_stage_seconds_bucket{stage=\"http__risk_assess\",le=\"30\"} 3\nmodule3_stage_seconds_bucket{stage=\"http__risk_assess\",le=\"+Inf\"} 3\nmodule3_stage_seconds_count{stage=\"http__risk_assess\"} 3\nmodule3_stage_seconds_sum{stage=\"http__risk_assess\"} 0.107292300\nmodule3_stage_seconds_bucket{stage=\"image_decode\",le=\"0.01\"} 9\nmodule3_stage_seconds_bucket{stage=\"image_decode\",le=\"0.05\"} 41\nmodule3_stage_seconds_bucket{stage=\"image_decode\",le=\"0.1\"} 42\nmodule3_stage_seconds_bucket{stage=\"image_decode\",le=\"0.25\"} 42\nmodule3_stage_seconds_bucket{stage=\"image_decode\",le=\"0.5\"} 42\nmodule3_stage_seconds_bucket{stage=\"image_decode\",le=\"1\"} 42\nmodule3_stage_seconds_bucket{stage=\"image_decode\",le=\"2\"} 42\nmodule3_stage_seconds_bucket{stage=\"image_decode\",le=\"5\"} 42\nmodule3_stage_seconds_bucket{stage=\"image_decode\",le=\"10\"} 42\nmodule3_stage_seconds_bucket{stage=\"image_decode\",le=\"30\"} 42\nmodule3_stage_seconds_bucket{stage=\"image_decode\",le=\"+Inf\"} 42\nmodule3_stage_seconds_count{stage=\"image_decode\"} 42\nmodule3_stage_seconds_sum{stage=\"image_decode\"} 0.807713500\nmodule3_stage_seconds_bucket{stage=\"mesh\",le=\"0.01\"} 0\nmodule3_stage_seconds_bucket{stage=\"mesh\",le=\"0.05\"} 13\nmodule3_stage_seconds_bucket{stage=\"mesh\",le=\"0.1\"} 14\nmodule3_stage_seconds_bucket{stage=\"mesh\",le=\"0.25\"} 14\nmodule3_stage_seconds_bucket{stage=\"mesh\",le=\"0.5\"} 14\nmodule3_stage_seconds_bucket{stage=\"mesh\",le=\"1\"} 14\nmodule3_stage_seconds_bucket{stage=\"mesh\",le=\"2\"} 14\nmodule3_stage_seconds_bucket{stage=\"mesh\",le=\"5\"} 14\nmodule3_stage_seconds_bucket{stage=\"mesh\",le=\"10\"} 14\nmodule3_stage_seconds_bucket{stage=\"mesh\",le=\"30\"} 14\nmodule3_stage_seconds_bucket{stage=\"mesh\",le=\"+Inf\"} 14\nmodule3_stage_seconds_count{stage=\"mesh\"} 14\nmodule3_stage_seconds_sum{stage=\"mesh\"} 0.459568400\nmodule3_stage_seconds_bucket{stage=\"model_wait\",le=\"0.01\"} 98\nmodule3_stage_seconds_bucket{stage=\"model_wait\",le=\"0.05\"} 104\nmodule3_stage_seconds_bucket{stage=\"model_wait\",le=\"0.1\"} 108\nmodule3_stage_seconds_bucket{stage=\"model_wait\",le=\"0.25\"} 108\nmodule3_stage_seconds_bucket{stage=\"model_wait\",le=\"0.5\"} 108\nmodule3_stage_seconds_bucket{stage=\"model_wait\",le=\"1\"} 108\nmodule3_stage_seconds_bucket{stage=\"model_wait\",le=\"2\"} 108\nmodule3_stage_seconds_bucket{stage=\"model_wait\",le=\"5\"} 108\nmodule3_stage_seconds_bucket{stage=\"model_wait\",le=\"10\"} 108\nmodule3_stage_seconds_bucket{stage=\"model_wait\",le=\"30\"} 108\nmodule3_stage_seconds_bucket{stage=\"model_wait\",le=\"+Inf\"} 108\nmodule3_stage_seconds_count{stage=\"model_wait\"} 108\nmodule3_stage_seconds_sum{stage=\"model_wait\"} 0.493293700\nmodule3_stage_seconds_bucket{stage=\"similarity\",le=\"0.01\"} 17\nmodule3_stage_seconds_bucket{stage=\"similarity\",le=\"0.05\"} 17\nmodule3_stage_seconds_bucket{stage=\"similarity\",le=\"0.1\"} 17\nmodule3_stage_seconds_bucket{stage=\"similarity\",le=\"0.25\"} 17\nmodule3_stage_seconds_bucket{stage=\"similarity\",le=\"0.5\"} 17\nmodule3_stage_seconds_bucket{stage=\"similarity\",le=\"1\"} 17\nmodule3_stage_seconds_bucket{stage=\"similarity\",le=\"2\"} 17\nmodule3_stage_seconds_bucket{stage=\"similarity\",le=\"5\"} 17\nmodule3_stage_seconds_bucket{stage=\"similarity\",le=\"10\"} 17\nmodule3_stage_seconds_bucket{stage=\"similarity\",le=\"30\"} 17\nmodule3_stage_seconds_bucket{stage=\"similarity\",le=\"+Inf\"} 17\nmodule3_stage_seconds_count{stage=\"similarity\"} 17\nmodule3_stage_seconds_sum{stage=\"similarity\"} 0.005017100\nmodule3_stage_seconds_bucket{stage=\"template\",le=\"0.01\"} 40\nmodule3_stage_seconds_bucket{stage=\"template\",le=\"0.05\"} 40\nmodule3_stage_seconds_bucket{stage=\"template\",le=\"0.1\"} 40\nmodule3_stage_seconds_bucket{stage=\"template\",le=\"0.25\"} 40\nmodule3_stage_seconds_bucket{stage=\"template\",le=\"0.5\"} 40\nmodule3_stage_seconds_bucket{stage=\"template\",le=\"1\"} 40\nmodule3_stage_seconds_bucket{stage=\"template\",le=\"2\"} 40\nmodule3_stage_seconds_bucket{stage=\"template\",le=\"5\"} 40\nmodule3_stage_seconds_bucket{stage=\"template\",le=\"10\"} 40\nmodule3_stage_seconds_bucket{stage=\"template\",le=\"30\"} 40\nmodule3_stage_seconds_bucket{stage=\"template\",le=\"+Inf\"} 40\nmodule3_stage_seconds_count{stage=\"template\"} 40\nmodule3_stage_seconds_sum{stage=\"template\"} 0.023974000\n# TYPE module3_inference_active gauge\nmodule3_inference_active 0\n# TYPE module3_inference_pending gauge\nmodule3_inference_pending 0\n# TYPE module3_overload_rejections_total counter\nmodule3_overload_rejections_total 0\n# TYPE module3_trace_export_failures_total counter\nmodule3_trace_export_failures_total 0\n# TYPE module3_process_resident_bytes gauge\nmodule3_process_resident_bytes 612601856\n# TYPE module3_model_degraded_slots gauge\n# TYPE module3_model_slots gauge\nmodule3_model_degraded_slots{model=\"yunet\"} 0\nmodule3_model_slots{model=\"yunet\"} 4\nmodule3_model_degraded_slots{model=\"sface\"} 0\nmodule3_model_slots{model=\"sface\"} 4\nmodule3_model_degraded_slots{model=\"pad\"} 0\nmodule3_model_slots{model=\"pad\"} 4\n",
+  "identity_statistics": {
+    "threshold": 0.7,
+    "FAR": {
+      "errors": 0,
+      "total": 1,
+      "rate": 0.0,
+      "wilson_95": [
+        0.0,
+        0.7934506856227626
+      ]
+    },
+    "FRR": {
+      "errors": 0,
+      "total": 3,
+      "rate": 0.0,
+      "wilson_95": [
+        5.551115123125783e-17,
+        0.5614970317550454
+      ]
+    }
+  },
+  "pad_statistics": {
+    "threshold": 0.6,
+    "APCER": {
+      "errors": 0,
+      "total": 2,
+      "rate": 0.0,
+      "wilson_95": [
+        0.0,
+        0.6576197724933469
+      ]
+    },
+    "BPCER": {
+      "errors": 0,
+      "total": 1,
+      "rate": 0.0,
+      "wilson_95": [
+        0.0,
+        0.7934506856227626
+      ]
+    }
+  },
+  "server_exit_before_cleanup": null
+}
