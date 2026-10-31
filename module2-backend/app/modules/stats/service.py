@@ -1,3 +1,5 @@
+import math
+from collections import Counter
 from datetime import datetime, timedelta
 from typing import Any, Optional
 
@@ -31,6 +33,36 @@ def _day_start(now: datetime) -> datetime:
 def _avg_risk(query) -> float:
     value = query.with_entities(func.avg(CheckIn.risk_score)).scalar()
     return float(value) if value is not None else 0.0
+
+
+# API-SPECIFICATION.md GET /stats/sessions/{session_id}:
+# low < 0.3, medium 0.3 <= risk < 0.5, high >= 0.5. Timeline buckets are 5 minutes.
+_RISK_LOW_MAX = 0.3
+_RISK_MEDIUM_MAX = 0.5
+_TIMELINE_BUCKET_MINUTES = 5
+
+
+def risk_band(score: Optional[float]) -> str:
+    value = float(score or 0.0)
+    if value < _RISK_LOW_MAX:
+        return "low"
+    if value < _RISK_MEDIUM_MAX:
+        return "medium"
+    return "high"
+
+
+def arrival_offset_minutes(checked_in_at: Optional[datetime], scheduled_start: Optional[datetime]) -> Optional[float]:
+    if checked_in_at is None or scheduled_start is None:
+        return None
+    arrival = to_naive_utc(checked_in_at)
+    start = to_naive_utc(scheduled_start)
+    return (arrival - start).total_seconds() / 60.0
+
+
+def timeline_bucket_minute(offset_minutes: float) -> int:
+    """Floor into a 5-minute bucket relative to scheduled_start (early arrivals are negative)."""
+    width = float(_TIMELINE_BUCKET_MINUTES)
+    return int(math.floor(offset_minutes / width) * width)
 
 
 def overview(db: Session, current_user: User, *, course_id: Optional[str], days: int) -> dict[str, Any]:
@@ -146,13 +178,24 @@ def session_stats(db: Session, session_id: str, current_user: User) -> dict[str,
     risk_sum = 0.0
     dist_sum = 0.0
     dist_n = 0
+    risk_distribution = {"low": 0, "medium": 0, "high": 0}
+    timeline_counts: Counter[int] = Counter()
+    arrival_sum = 0.0
+    arrival_n = 0
+    scheduled_start = session.scheduled_start
     for row in checkins:
         if row.status in by_status:
             by_status[row.status] += 1
         risk_sum += float(row.risk_score or 0.0)
+        risk_distribution[risk_band(row.risk_score)] += 1
         if row.distance_from_venue_meters is not None:
             dist_sum += row.distance_from_venue_meters
             dist_n += 1
+        offset = arrival_offset_minutes(row.checked_in_at, scheduled_start)
+        if offset is not None:
+            arrival_sum += offset
+            arrival_n += 1
+            timeline_counts[timeline_bucket_minute(offset)] += 1
     checked_in_count = len(checkins)
     total_enrolled = len(enrolled)
     return {
@@ -169,6 +212,12 @@ def session_stats(db: Session, session_id: str, current_user: User) -> dict[str,
         "attendance_rate": _rate(checked_in_count, total_enrolled),
         "average_risk_score": _rate(risk_sum, checked_in_count),
         "average_distance_meters": _rate(dist_sum, dist_n),
+        "average_checkin_time_minutes": _rate(arrival_sum, arrival_n),
+        "risk_distribution": risk_distribution,
+        "checkin_timeline": [
+            {"minute": minute, "count": timeline_counts[minute]}
+            for minute in sorted(timeline_counts)
+        ],
         "by_status": {k: v for k, v in by_status.items() if k != "appealed"},
     }
 
