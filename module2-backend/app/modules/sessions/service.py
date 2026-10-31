@@ -24,19 +24,19 @@ def can_manage_session(user: User, session: ClassSession) -> bool:
     return bool(session.instructor_id == user.id)
 
 
-def can_staff_session(user: User, session: Optional[ClassSession]) -> bool:
+def can_staff_session(db: Session, user: User, session: Optional[ClassSession]) -> bool:
     if session is None:
         return False
     if user.role == UserRole.ADMIN.value:
         return True
     if user.role == UserRole.TA.value:
-        return True
+        return enrollments_repo.user_assists_course(db, user, session.course_id)
     return session.instructor_id == user.id
 
 
 def can_staff_course_session(db: Session, user: User, session: Optional[ClassSession]) -> bool:
-    """Session owner/TA/admin, or an instructor assigned to the session's course."""
-    if can_staff_session(user, session):
+    """Session owner/admin, assigned TA, or an instructor assigned to the course."""
+    if can_staff_session(db, user, session):
         return True
     if session is None:
         return False

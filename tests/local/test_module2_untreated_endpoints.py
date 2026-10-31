@@ -595,6 +595,7 @@ class TestEnrollmentCreateAndRosterAuthz:
         assert admin_ok.status_code == 200, admin_ok.text
 
         ta = _register_login(client, "ta")
+        _assign_instructor(client, test_course["id"], ta["id"], auth_headers_admin)
         ta_ok = client.get(
             f"/api/v1/enrollments/course/{test_course['id']}",
             headers=ta["headers"],

@@ -232,6 +232,7 @@ def test_session_stats_owner_admin_ta_and_unrelated(
     assert admin_ok.status_code == 200, admin_ok.text
 
     ta = _register_and_login(client, "ta")
+    _assign_instructor(client, test_session["course_id"], ta["id"], auth_headers_admin)
     ta_ok = client.get(
         f"/api/v1/stats/sessions/{test_session['id']}",
         headers=ta["headers"],

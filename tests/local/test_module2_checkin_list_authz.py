@@ -56,8 +56,11 @@ def test_ta_cannot_list_all_checkins(client):
 
     flagged = client.get("/api/v1/checkins/flagged", headers=ta["headers"])
     assert flagged.status_code == 200, flagged.text
-    assert "items" in flagged.json()
-    assert "total" in flagged.json()
+    payload = flagged.json()
+    assert "items" in payload
+    assert "total" in payload
+    assert payload["items"] == []
+    assert payload["total"] == 0
 
 
 @pytest.mark.points(0, category="spec_authz")

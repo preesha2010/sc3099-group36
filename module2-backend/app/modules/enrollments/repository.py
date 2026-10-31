@@ -81,11 +81,26 @@ def instructor_teaches_course(db: Session, instructor_id: str, course_id: str) -
     return row is not None
 
 
+def list_assigned_course_ids(db: Session, user_id: str) -> list[str]:
+    """Active course_instructors rows for this user (instructor or TA)."""
+    from app.modules.courses.instructor_model import CourseInstructor
+
+    rows = (
+        db.query(CourseInstructor.course_id)
+        .filter(
+            CourseInstructor.instructor_id == user_id,
+            CourseInstructor.is_active.is_(True),
+        )
+        .all()
+    )
+    return [row.course_id for row in rows]
+
+
 def user_manages_course(db: Session, user, course_id: str) -> bool:
     """Admin, or instructor with an active course_instructors assignment.
 
     Session ownership (sessions.instructor_id) is separate and does not grant
-    course roster/stats by itself.
+    course roster/stats by itself. TAs are never managers.
     """
     from app.db.enums import UserRole
 
@@ -96,17 +111,25 @@ def user_manages_course(db: Session, user, course_id: str) -> bool:
     return False
 
 
-def user_can_view_course_roster(db: Session, user, course_id: str) -> bool:
-    """Roster access: admin, assigned instructor, or TA.
+def user_assists_course(db: Session, user, course_id: str) -> bool:
+    """Admin, or instructor/TA with an active course_instructors assignment.
 
-    The spec says instructor/TA for the course. There is no TA–course table, so
-    TA is role-level (any TA). Instructors are scoped via course_instructors.
+    Grants course-scoped staff access (roster, session check-ins, review,
+    session stats, flagged queue). Does not grant enrollment mutation, export,
+    or instructor-only statistics.
     """
     from app.db.enums import UserRole
 
-    if user.role == UserRole.TA.value:
+    if user.role == UserRole.ADMIN.value:
         return True
-    return user_manages_course(db, user, course_id)
+    if user.role in {UserRole.INSTRUCTOR.value, UserRole.TA.value}:
+        return instructor_teaches_course(db, user.id, course_id)
+    return False
+
+
+def user_can_view_course_roster(db: Session, user, course_id: str) -> bool:
+    """Roster access: admin, assigned instructor, or assigned TA."""
+    return user_assists_course(db, user, course_id)
 
 
 def instructor_teaches_enrolled_student(db: Session, instructor_id: str, student_id: str) -> bool:

@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from app.audit.repository import append_audit
 from app.core.exceptions import bad_request, forbidden, not_found, service_unavailable
 from app.core.image_limits import ensure_face_image_within_limit
-from app.core.pagination import page_of
+from app.core.pagination import clamp_page, page_of
 from app.core.utils import (
     client_ip,
     haversine_meters,
@@ -482,8 +482,30 @@ def flagged_checkins(
     session_id: Optional[str] = None,
     limit: int = 50,
 ) -> Any:
+    scoped_course_ids: Optional[list[str]] = None
+    if current_user.role == UserRole.TA.value:
+        assigned = enrollments_repo.list_assigned_course_ids(db, current_user.id)
+        assigned_set = set(assigned)
+        if course_id:
+            if course_id not in assigned_set:
+                raise forbidden()
+        elif session_id:
+            session = sessions_repo.get_by_id(db, session_id)
+            if session is None:
+                raise not_found("Session not found")
+            if session.course_id not in assigned_set:
+                raise forbidden()
+        else:
+            if not assigned:
+                limit, offset = clamp_page(limit, 0)
+                return page_of([], 0, limit, offset)
+            scoped_course_ids = assigned
     items, total, limit, offset = checkins_repo.list_flagged(
-        db, course_id=course_id, session_id=session_id, limit=limit
+        db,
+        course_id=course_id,
+        course_ids=scoped_course_ids,
+        session_id=session_id,
+        limit=limit,
     )
     return page_of([_flagged_item(row) for row in items], total, limit, offset)
 

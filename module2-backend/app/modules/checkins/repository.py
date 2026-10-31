@@ -65,6 +65,7 @@ def list_flagged(
     db: Session,
     *,
     course_id: Optional[str] = None,
+    course_ids: Optional[Sequence[str]] = None,
     session_id: Optional[str] = None,
     limit: int = 50,
     offset: int = 0,
@@ -72,6 +73,7 @@ def list_flagged(
     return list_checkins(
         db,
         course_id=course_id,
+        course_ids=course_ids,
         session_id=session_id,
         statuses=("flagged", "appealed"),
         limit=limit,
@@ -84,6 +86,7 @@ def list_checkins(
     *,
     session_id: Optional[str] = None,
     course_id: Optional[str] = None,
+    course_ids: Optional[Sequence[str]] = None,
     student_id: Optional[str] = None,
     status: Optional[str] = None,
     statuses: Optional[Sequence[str]] = None,
@@ -96,10 +99,12 @@ def list_checkins(
 ) -> tuple[Sequence[CheckIn], int, int, int]:
     limit, offset = clamp_page(limit, offset)
     query = db.query(CheckIn)
-    if course_id:
-        query = query.join(ClassSession, CheckIn.session_id == ClassSession.id).filter(
-            ClassSession.course_id == course_id
-        )
+    if course_id or course_ids:
+        query = query.join(ClassSession, CheckIn.session_id == ClassSession.id)
+        if course_id:
+            query = query.filter(ClassSession.course_id == course_id)
+        if course_ids is not None:
+            query = query.filter(ClassSession.course_id.in_(list(course_ids)))
     if session_id:
         query = query.filter(CheckIn.session_id == session_id)
     if student_id:

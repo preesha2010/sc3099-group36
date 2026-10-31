@@ -171,8 +171,8 @@ def assign_course_instructor(
     instructor = users_repo.get_by_id(db, instructor_id)
     if instructor is None:
         raise not_found("Instructor not found")
-    if instructor.role != UserRole.INSTRUCTOR.value:
-        raise bad_request("User is not an instructor")
+    if instructor.role not in {UserRole.INSTRUCTOR.value, UserRole.TA.value}:
+        raise bad_request("User is not an instructor or TA")
     row = courses_repo.get_assignment(db, course_id, instructor_id)
     created = False
     if row is None:
