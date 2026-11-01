@@ -49,6 +49,11 @@ import CheckInPreflight, {
   type CheckInPreflightResult,
 } from '@/components/CheckInPreflight'
 import CheckInResult, { type CheckInOutcome } from '@/components/CheckInResult'
+import {
+  ImageProcessingError,
+  isPayloadTooLargeError,
+  PHOTO_TOO_LARGE_MESSAGE,
+} from '@/lib/imageProcessing'
 import { useOnlineStatus } from '@/lib/useOnlineStatus'
 import type { CheckinSummary, Session } from '@/types/api'
 
@@ -65,7 +70,7 @@ export interface CheckInFlowProps {
 }
 
 type FlowStep = 'consent' | 'photo' | 'review' | 'result'
-type FailureAction = 'retry' | 'login' | 'back'
+type FailureAction = 'retry' | 'login' | 'back' | 'retake'
 
 interface Failure {
   message: string
@@ -157,6 +162,12 @@ function describeSubmitFailure(error: unknown): Failure {
     }
   }
 
+  // The photo is too large (the server's 413, or caught here before sending): the
+  // same photo can never succeed, so the only way on is to retake it.
+  if (error instanceof ImageProcessingError || isPayloadTooLargeError(error)) {
+    return { message: PHOTO_TOO_LARGE_MESSAGE, action: 'retake' }
+  }
+
   if (error instanceof ApiError) {
     switch (error.kind) {
       case 'authentication':
@@ -238,17 +249,19 @@ interface FailureNoticeProps {
   retryDisabled?: boolean
   retryLabel: string
   onRetry: () => void
+  onRetake: () => void
   onLogin: () => void
   onBack: () => void
 }
 
-/** The error alert plus the single sensible next action (retry, log in again, or go back). */
+/** The error alert plus the single sensible next action (retry, retake the photo, log in again, or go back). */
 function FailureNotice({
   failure,
   disabled = false,
   retryDisabled = false,
   retryLabel,
   onRetry,
+  onRetake,
   onLogin,
   onBack,
 }: FailureNoticeProps) {
@@ -269,6 +282,11 @@ function FailureNotice({
             className={PRIMARY_BUTTON}
           >
             {retryLabel}
+          </button>
+        )}
+        {failure.action === 'retake' && (
+          <button type="button" onClick={onRetake} disabled={disabled} className={PRIMARY_BUTTON}>
+            Retake photo
           </button>
         )}
         {failure.action === 'login' && (
@@ -555,6 +573,7 @@ export default function CheckInFlow({
               retryDisabled={submitBlockedOffline}
               retryLabel={isSubmitting ? 'Submitting…' : 'Try again'}
               onRetry={() => void handleSubmit()}
+              onRetake={handleRetakePhoto}
               onLogin={onAuthExpired}
               onBack={onExit}
             />

@@ -25,6 +25,11 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import * as api from '@/lib/api'
 import { ACCOUNT_LOCKED_MESSAGE, ApiError } from '@/lib/errors'
 import { submitFaceEnrollment } from '@/lib/faceEnrollment'
+import {
+  ImageProcessingError,
+  isPayloadTooLargeError,
+  PHOTO_TOO_LARGE_MESSAGE,
+} from '@/lib/imageProcessing'
 import { useOnlineStatus } from '@/lib/useOnlineStatus'
 import CameraCapture from '@/components/CameraCapture'
 import type { FaceEnrollResponse, UserResponse } from '@/types/api'
@@ -39,7 +44,8 @@ export interface FaceEnrollmentProps {
 }
 
 type Step = 'loading' | 'intro' | 'capture' | 'review' | 'done'
-type ProblemAction = 'retry' | 'retake' | 'login' | 'intro'
+// 'retake_only': the photo is too large, so it must not be sent again - only retaking helps.
+type ProblemAction = 'retry' | 'retake' | 'retake_only' | 'login' | 'intro'
 
 interface Problem {
   message: string
@@ -85,6 +91,10 @@ function describeGeneralProblem(error: unknown): Problem {
 }
 
 function describeEnrollProblem(error: unknown): Problem {
+  // Checked first: a 413 is also a 'client' error, and must not be reported as "no clear face".
+  if (error instanceof ImageProcessingError || isPayloadTooLargeError(error)) {
+    return { message: PHOTO_TOO_LARGE_MESSAGE, action: 'retake_only' }
+  }
   if (error instanceof ApiError) {
     const detail = typeof error.detail === 'string' ? error.detail.toLowerCase() : ''
     if (error.kind === 'server' && error.status === 503) {
@@ -325,7 +335,9 @@ export default function FaceEnrollment({
           )}
 
           <div className="space-y-2">
-            {problem?.action !== 'login' && problem?.action !== 'intro' && (
+            {problem?.action !== 'login' &&
+              problem?.action !== 'intro' &&
+              problem?.action !== 'retake_only' && (
               <button
                 type="button"
                 onClick={() => void handleEnroll()}
@@ -349,7 +361,12 @@ export default function FaceEnrollment({
                 Back to consent
               </button>
             )}
-            <button type="button" onClick={handleRetake} disabled={busy} className={SECONDARY_BUTTON}>
+            <button
+              type="button"
+              onClick={handleRetake}
+              disabled={busy}
+              className={problem?.action === 'retake_only' ? PRIMARY_BUTTON : SECONDARY_BUTTON}
+            >
               Retake photo
             </button>
             <button type="button" onClick={onBack} disabled={busy} className={SECONDARY_BUTTON}>
