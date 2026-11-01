@@ -15,6 +15,7 @@
 import * as api from './api'
 import { getDeviceFingerprint } from './deviceBinding'
 import { getCurrentLocation } from './geolocation'
+import { toUploadPayload } from './imageProcessing'
 import type {
   CheckinCreateRequest,
   CheckinCreateResponse,
@@ -39,16 +40,16 @@ export interface SubmitCheckinInput {
   onPhase?: (phase: SubmitPhase) => void
 }
 
-const DATA_URL_PREFIX = /^data:image\/[a-zA-Z0-9.+-]+;base64,/
-
 /**
  * The API documents image fields as raw base64 — the enroll endpoint says
  * "without data URL prefix" explicitly; the check-in endpoint only says
  * "base64_encoded_image", and the backend forwards it to a service that
- * base64-decodes it. So the `data:image/...;base64,` prefix is stripped.
+ * base64-decodes it. So the `data:image/...;base64,` prefix is stripped. An image
+ * over the app's upload ceiling (below the backend's 1 MiB limit) is refused with
+ * an ImageProcessingError instead of being sent.
  */
 export function toBase64Payload(dataUrl: string): string {
-  return dataUrl.replace(DATA_URL_PREFIX, '')
+  return toUploadPayload(dataUrl)
 }
 
 /**
@@ -59,6 +60,10 @@ export function toBase64Payload(dataUrl: string): string {
 export async function submitCheckin(
   input: SubmitCheckinInput,
 ): Promise<CheckinCreateResponse> {
+  // Prepare the photo first, so one that is too large is refused before any
+  // location or device work (and, as always, before anything is sent).
+  const livenessPayload = input.livenessImage ? toBase64Payload(input.livenessImage) : undefined
+
   input.onPhase?.('locating')
 
   let deviceFingerprint: string
@@ -79,8 +84,8 @@ export async function submitCheckin(
   if (Number.isFinite(location.accuracyMeters)) {
     payload.location_accuracy_meters = location.accuracyMeters
   }
-  if (input.livenessImage) {
-    payload.liveness_challenge_response = toBase64Payload(input.livenessImage)
+  if (livenessPayload) {
+    payload.liveness_challenge_response = livenessPayload
   }
 
   input.onPhase?.('sending')

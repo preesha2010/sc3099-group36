@@ -25,6 +25,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { CameraIcon } from '@/components/icons'
+import { captureVideoFrame, ImageProcessingError } from '@/lib/imageProcessing'
 
 type CaptureStatus = 'idle' | 'starting' | 'active' | 'captured' | 'error'
 
@@ -156,30 +157,23 @@ export default function CameraCapture({ onCapture, bare = false }: CameraCapture
     }
 
     try {
-      // Offscreen canvas: never inserted into the DOM, sized to the
-      // video's natural resolution — no cropping/scaling/filtering.
-      const canvas = document.createElement('canvas')
-      canvas.width = video.videoWidth
-      canvas.height = video.videoHeight
-
-      const context = canvas.getContext('2d')
-      if (!context) {
-        throw new Error('Canvas is not supported.')
-      }
-      context.drawImage(video, 0, 0, canvas.width, canvas.height)
-
-      // JPEG data URL: matches the "base64 PNG/JPEG" image format the
-      // backend documents, and stays reasonably small for a webcam frame.
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.92)
+      // JPEG data URL, scaled and compressed to fit the backend's 1 MiB image
+      // limit (see lib/imageProcessing.ts). Throws if it can't, so an oversized
+      // frame is never handed on.
+      const dataUrl = captureVideoFrame(video)
 
       stopActiveStream()
       setCapturedImage(dataUrl)
       setStatus('captured')
       onCapture(dataUrl)
-    } catch {
+    } catch (error) {
       stopActiveStream()
       setStatus('error')
-      setErrorMessage('Unable to capture the image. Please try again.')
+      setErrorMessage(
+        error instanceof ImageProcessingError && error.reason === 'too_large'
+          ? 'The photo came out too large to upload. Please try again, in even lighting if you can.'
+          : 'Unable to capture the image. Please try again.',
+      )
     }
   }, [status, isVideoReady, stopActiveStream, onCapture])
 

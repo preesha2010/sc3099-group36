@@ -12,6 +12,10 @@ import * as api from './api'
 import { toBase64Payload } from './checkin'
 import type { FaceEnrollResponse } from '@/types/api'
 
-export function submitFaceEnrollment(photoDataUrl: string): Promise<FaceEnrollResponse> {
+/**
+ * An image over the app's upload ceiling is refused here with an ImageProcessingError
+ * (as a rejection, before any request is made) instead of being sent.
+ */
+export async function submitFaceEnrollment(photoDataUrl: string): Promise<FaceEnrollResponse> {
   return api.enrollFace({ image: toBase64Payload(photoDataUrl) })
 }
