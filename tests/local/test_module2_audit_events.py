@@ -252,9 +252,12 @@ def test_successful_checkin_logs_attempted_and_outcome():
     )
     assert not isinstance(result, HTTPException)
     assert len(created) == 1
+    assert result["risk_score"] == 0.1
+    assert result["status"] == CheckinStatus.APPROVED.value
     db.commit.assert_called()
     actions = _audit_actions(added)
     assert AuditAction.CHECKIN_ATTEMPTED.value in actions
+    assert AuditAction.CHECKIN_APPROVED.value in actions
     assert any(action in OUTCOME_ACTIONS for action in actions)
     attempted = next(row for row in added if row.action == AuditAction.CHECKIN_ATTEMPTED.value)
     assert attempted.success is True

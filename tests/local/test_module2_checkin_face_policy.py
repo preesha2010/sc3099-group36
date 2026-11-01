@@ -27,6 +27,7 @@ from app.modules.checkins.service import (  # noqa: E402
     _face_signals,
     submit_checkin,
 )
+from app.modules.stats.service import risk_band  # noqa: E402
 
 VALID_HASH = "a" * 64
 LIVE_OK = FaceCall(
@@ -211,13 +212,15 @@ def _request():
     return request
 
 
-def _payload(*, image="img"):
-    return CheckinCreate(
-        session_id="sess-1",
-        latitude=1.3483,
-        longitude=103.6831,
-        liveness_challenge_response=image,
-    )
+def _payload(*, image="img", **fields):
+    data = {
+        "session_id": "sess-1",
+        "latitude": 1.3483,
+        "longitude": 103.6831,
+        "liveness_challenge_response": image,
+    }
+    data.update(fields)
+    return CheckinCreate(**data)
 
 
 def _advisory_ok(**overrides):
@@ -374,7 +377,17 @@ def test_image_less_submit_still_creates_row_when_liveness_required():
         _payload(image=None),
         mock_face,
     )
+    local = risk_service.assess(
+        distance_m=0.0,
+        geofence_m=100.0,
+        liveness_passed=None,
+        face_match_passed=None,
+        unknown_device=True,
+        threshold=0.5,
+    )
     assert not isinstance(result, HTTPException)
+    assert result["status"] == local["status"]
+    assert result["risk_score"] == local["risk_score"]
     assert result["status"] in {
         CheckinStatus.APPROVED.value,
         CheckinStatus.FLAGGED.value,
@@ -387,7 +400,7 @@ def test_image_less_submit_still_creates_row_when_liveness_required():
     db.commit.assert_called()
 
 
-def test_advisory_success_does_not_change_m2_score_or_status():
+def test_biometric_success_stores_m3_score_and_keeps_local_status():
     mock_face = Mock()
     mock_face.liveness.return_value = LIVE_OK
     mock_face.verify.return_value = MATCH_OK
@@ -408,14 +421,19 @@ def test_advisory_success_does_not_change_m2_score_or_status():
     )
     assert not isinstance(result, HTTPException)
     assert result["status"] == local["status"]
-    assert result["risk_score"] == local["risk_score"]
-    assert result["status"] != CheckinStatus.REJECTED.value
+    assert result["status"] == CheckinStatus.APPROVED.value
+    assert result["risk_score"] == 0.88
+    assert result["risk_score"] != local["risk_score"]
+    assert local["risk_score"] < 0.5
     mock_face.assess_risk.assert_called_once()
     sent = mock_face.assess_risk.call_args.args[0]
     assert sent == {"liveness_score": 0.9, "face_match_score": 0.95}
-    assert set(sent) <= {"liveness_score", "face_match_score"}
+    assert "device_signature" not in sent
+    assert "device_public_key" not in sent
     db.commit.assert_called()
     assert len(created) == 1
+    assert created[0].risk_score == 0.88
+    assert created[0].status == CheckinStatus.APPROVED.value
 
 
 def test_risk_service_outage_returns_503_without_row():
@@ -488,7 +506,7 @@ def test_retry_after_risk_service_recovery_creates_checkin():
     )
     assert not isinstance(result, HTTPException)
     assert result["status"] == local["status"]
-    assert result["risk_score"] == local["risk_score"]
+    assert result["risk_score"] == 0.88
     assert len(created) == 1
     db.commit.assert_called()
 
@@ -508,6 +526,8 @@ def test_failed_match_stays_flagged_when_advisory_says_low():
     )
     assert result["status"] == CheckinStatus.FLAGGED.value
     assert result["face_match_passed"] is False
+    assert result["risk_score"] == 0.05
+    assert any(factor.get("type") == "face_match_failed" for factor in result["risk_factors"])
     assert len(created) == 1
     mock_face.assess_risk.assert_called_once()
 
@@ -526,10 +546,41 @@ def test_failed_liveness_stays_rejected_when_advisory_says_low():
     )
     assert result["status"] == CheckinStatus.REJECTED.value
     assert result["liveness_passed"] is False
+    assert result["risk_score"] == 0.05
+    assert any(factor.get("type") == "liveness_failed" for factor in result["risk_factors"])
     assert len(created) == 1
     sent = mock_face.assess_risk.call_args.args[0]
     assert sent == {"liveness_score": 0.1}
     assert "face_match_score" not in sent
+
+
+def test_critical_gps_rejection_keeps_rejected_despite_low_m3_score():
+    mock_face = Mock()
+    mock_face.liveness.return_value = LIVE_OK
+    mock_face.verify.return_value = MATCH_OK
+    mock_face.assess_risk.return_value = _advisory_ok(
+        risk_score=0.05, risk_level="LOW", pass_threshold=True
+    )
+    result, created, db = _run_submit(
+        _active_session(require_liveness=True, require_face=True),
+        _student(face_hash=VALID_HASH),
+        _payload(latitude=1.3583, location_accuracy_meters=10.0),
+        mock_face,
+    )
+    assert not isinstance(result, HTTPException)
+    assert result["status"] == CheckinStatus.REJECTED.value
+    assert result["risk_score"] == 0.05
+    assert result["distance_from_venue_meters"] > 200
+    assert any(factor.get("type") == "geo_out_of_bounds" for factor in result["risk_factors"])
+    assert len(created) == 1
+    db.commit.assert_called()
+    sent = mock_face.assess_risk.call_args.args[0]
+    assert sent["geolocation"] == {
+        "latitude": 1.3583,
+        "longitude": 103.6831,
+        "accuracy": 10.0,
+    }
+    assert "device_signature" not in sent
 
 
 def test_advisory_payload_omits_incompatible_and_sensitive_fields():
@@ -545,6 +596,79 @@ def test_advisory_payload_omits_incompatible_and_sensitive_fields():
     assert payload == {"liveness_score": 0.9, "face_match_score": 0.95}
     assert _advisory_risk_payload({"liveness_passed": True}) is None
     assert _advisory_risk_payload({"liveness_score": None, "face_match_score": None}) is None
+
+
+def test_risk_payload_sends_trustworthy_context_only():
+    checkin = CheckinCreate(
+        session_id="sess-1",
+        latitude=1.3483,
+        longitude=103.6831,
+        location_accuracy_meters=12.5,
+        device_fingerprint="fp_should_not_be_sent",
+    )
+    request = Mock()
+    request.headers = {"user-agent": "SAIV-Test/1.0", "x-forwarded-for": "8.8.8.8"}
+    request.client = Mock(host="127.0.0.1")
+    payload = _advisory_risk_payload(
+        {
+            "liveness_score": 0.9,
+            "face_match_score": 0.95,
+            "face_embedding_hash": VALID_HASH,
+        },
+        checkin,
+        request,
+    )
+    assert payload == {
+        "liveness_score": 0.9,
+        "face_match_score": 0.95,
+        "geolocation": {
+            "latitude": 1.3483,
+            "longitude": 103.6831,
+            "accuracy": 12.5,
+        },
+        "user_agent": "SAIV-Test/1.0",
+        "ip_address": "8.8.8.8",
+    }
+    dumped = str(payload)
+    assert "fp_should_not_be_sent" not in dumped
+    assert VALID_HASH not in dumped
+    assert "device_signature" not in payload
+    assert "device_public_key" not in payload
+
+
+def test_risk_payload_does_not_invent_accuracy_or_private_ip():
+    no_accuracy = CheckinCreate(session_id="sess-1", latitude=1.3483, longitude=103.6831)
+    negative = CheckinCreate(
+        session_id="sess-1",
+        latitude=1.3483,
+        longitude=103.6831,
+        location_accuracy_meters=-1.0,
+    )
+    request = Mock()
+    request.headers = {}
+    request.client = Mock(host="127.0.0.1")
+    without_geo = _advisory_risk_payload({"liveness_score": 0.9}, no_accuracy, request)
+    assert without_geo == {"liveness_score": 0.9}
+    assert "geolocation" not in _advisory_risk_payload({"liveness_score": 0.9}, negative)
+    assert "ip_address" not in without_geo
+    assert "user_agent" not in without_geo
+
+
+def test_stored_m3_score_still_feeds_session_risk_band():
+    mock_face = Mock()
+    mock_face.liveness.return_value = LIVE_OK
+    mock_face.verify.return_value = MATCH_OK
+    mock_face.assess_risk.return_value = _advisory_ok()
+    result, created, _db = _run_submit(
+        _active_session(require_liveness=True, require_face=True),
+        _student(face_hash=VALID_HASH),
+        _payload(),
+        mock_face,
+    )
+    assert result["status"] == CheckinStatus.APPROVED.value
+    assert result["risk_score"] == 0.88
+    assert risk_band(result["risk_score"]) == "high"
+    assert created[0].risk_score == 0.88
 
 
 def test_advisory_log_record_has_no_sensitive_fields():
@@ -583,13 +707,14 @@ def test_consult_advisory_logs_without_templates_or_ids(caplog):
     mock_face.assess_risk.return_value = _advisory_ok()
     with patch("app.modules.checkins.service.face_client", mock_face):
         with caplog.at_level(logging.INFO, logger="saiv.checkins.advisory_risk"):
-            _consult_advisory_risk(
+            score = _consult_advisory_risk(
                 {
                     "liveness_score": 0.9,
                     "face_match_score": 0.95,
                     "face_embedding_hash": VALID_HASH,
                 }
             )
+    assert score == 0.88
     assert VALID_HASH not in caplog.text
     assert "face_embedding_hash" not in caplog.text
     assert "CRITICAL" in caplog.text

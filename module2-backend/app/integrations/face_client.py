@@ -254,7 +254,7 @@ class FaceClient:
         )
 
     def assess_risk(self, signals: dict[str, Any]) -> FaceCall:
-        """POST /risk/assess. Advisory only; 408/5xx/timeout are unavailable."""
+        """POST /risk/assess. 408/5xx/timeout are unavailable. pass_threshold is parsed, not applied."""
         return self._classify("/risk/assess", signals, _parse_risk_body)
 
 

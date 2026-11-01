@@ -1,5 +1,6 @@
 import json
 import logging
+import math
 from datetime import datetime, timedelta
 from typing import Any, Optional
 
@@ -14,6 +15,7 @@ from app.core.pagination import clamp_page, page_of
 from app.core.utils import (
     client_ip,
     haversine_meters,
+    is_private_ip,
     singapore_checkin_allowed,
     to_naive_utc,
     utcnow_naive,
@@ -47,19 +49,75 @@ _ADVISORY_LOG_ALLOWED = frozenset(
 )
 
 
-def _advisory_risk_payload(face: dict[str, Any]) -> Optional[dict[str, float]]:
-    """Build /risk/assess body from validated biometric scores only.
+def _risk_assess_user_agent(request: Optional[Request]) -> Optional[str]:
+    if request is None or request.headers is None:
+        return None
+    raw = request.headers.get("user-agent")
+    if not isinstance(raw, str):
+        return None
+    trimmed = raw.strip()
+    if not trimmed:
+        return None
+    return trimmed[:1024]
 
-    Does not send images, templates, IP, user-agent, coordinates, fingerprints,
-    or invented device-attestation evidence. M3 treats those other fields as
-    optional and fills missing device/network/geo with its own defaults.
+
+def _risk_assess_ip(request: Optional[Request]) -> Optional[str]:
+    """Send only a public client IP. Private/loopback values are not a network signal."""
+    if request is None:
+        return None
+    ip = client_ip(request)
+    if not ip or is_private_ip(ip):
+        return None
+    return ip[:64]
+
+
+def _risk_assess_geolocation(checkin: Optional[CheckinCreate]) -> Optional[dict[str, float]]:
+    """Include GPS only when lat/lng and a real non-negative accuracy are present."""
+    if checkin is None or checkin.latitude is None or checkin.longitude is None:
+        return None
+    accuracy = checkin.location_accuracy_meters
+    if isinstance(accuracy, bool) or not isinstance(accuracy, (int, float)):
+        return None
+    acc = float(accuracy)
+    lat = float(checkin.latitude)
+    lng = float(checkin.longitude)
+    if not math.isfinite(acc) or acc < 0.0:
+        return None
+    if not math.isfinite(lat) or not math.isfinite(lng):
+        return None
+    if not -90.0 <= lat <= 90.0 or not -180.0 <= lng <= 180.0:
+        return None
+    return {"latitude": lat, "longitude": lng, "accuracy": acc}
+
+
+def _advisory_risk_payload(
+    face: dict[str, Any],
+    checkin: Optional[CheckinCreate] = None,
+    request: Optional[Request] = None,
+) -> Optional[dict[str, Any]]:
+    """Build /risk/assess body from validated biometric scores plus optional context.
+
+    Never invents device signatures, public keys, or geolocation accuracy.
+    Image-less check-ins have no biometric scores, so this returns None and M3
+    is not called. Missing optional fields are left off so M3 applies defaults.
     """
-    payload: dict[str, float] = {}
+    payload: dict[str, Any] = {}
     for key in ("liveness_score", "face_match_score"):
         score = _finite_unit_score(face.get(key))
         if score is not None:
             payload[key] = score
-    return payload or None
+    if not payload:
+        return None
+    geo = _risk_assess_geolocation(checkin)
+    if geo is not None:
+        payload["geolocation"] = geo
+    ua = _risk_assess_user_agent(request)
+    if ua is not None:
+        payload["user_agent"] = ua
+    ip = _risk_assess_ip(request)
+    if ip is not None:
+        payload["ip_address"] = ip
+    return payload
 
 
 def _advisory_risk_record(call: FaceCall, sent_signals: list[str]) -> dict[str, Any]:
@@ -76,12 +134,17 @@ def _advisory_risk_record(call: FaceCall, sent_signals: list[str]) -> dict[str, 
     return {key: value for key, value in record.items() if key in _ADVISORY_LOG_ALLOWED}
 
 
-def _consult_advisory_risk(face: dict[str, Any]) -> None:
-    """Ask M3 /risk/assess after biometric verification. Advisory only.
+def _consult_advisory_risk(
+    face: dict[str, Any],
+    checkin: Optional[CheckinCreate] = None,
+    request: Optional[Request] = None,
+) -> Optional[float]:
+    """Ask M3 /risk/assess after biometric verification.
 
-    A typed success is logged and ignored for attendance: M2 still stores
-    risk_service.assess() and applies the session threshold, GPS/liveness
-    rejects, and failed-match flagging. M3 pass_threshold is ignored.
+    A typed success returns M3's validated risk_score for storage. Attendance
+    status still comes from risk_service.assess() (GPS/liveness rejects,
+    failed-match flagging, and the session threshold on the local score).
+    M3 pass_threshold is ignored.
 
     If this call is actually made and is not a typed success (timeout, 408,
     5xx, unavailable, malformed, or transport failure), raise 503 and do
@@ -90,9 +153,9 @@ def _consult_advisory_risk(face: dict[str, Any]) -> None:
     check-ins never depend on M3. Required biometric outages still 503 in
     _face_signals before this runs.
     """
-    payload = _advisory_risk_payload(face)
+    payload = _advisory_risk_payload(face, checkin, request)
     if payload is None:
-        return
+        return None
     try:
         call = face_client.assess_risk(payload)
     except Exception:
@@ -112,6 +175,10 @@ def _consult_advisory_risk(face: dict[str, Any]) -> None:
         record.get("m3_risk_level"),
         record.get("m3_breakdown"),
     )
+    score = _finite_unit_score(call.data.get("risk_score"))
+    if score is None:
+        raise service_unavailable("Face recognition service unavailable")
+    return score
 
 
 def _checkin_create_payload(checkin: CheckIn) -> dict[str, Any]:
@@ -372,8 +439,10 @@ def _submit_checkin(db: Session, payload: CheckinCreate, current_user: User, req
         unknown_device=unknown_device,
         threshold=float(threshold),
     )
-    # Advisory only: local assessment above is the stored score and status.
-    _consult_advisory_risk(face)
+    # Status/factors stay local (venue distance, liveness, match, session threshold).
+    # Biometric check-ins store M3's typed risk_score when /risk/assess succeeds.
+    m3_risk_score = _consult_advisory_risk(face, payload, request)
+    stored_risk_score = assessment["risk_score"] if m3_risk_score is None else m3_risk_score
 
     checkin = CheckIn(
         session_id=session.id,
@@ -390,7 +459,7 @@ def _submit_checkin(db: Session, payload: CheckinCreate, current_user: User, req
         face_match_passed=face["face_match_passed"],
         face_match_score=face["face_match_score"],
         face_embedding_hash=face["face_embedding_hash"],
-        risk_score=assessment["risk_score"],
+        risk_score=stored_risk_score,
         risk_factors=json.dumps(assessment["factors"]) if assessment["factors"] else None,
     )
     try:

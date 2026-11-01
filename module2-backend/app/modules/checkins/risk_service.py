@@ -14,7 +14,11 @@ def assess(
     unknown_device: bool,
     threshold: float,
 ) -> dict[str, Any]:
-    """Return {risk_score, status, factors} using SECURITY-REQUIREMENTS.md."""
+    """Return {risk_score, status, factors} using SECURITY-REQUIREMENTS.md.
+
+    Callers use this for attendance status and risk_factors. Biometric check-ins
+    store Module 3's /risk/assess score when that call succeeds.
+    """
     factors: list[dict[str, Any]] = []
     liveness_risk = 0.0
     face_risk = 0.0
