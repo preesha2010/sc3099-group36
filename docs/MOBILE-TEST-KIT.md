@@ -1,6 +1,6 @@
 # Mobile Test Kit — SAIV student app on iPhone (mock mode)
 
-Purpose: find phone-specific problems (HTTPS, install, permissions, device key, offline, updates) without needing a backend. Everything here runs in **mock mode**: the app uses its built-in fake API, no backend is involved, and no real student data is used. (The real backend has since been tested from a desktop browser — see `docs/FRONTEND-INTEGRATION-NOTES.md`, section 0 — and only partly from a phone, through temporary tunnels: sign-in, the wrong-password error, the session list and the photo step were seen; check-in submission, history, appeals and the offline error screens were not reported; see section 5.)
+Purpose: find phone-specific problems (HTTPS, install, permissions, device key, offline, updates) without needing a backend. Everything here runs in **mock mode**: the app uses its built-in fake API, no backend is involved, and no real student data is used. (The real backend has since been tested from a desktop browser — see `docs/FRONTEND-INTEGRATION-NOTES.md`, section 0 — and, with the refreshed UI, on a phone through temporary tunnels (sign-in, camera and location, a check-in that was rejected, My check-ins and an appeal worked; see section 4.10 and section 5.)
 
 > **Documentation only.** Nothing here changes the project's code or config. All builds happen in a **separate copy of the frontend** (`D:\saiv-mobile-test`), served on **port 3100**. Your project's `.next` folder and your dev server on port 3000 are never touched.
 
@@ -167,7 +167,7 @@ Then stop the window running `npm run start` (Ctrl+C) and start it again (`npm r
 
 ### 4.8 Optional: check-in history, details, appeals and face enrollment ⚠
 
-> **What this checks, and what it does not.** In mock mode these tests check the **screens and the phone behaviour only** (layout, keyboard, camera, offline). The data is fake and lives in memory (a reload resets it). They do **not** test the real backend's rules or the real face service. Those were tested from a desktop browser against the real backend (`docs/FRONTEND-INTEGRATION-NOTES.md`, section 0) and have been only **partly tested on a phone** (see the purpose line above): the 7-day appeal window and the one-appeal rule, real risk scores and reasons, the real face service (photo quality, "no face detected", service unavailable), and the "account locked" handling.
+> **What this checks, and what it does not.** In mock mode these tests check the **screens and the phone behaviour only** (layout, keyboard, camera, offline). The data is fake and lives in memory (a reload resets it). They do **not** test the real backend's rules or the real face service. Those were tested from a desktop browser against the real backend (`docs/FRONTEND-INTEGRATION-NOTES.md`, section 0) and have been tested only in part on a phone (see section 4.10): the 7-day appeal window and the one-appeal rule, real risk scores and reasons, the real face service (photo quality, "no face detected", service unavailable), and the "account locked" handling.
 
 Do these after 4.1–4.3 pass, signed in, on the session list. **Reload the app first** so you start from the fake data below (an appeal or an enrollment you make is forgotten on reload).
 
@@ -201,6 +201,22 @@ Do these after 4.1–4.3 pass, signed in, on the session list. **Reload the app 
 | K4 | On the consent screen. | Camera and location rows have small line icons in teal squares (not emoji). | Screenshot. |
 
 Session window labels (**Open now**, **Not open yet**, **Closed**, with a disabled **Check-in closed** / **Check-in not open yet** button) and the enrollment prompt need real session data, so mock mode shows only **Open now** and the prompt. Those were checked against the real backend on a desktop browser, not on a phone.
+
+### 4.10 Real-backend run on a phone (what was observed, 2026-10-29)
+
+This is a record, not a checklist: it needs the real stack and temporary tunnels (see `docs/FRONTEND-INTEGRATION-NOTES.md`, section 0b). Fake data only; the tester was outside the 100 m geofence of the venue.
+
+| Step | Result on the iPhone |
+|---|---|
+| Open the frontend link in Safari, sign in with the seeded fake student | Worked; the session list loaded |
+| Start check-in, allow camera and location, capture a photo of a wall, submit | Worked end to end; the result was **rejected** (the server recorded 286 m from the venue and a failed live-photo check) |
+| My check-ins | Showed the check-in as Rejected |
+| Appeal the rejected check-in | **Worked**; the check-in then showed as appealed |
+| Tabs and layout | Reported as good |
+| Face enrollment | Not tested (switched off for the public test) |
+| Offline messages, wrong-password message, an approved check-in at the venue, a passing liveness photo | Not tested on this run |
+
+Device model and iOS version were not recorded. The flagged face-mismatch result, the 503 error screen and its recovery were checked in a desktop browser, not on a phone.
 
 ## 5. What mock mode cannot validate (needs the real backend)
 
