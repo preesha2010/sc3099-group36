@@ -400,7 +400,7 @@ def test_image_less_submit_still_creates_row_when_liveness_required():
     db.commit.assert_called()
 
 
-def test_biometric_success_stores_m3_score_and_keeps_local_status():
+def test_m3_score_above_threshold_is_flagged_despite_low_local_score():
     mock_face = Mock()
     mock_face.liveness.return_value = LIVE_OK
     mock_face.verify.return_value = MATCH_OK
@@ -420,11 +420,10 @@ def test_biometric_success_stores_m3_score_and_keeps_local_status():
         threshold=0.5,
     )
     assert not isinstance(result, HTTPException)
-    assert result["status"] == local["status"]
-    assert result["status"] == CheckinStatus.APPROVED.value
+    assert local["risk_score"] == pytest.approx(0.03)
+    assert local["status"] == CheckinStatus.APPROVED.value
+    assert result["status"] == CheckinStatus.FLAGGED.value
     assert result["risk_score"] == 0.88
-    assert result["risk_score"] != local["risk_score"]
-    assert local["risk_score"] < 0.5
     mock_face.assess_risk.assert_called_once()
     sent = mock_face.assess_risk.call_args.args[0]
     assert sent == {"liveness_score": 0.9, "face_match_score": 0.95}
@@ -433,7 +432,29 @@ def test_biometric_success_stores_m3_score_and_keeps_local_status():
     db.commit.assert_called()
     assert len(created) == 1
     assert created[0].risk_score == 0.88
-    assert created[0].status == CheckinStatus.APPROVED.value
+    assert created[0].status == CheckinStatus.FLAGGED.value
+
+
+def test_m3_score_below_threshold_is_approved_without_critical_failures():
+    mock_face = Mock()
+    mock_face.liveness.return_value = LIVE_OK
+    mock_face.verify.return_value = MATCH_OK
+    mock_face.assess_risk.return_value = _advisory_ok(
+        risk_score=0.10, risk_level="LOW", pass_threshold=False
+    )
+    result, created, db = _run_submit(
+        _active_session(require_liveness=True, require_face=True),
+        _student(face_hash=VALID_HASH),
+        _payload(),
+        mock_face,
+    )
+    assert not isinstance(result, HTTPException)
+    assert result["status"] == CheckinStatus.APPROVED.value
+    assert result["risk_score"] == 0.10
+    assert result["liveness_passed"] is True
+    assert result["face_match_passed"] is True
+    assert len(created) == 1
+    db.commit.assert_called()
 
 
 def test_risk_service_outage_returns_503_without_row():
@@ -496,16 +517,8 @@ def test_retry_after_risk_service_recovery_creates_checkin():
 
     mock_face.assess_risk.return_value = _advisory_ok()
     result, created, db = _run_submit(session, user, payload, mock_face)
-    local = risk_service.assess(
-        distance_m=0.0,
-        geofence_m=100.0,
-        liveness_passed=True,
-        face_match_passed=True,
-        unknown_device=True,
-        threshold=0.5,
-    )
     assert not isinstance(result, HTTPException)
-    assert result["status"] == local["status"]
+    assert result["status"] == CheckinStatus.FLAGGED.value
     assert result["risk_score"] == 0.88
     assert len(created) == 1
     db.commit.assert_called()
@@ -665,10 +678,11 @@ def test_stored_m3_score_still_feeds_session_risk_band():
         _payload(),
         mock_face,
     )
-    assert result["status"] == CheckinStatus.APPROVED.value
+    assert result["status"] == CheckinStatus.FLAGGED.value
     assert result["risk_score"] == 0.88
     assert risk_band(result["risk_score"]) == "high"
     assert created[0].risk_score == 0.88
+    assert created[0].status == CheckinStatus.FLAGGED.value
 
 
 def test_advisory_log_record_has_no_sensitive_fields():

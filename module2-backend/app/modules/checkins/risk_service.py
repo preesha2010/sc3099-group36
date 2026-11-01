@@ -16,8 +16,9 @@ def assess(
 ) -> dict[str, Any]:
     """Return {risk_score, status, factors} using SECURITY-REQUIREMENTS.md.
 
-    Callers use this for attendance status and risk_factors. Biometric check-ins
-    store Module 3's /risk/assess score when that call succeeds.
+    Callers use this for GPS/liveness/match decisions and risk_factors.
+    Biometric check-ins store Module 3's /risk/assess score and compare that
+    score to the session threshold for flagged vs approved.
     """
     factors: list[dict[str, Any]] = []
     liveness_risk = 0.0

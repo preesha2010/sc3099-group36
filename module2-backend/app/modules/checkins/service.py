@@ -141,10 +141,10 @@ def _consult_advisory_risk(
 ) -> Optional[float]:
     """Ask M3 /risk/assess after biometric verification.
 
-    A typed success returns M3's validated risk_score for storage. Attendance
-    status still comes from risk_service.assess() (GPS/liveness rejects,
-    failed-match flagging, and the session threshold on the local score).
-    M3 pass_threshold is ignored.
+    A typed success returns M3's validated risk_score for storage and for the
+    session threshold (flagged vs approved). GPS/liveness rejects and failed-
+    match flagging still come from risk_service.assess(). M3 pass_threshold
+    is ignored.
 
     If this call is actually made and is not a typed success (timeout, 408,
     5xx, unavailable, malformed, or transport failure), raise 503 and do
@@ -179,6 +179,29 @@ def _consult_advisory_risk(
     if score is None:
         raise service_unavailable("Face recognition service unavailable")
     return score
+
+
+def _attendance_status(
+    assessment: dict[str, Any],
+    *,
+    m3_risk_score: Optional[float],
+    threshold: float,
+    face_match_passed: Optional[bool],
+) -> str:
+    """Apply M3's score to the session threshold after GPS/liveness/match rules.
+
+    Image-less check-ins leave m3_risk_score as None and keep the local status.
+    """
+    status = assessment["status"]
+    if status == CheckinStatus.REJECTED.value:
+        return status
+    if face_match_passed is False:
+        return CheckinStatus.FLAGGED.value
+    if m3_risk_score is None:
+        return status
+    if m3_risk_score >= threshold:
+        return CheckinStatus.FLAGGED.value
+    return CheckinStatus.APPROVED.value
 
 
 def _checkin_create_payload(checkin: CheckIn) -> dict[str, Any]:
@@ -439,16 +462,22 @@ def _submit_checkin(db: Session, payload: CheckinCreate, current_user: User, req
         unknown_device=unknown_device,
         threshold=float(threshold),
     )
-    # Status/factors stay local (venue distance, liveness, match, session threshold).
-    # Biometric check-ins store M3's typed risk_score when /risk/assess succeeds.
+    # Factors stay local. Biometric check-ins store M3's score and use it for
+    # flagged vs approved; GPS/liveness/match still come from local assessment.
     m3_risk_score = _consult_advisory_risk(face, payload, request)
     stored_risk_score = assessment["risk_score"] if m3_risk_score is None else m3_risk_score
+    status = _attendance_status(
+        assessment,
+        m3_risk_score=m3_risk_score,
+        threshold=float(threshold),
+        face_match_passed=face["face_match_passed"],
+    )
 
     checkin = CheckIn(
         session_id=session.id,
         student_id=current_user.id,
         device_id=device.id if device is not None else None,
-        status=assessment["status"],
+        status=status,
         checked_in_at=now,
         latitude=payload.latitude,
         longitude=payload.longitude,
@@ -475,9 +504,9 @@ def _submit_checkin(db: Session, payload: CheckinCreate, current_user: User, req
                 ),
             )
         action = AuditAction.CHECKIN_APPROVED.value
-        if assessment["status"] == CheckinStatus.FLAGGED.value:
+        if status == CheckinStatus.FLAGGED.value:
             action = AuditAction.CHECKIN_FLAGGED.value
-        elif assessment["status"] == CheckinStatus.REJECTED.value:
+        elif status == CheckinStatus.REJECTED.value:
             action = AuditAction.CHECKIN_REJECTED.value
         append_audit(
             db,
