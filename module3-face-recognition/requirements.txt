@@ -7,8 +7,8 @@ httpx==0.26.0
 
 # Face recognition & CV
 # The implementation uses the documented mp.solutions FaceDetection/FaceMesh API.
-# MediaPipe 1.x removed this API surface, so keep the compatible 0.10 release line.
-mediapipe==0.10.21
+# Match the course-announced MediaPipe version.
+mediapipe==0.10.18
 # MediaPipe already depends on opencv-contrib-python; do not install a second
 # package that writes the same cv2 files.
 opencv-contrib-python==4.11.0.86
