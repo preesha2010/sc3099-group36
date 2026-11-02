@@ -1,0 +1,15 @@
+# Use with the repository's compose file; paths resolve from the repository root.
+services:
+  face-recognition:
+    environment:
+      FACE_TEMPLATE_MODE: simhash
+      LIVENESS_BACKEND: minifasnet
+      FACE_MODEL_DIR: /app/models
+      FACE_MODEL_WORKERS: "4"
+      OPENBLAS_NUM_THREADS: "1"
+      OMP_NUM_THREADS: "1"
+    volumes:
+      - type: bind
+        source: ${M3_MODEL_DIR:-./module3-face-recognition/models}
+        target: /app/models
+        read_only: true

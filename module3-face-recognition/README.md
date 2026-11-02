@@ -146,6 +146,28 @@ docker run --rm --name saiv-module3-local -p 127.0.0.1:8001:8001 saiv-module3
 The image runs as a non-root user and includes a health check. This command
 does not start or require any other module. Docker engine must be running.
 
+### Run enhanced mode with the full Compose stack
+
+First bootstrap both model sets and a private persistent key as described above.
+From the repository root, use the M3 overlay with the shared Compose file:
+
+```powershell
+docker compose -f docker-compose.yml -f module3-face-recognition/compose.enhanced.yml up --build
+```
+
+The overlay sets SimHash and MiniFASNet explicitly and mounts the prepared
+`module3-face-recognition/models` directory read-only at `/app/models`. To use
+another persistent model directory, set `M3_MODEL_DIR` before running Compose;
+relative paths are resolved from the repository root. The container runs as UID
+10001, which must have read and directory traversal access to the model files
+and `template.key`; restrict key access to the service operator and container.
+Do not commit the key or copy it into the image. Keep the same key and model
+versions across restarts and instances; changing the key or switching from
+SHA-256 requires re-enrollment. Missing or unreadable required assets cause
+enhanced startup to fail rather than silently fall back. `run_enhanced.py` is
+not required in the container. Verify readiness and an authorized cross-photo
+enrollment/check-in in the actual deployment before the demo.
+
 ## Reproduce verification
 
 ```powershell
