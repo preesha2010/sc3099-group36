@@ -161,6 +161,10 @@ another persistent model directory, set `M3_MODEL_DIR` before running Compose;
 relative paths are resolved from the repository root. The container runs as UID
 10001, which must have read and directory traversal access to the model files
 and `template.key`; restrict key access to the service operator and container.
+On Linux, the bootstrap key is owner-readable only. To run the service with the
+model owner's numeric UID and GID instead, set `M3_CONTAINER_USER` (for example,
+`export M3_CONTAINER_USER="$(id -u):$(id -g)"`) before running Compose. Do not
+use root for the service.
 Do not commit the key or copy it into the image. Keep the same key and model
 versions across restarts and instances; changing the key or switching from
 SHA-256 requires re-enrollment. Missing or unreadable required assets cause
