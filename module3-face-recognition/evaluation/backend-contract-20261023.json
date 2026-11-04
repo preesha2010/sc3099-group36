@@ -1,0 +1,233 @@
+{
+  "timestamp_utc": "2026-10-23T08:34:08.133077+00:00",
+  "completed": true,
+  "passed": true,
+  "profiles": {
+    "sha256": [
+      {
+        "check": "enroll_data_url_and_64_hex_template",
+        "passed": true
+      },
+      {
+        "check": "verify_stored_template_round_trip",
+        "passed": true
+      },
+      {
+        "check": "passive_liveness_fields_and_same_template",
+        "passed": true
+      },
+      {
+        "check": "risk_weighted_contributions",
+        "passed": true
+      },
+      {
+        "check": "consent_false",
+        "passed": true
+      },
+      {
+        "check": "consent_string_not_boolean",
+        "passed": true
+      },
+      {
+        "check": "invalid_image",
+        "passed": true
+      },
+      {
+        "check": "blank_enrollment",
+        "passed": true
+      },
+      {
+        "check": "invalid_reference",
+        "passed": true
+      },
+      {
+        "check": "unsupported_blink",
+        "passed": true
+      },
+      {
+        "check": "unsupported_head_turn",
+        "passed": true
+      },
+      {
+        "check": "invalid_risk_score",
+        "passed": true
+      },
+      {
+        "check": "no_face_verify_negative_not_transport_failure",
+        "passed": true
+      },
+      {
+        "check": "no_face_liveness_negative_not_transport_failure",
+        "passed": true
+      }
+    ],
+    "enhanced": [
+      {
+        "check": "enroll_data_url_and_64_hex_template",
+        "passed": true
+      },
+      {
+        "check": "verify_stored_template_round_trip",
+        "passed": true
+      },
+      {
+        "check": "passive_liveness_fields_and_same_template",
+        "passed": true
+      },
+      {
+        "check": "risk_weighted_contributions",
+        "passed": true
+      },
+      {
+        "check": "consent_false",
+        "passed": true
+      },
+      {
+        "check": "consent_string_not_boolean",
+        "passed": true
+      },
+      {
+        "check": "invalid_image",
+        "passed": true
+      },
+      {
+        "check": "blank_enrollment",
+        "passed": true
+      },
+      {
+        "check": "invalid_reference",
+        "passed": true
+      },
+      {
+        "check": "unsupported_blink",
+        "passed": true
+      },
+      {
+        "check": "unsupported_head_turn",
+        "passed": true
+      },
+      {
+        "check": "invalid_risk_score",
+        "passed": true
+      },
+      {
+        "check": "no_face_verify_negative_not_transport_failure",
+        "passed": true
+      },
+      {
+        "check": "no_face_liveness_negative_not_transport_failure",
+        "passed": true
+      }
+    ]
+  },
+  "backend_modified": false,
+  "limitations": [
+    "Only the actual FaceClient/Module 3 HTTP boundary; not backend auth, DB or attendance decisions.",
+    "Only the backend settings import is stubbed, not client methods or HTTP responses.",
+    "Classification correctness and deployment capacity are separate release gates."
+  ],
+  "backend_commit": "7963b06641dc5ed5f3f4f5df8a843b61b068f53c",
+  "backend_client_sha256": "b35df5cd628919d5626e5856b8c116a3416c21300d250ad1d99d61bea9feec53",
+  "fault_checks": [
+    {
+      "check": "unavailable",
+      "passed": true,
+      "outcome_kind": "unavailable",
+      "http_status": 503,
+      "client_timeout_seconds": 5.0,
+      "request_body_consumed": true
+    },
+    {
+      "check": "error",
+      "passed": true,
+      "outcome_kind": "unavailable",
+      "http_status": 500,
+      "client_timeout_seconds": 5.0,
+      "request_body_consumed": true
+    },
+    {
+      "check": "schema",
+      "passed": true,
+      "outcome_kind": "client_error",
+      "http_status": 422,
+      "client_timeout_seconds": 5.0,
+      "request_body_consumed": true
+    },
+    {
+      "check": "upload",
+      "passed": true,
+      "outcome_kind": "client_error",
+      "http_status": 408,
+      "client_timeout_seconds": 5.0,
+      "request_body_consumed": true
+    },
+    {
+      "check": "timeout",
+      "passed": true,
+      "outcome_kind": "unavailable",
+      "http_status": null,
+      "client_timeout_seconds": 0.03,
+      "request_body_consumed": true
+    },
+    {
+      "check": "malformed",
+      "passed": true,
+      "outcome_kind": "malformed",
+      "http_status": 200,
+      "client_timeout_seconds": 5.0,
+      "request_body_consumed": true
+    },
+    {
+      "check": "empty",
+      "passed": true,
+      "outcome_kind": "malformed",
+      "http_status": 200,
+      "client_timeout_seconds": 5.0,
+      "request_body_consumed": true
+    },
+    {
+      "check": "boolean_score",
+      "passed": true,
+      "outcome_kind": "malformed",
+      "http_status": 200,
+      "client_timeout_seconds": 5.0,
+      "request_body_consumed": true
+    },
+    {
+      "check": "string_boolean",
+      "passed": true,
+      "outcome_kind": "malformed",
+      "http_status": 200,
+      "client_timeout_seconds": 5.0,
+      "request_body_consumed": true
+    },
+    {
+      "check": "nan_score",
+      "passed": true,
+      "outcome_kind": "malformed",
+      "http_status": 200,
+      "client_timeout_seconds": 5.0,
+      "request_body_consumed": true
+    },
+    {
+      "check": "bad_hash",
+      "passed": true,
+      "outcome_kind": "malformed",
+      "http_status": 200,
+      "client_timeout_seconds": 5.0,
+      "request_body_consumed": true
+    },
+    {
+      "check": "valid_negative",
+      "passed": true,
+      "outcome_kind": "ok",
+      "http_status": 200,
+      "client_timeout_seconds": 5.0,
+      "request_body_consumed": true
+    }
+  ],
+  "caller_observations": {
+    "non_json_200_status_only": false,
+    "non_json_200_is_success": false
+  }
+}

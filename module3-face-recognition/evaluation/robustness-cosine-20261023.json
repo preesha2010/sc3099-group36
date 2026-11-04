@@ -1,0 +1,1951 @@
+{
+  "timestamp_utc": "2026-10-23T07:54:40.433680+00:00",
+  "conditions": {
+    "original": {
+      "identity": {
+        "threshold": 0.7,
+        "FAR": {
+          "errors": 0,
+          "total": 2,
+          "rate": 0.0,
+          "wilson_95": [
+            0.0,
+            0.6576197724933469
+          ]
+        },
+        "FRR": {
+          "errors": 1,
+          "total": 3,
+          "rate": 0.3333333333333333,
+          "wilson_95": [
+            0.06149194472039621,
+            0.7923403991979522
+          ]
+        }
+      },
+      "pad": {
+        "threshold": 0.6,
+        "APCER": {
+          "errors": 0,
+          "total": 2,
+          "rate": 0.0,
+          "wilson_95": [
+            0.0,
+            0.6576197724933469
+          ]
+        },
+        "BPCER": {
+          "errors": 0,
+          "total": 1,
+          "rate": 0.0,
+          "wilson_95": [
+            0.0,
+            0.7934506856227626
+          ]
+        }
+      },
+      "identity_threshold_sweep": [
+        {
+          "threshold": 0.7,
+          "FAR": {
+            "errors": 0,
+            "total": 2,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.6576197724933469
+            ]
+          },
+          "FRR": {
+            "errors": 1,
+            "total": 3,
+            "rate": 0.3333333333333333,
+            "wilson_95": [
+              0.06149194472039621,
+              0.7923403991979522
+            ]
+          }
+        },
+        {
+          "threshold": 0.75,
+          "FAR": {
+            "errors": 0,
+            "total": 2,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.6576197724933469
+            ]
+          },
+          "FRR": {
+            "errors": 2,
+            "total": 3,
+            "rate": 0.6666666666666666,
+            "wilson_95": [
+              0.2076596008020477,
+              0.9385080552796037
+            ]
+          }
+        },
+        {
+          "threshold": 0.8,
+          "FAR": {
+            "errors": 0,
+            "total": 2,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.6576197724933469
+            ]
+          },
+          "FRR": {
+            "errors": 2,
+            "total": 3,
+            "rate": 0.6666666666666666,
+            "wilson_95": [
+              0.2076596008020477,
+              0.9385080552796037
+            ]
+          }
+        },
+        {
+          "threshold": 0.85,
+          "FAR": {
+            "errors": 0,
+            "total": 2,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.6576197724933469
+            ]
+          },
+          "FRR": {
+            "errors": 2,
+            "total": 3,
+            "rate": 0.6666666666666666,
+            "wilson_95": [
+              0.2076596008020477,
+              0.9385080552796037
+            ]
+          }
+        },
+        {
+          "threshold": 0.9,
+          "FAR": {
+            "errors": 0,
+            "total": 2,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.6576197724933469
+            ]
+          },
+          "FRR": {
+            "errors": 2,
+            "total": 3,
+            "rate": 0.6666666666666666,
+            "wilson_95": [
+              0.2076596008020477,
+              0.9385080552796037
+            ]
+          }
+        }
+      ],
+      "pad_threshold_sweep": [
+        {
+          "threshold": 0.6,
+          "APCER": {
+            "errors": 0,
+            "total": 2,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.6576197724933469
+            ]
+          },
+          "BPCER": {
+            "errors": 0,
+            "total": 1,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.7934506856227626
+            ]
+          }
+        },
+        {
+          "threshold": 0.7,
+          "APCER": {
+            "errors": 0,
+            "total": 2,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.6576197724933469
+            ]
+          },
+          "BPCER": {
+            "errors": 0,
+            "total": 1,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.7934506856227626
+            ]
+          }
+        },
+        {
+          "threshold": 0.8,
+          "APCER": {
+            "errors": 0,
+            "total": 2,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.6576197724933469
+            ]
+          },
+          "BPCER": {
+            "errors": 0,
+            "total": 1,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.7934506856227626
+            ]
+          }
+        },
+        {
+          "threshold": 0.9,
+          "APCER": {
+            "errors": 0,
+            "total": 2,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.6576197724933469
+            ]
+          },
+          "BPCER": {
+            "errors": 0,
+            "total": 1,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.7934506856227626
+            ]
+          }
+        }
+      ],
+      "identity_requested": 5,
+      "pad_requested": 3,
+      "identity_http_errors": 0,
+      "pad_http_errors": 0
+    },
+    "dark": {
+      "identity": {
+        "threshold": 0.7,
+        "FAR": {
+          "errors": 0,
+          "total": 2,
+          "rate": 0.0,
+          "wilson_95": [
+            0.0,
+            0.6576197724933469
+          ]
+        },
+        "FRR": {
+          "errors": 2,
+          "total": 3,
+          "rate": 0.6666666666666666,
+          "wilson_95": [
+            0.2076596008020477,
+            0.9385080552796037
+          ]
+        }
+      },
+      "pad": {
+        "threshold": 0.6,
+        "APCER": {
+          "errors": 0,
+          "total": 2,
+          "rate": 0.0,
+          "wilson_95": [
+            0.0,
+            0.6576197724933469
+          ]
+        },
+        "BPCER": {
+          "errors": 0,
+          "total": 1,
+          "rate": 0.0,
+          "wilson_95": [
+            0.0,
+            0.7934506856227626
+          ]
+        }
+      },
+      "identity_threshold_sweep": [
+        {
+          "threshold": 0.7,
+          "FAR": {
+            "errors": 0,
+            "total": 2,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.6576197724933469
+            ]
+          },
+          "FRR": {
+            "errors": 2,
+            "total": 3,
+            "rate": 0.6666666666666666,
+            "wilson_95": [
+              0.2076596008020477,
+              0.9385080552796037
+            ]
+          }
+        },
+        {
+          "threshold": 0.75,
+          "FAR": {
+            "errors": 0,
+            "total": 2,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.6576197724933469
+            ]
+          },
+          "FRR": {
+            "errors": 2,
+            "total": 3,
+            "rate": 0.6666666666666666,
+            "wilson_95": [
+              0.2076596008020477,
+              0.9385080552796037
+            ]
+          }
+        },
+        {
+          "threshold": 0.8,
+          "FAR": {
+            "errors": 0,
+            "total": 2,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.6576197724933469
+            ]
+          },
+          "FRR": {
+            "errors": 2,
+            "total": 3,
+            "rate": 0.6666666666666666,
+            "wilson_95": [
+              0.2076596008020477,
+              0.9385080552796037
+            ]
+          }
+        },
+        {
+          "threshold": 0.85,
+          "FAR": {
+            "errors": 0,
+            "total": 2,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.6576197724933469
+            ]
+          },
+          "FRR": {
+            "errors": 2,
+            "total": 3,
+            "rate": 0.6666666666666666,
+            "wilson_95": [
+              0.2076596008020477,
+              0.9385080552796037
+            ]
+          }
+        },
+        {
+          "threshold": 0.9,
+          "FAR": {
+            "errors": 0,
+            "total": 2,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.6576197724933469
+            ]
+          },
+          "FRR": {
+            "errors": 2,
+            "total": 3,
+            "rate": 0.6666666666666666,
+            "wilson_95": [
+              0.2076596008020477,
+              0.9385080552796037
+            ]
+          }
+        }
+      ],
+      "pad_threshold_sweep": [
+        {
+          "threshold": 0.6,
+          "APCER": {
+            "errors": 0,
+            "total": 2,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.6576197724933469
+            ]
+          },
+          "BPCER": {
+            "errors": 0,
+            "total": 1,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.7934506856227626
+            ]
+          }
+        },
+        {
+          "threshold": 0.7,
+          "APCER": {
+            "errors": 0,
+            "total": 2,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.6576197724933469
+            ]
+          },
+          "BPCER": {
+            "errors": 0,
+            "total": 1,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.7934506856227626
+            ]
+          }
+        },
+        {
+          "threshold": 0.8,
+          "APCER": {
+            "errors": 0,
+            "total": 2,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.6576197724933469
+            ]
+          },
+          "BPCER": {
+            "errors": 0,
+            "total": 1,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.7934506856227626
+            ]
+          }
+        },
+        {
+          "threshold": 0.9,
+          "APCER": {
+            "errors": 0,
+            "total": 2,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.6576197724933469
+            ]
+          },
+          "BPCER": {
+            "errors": 0,
+            "total": 1,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.7934506856227626
+            ]
+          }
+        }
+      ],
+      "identity_requested": 5,
+      "pad_requested": 3,
+      "identity_http_errors": 0,
+      "pad_http_errors": 0
+    },
+    "bright": {
+      "identity": {
+        "threshold": 0.7,
+        "FAR": {
+          "errors": 0,
+          "total": 2,
+          "rate": 0.0,
+          "wilson_95": [
+            0.0,
+            0.6576197724933469
+          ]
+        },
+        "FRR": {
+          "errors": 1,
+          "total": 3,
+          "rate": 0.3333333333333333,
+          "wilson_95": [
+            0.06149194472039621,
+            0.7923403991979522
+          ]
+        }
+      },
+      "pad": {
+        "threshold": 0.6,
+        "APCER": {
+          "errors": 0,
+          "total": 2,
+          "rate": 0.0,
+          "wilson_95": [
+            0.0,
+            0.6576197724933469
+          ]
+        },
+        "BPCER": {
+          "errors": 0,
+          "total": 1,
+          "rate": 0.0,
+          "wilson_95": [
+            0.0,
+            0.7934506856227626
+          ]
+        }
+      },
+      "identity_threshold_sweep": [
+        {
+          "threshold": 0.7,
+          "FAR": {
+            "errors": 0,
+            "total": 2,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.6576197724933469
+            ]
+          },
+          "FRR": {
+            "errors": 1,
+            "total": 3,
+            "rate": 0.3333333333333333,
+            "wilson_95": [
+              0.06149194472039621,
+              0.7923403991979522
+            ]
+          }
+        },
+        {
+          "threshold": 0.75,
+          "FAR": {
+            "errors": 0,
+            "total": 2,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.6576197724933469
+            ]
+          },
+          "FRR": {
+            "errors": 2,
+            "total": 3,
+            "rate": 0.6666666666666666,
+            "wilson_95": [
+              0.2076596008020477,
+              0.9385080552796037
+            ]
+          }
+        },
+        {
+          "threshold": 0.8,
+          "FAR": {
+            "errors": 0,
+            "total": 2,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.6576197724933469
+            ]
+          },
+          "FRR": {
+            "errors": 2,
+            "total": 3,
+            "rate": 0.6666666666666666,
+            "wilson_95": [
+              0.2076596008020477,
+              0.9385080552796037
+            ]
+          }
+        },
+        {
+          "threshold": 0.85,
+          "FAR": {
+            "errors": 0,
+            "total": 2,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.6576197724933469
+            ]
+          },
+          "FRR": {
+            "errors": 2,
+            "total": 3,
+            "rate": 0.6666666666666666,
+            "wilson_95": [
+              0.2076596008020477,
+              0.9385080552796037
+            ]
+          }
+        },
+        {
+          "threshold": 0.9,
+          "FAR": {
+            "errors": 0,
+            "total": 2,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.6576197724933469
+            ]
+          },
+          "FRR": {
+            "errors": 2,
+            "total": 3,
+            "rate": 0.6666666666666666,
+            "wilson_95": [
+              0.2076596008020477,
+              0.9385080552796037
+            ]
+          }
+        }
+      ],
+      "pad_threshold_sweep": [
+        {
+          "threshold": 0.6,
+          "APCER": {
+            "errors": 0,
+            "total": 2,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.6576197724933469
+            ]
+          },
+          "BPCER": {
+            "errors": 0,
+            "total": 1,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.7934506856227626
+            ]
+          }
+        },
+        {
+          "threshold": 0.7,
+          "APCER": {
+            "errors": 0,
+            "total": 2,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.6576197724933469
+            ]
+          },
+          "BPCER": {
+            "errors": 0,
+            "total": 1,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.7934506856227626
+            ]
+          }
+        },
+        {
+          "threshold": 0.8,
+          "APCER": {
+            "errors": 0,
+            "total": 2,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.6576197724933469
+            ]
+          },
+          "BPCER": {
+            "errors": 0,
+            "total": 1,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.7934506856227626
+            ]
+          }
+        },
+        {
+          "threshold": 0.9,
+          "APCER": {
+            "errors": 0,
+            "total": 2,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.6576197724933469
+            ]
+          },
+          "BPCER": {
+            "errors": 0,
+            "total": 1,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.7934506856227626
+            ]
+          }
+        }
+      ],
+      "identity_requested": 5,
+      "pad_requested": 3,
+      "identity_http_errors": 0,
+      "pad_http_errors": 0
+    },
+    "low_contrast": {
+      "identity": {
+        "threshold": 0.7,
+        "FAR": {
+          "errors": 0,
+          "total": 2,
+          "rate": 0.0,
+          "wilson_95": [
+            0.0,
+            0.6576197724933469
+          ]
+        },
+        "FRR": {
+          "errors": 2,
+          "total": 3,
+          "rate": 0.6666666666666666,
+          "wilson_95": [
+            0.2076596008020477,
+            0.9385080552796037
+          ]
+        }
+      },
+      "pad": {
+        "threshold": 0.6,
+        "APCER": {
+          "errors": 0,
+          "total": 2,
+          "rate": 0.0,
+          "wilson_95": [
+            0.0,
+            0.6576197724933469
+          ]
+        },
+        "BPCER": {
+          "errors": 0,
+          "total": 1,
+          "rate": 0.0,
+          "wilson_95": [
+            0.0,
+            0.7934506856227626
+          ]
+        }
+      },
+      "identity_threshold_sweep": [
+        {
+          "threshold": 0.7,
+          "FAR": {
+            "errors": 0,
+            "total": 2,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.6576197724933469
+            ]
+          },
+          "FRR": {
+            "errors": 2,
+            "total": 3,
+            "rate": 0.6666666666666666,
+            "wilson_95": [
+              0.2076596008020477,
+              0.9385080552796037
+            ]
+          }
+        },
+        {
+          "threshold": 0.75,
+          "FAR": {
+            "errors": 0,
+            "total": 2,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.6576197724933469
+            ]
+          },
+          "FRR": {
+            "errors": 2,
+            "total": 3,
+            "rate": 0.6666666666666666,
+            "wilson_95": [
+              0.2076596008020477,
+              0.9385080552796037
+            ]
+          }
+        },
+        {
+          "threshold": 0.8,
+          "FAR": {
+            "errors": 0,
+            "total": 2,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.6576197724933469
+            ]
+          },
+          "FRR": {
+            "errors": 2,
+            "total": 3,
+            "rate": 0.6666666666666666,
+            "wilson_95": [
+              0.2076596008020477,
+              0.9385080552796037
+            ]
+          }
+        },
+        {
+          "threshold": 0.85,
+          "FAR": {
+            "errors": 0,
+            "total": 2,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.6576197724933469
+            ]
+          },
+          "FRR": {
+            "errors": 2,
+            "total": 3,
+            "rate": 0.6666666666666666,
+            "wilson_95": [
+              0.2076596008020477,
+              0.9385080552796037
+            ]
+          }
+        },
+        {
+          "threshold": 0.9,
+          "FAR": {
+            "errors": 0,
+            "total": 2,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.6576197724933469
+            ]
+          },
+          "FRR": {
+            "errors": 2,
+            "total": 3,
+            "rate": 0.6666666666666666,
+            "wilson_95": [
+              0.2076596008020477,
+              0.9385080552796037
+            ]
+          }
+        }
+      ],
+      "pad_threshold_sweep": [
+        {
+          "threshold": 0.6,
+          "APCER": {
+            "errors": 0,
+            "total": 2,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.6576197724933469
+            ]
+          },
+          "BPCER": {
+            "errors": 0,
+            "total": 1,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.7934506856227626
+            ]
+          }
+        },
+        {
+          "threshold": 0.7,
+          "APCER": {
+            "errors": 0,
+            "total": 2,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.6576197724933469
+            ]
+          },
+          "BPCER": {
+            "errors": 0,
+            "total": 1,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.7934506856227626
+            ]
+          }
+        },
+        {
+          "threshold": 0.8,
+          "APCER": {
+            "errors": 0,
+            "total": 2,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.6576197724933469
+            ]
+          },
+          "BPCER": {
+            "errors": 0,
+            "total": 1,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.7934506856227626
+            ]
+          }
+        },
+        {
+          "threshold": 0.9,
+          "APCER": {
+            "errors": 0,
+            "total": 2,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.6576197724933469
+            ]
+          },
+          "BPCER": {
+            "errors": 0,
+            "total": 1,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.7934506856227626
+            ]
+          }
+        }
+      ],
+      "identity_requested": 5,
+      "pad_requested": 3,
+      "identity_http_errors": 0,
+      "pad_http_errors": 0
+    },
+    "rotate_left": {
+      "identity": {
+        "threshold": 0.7,
+        "FAR": {
+          "errors": 0,
+          "total": 2,
+          "rate": 0.0,
+          "wilson_95": [
+            0.0,
+            0.6576197724933469
+          ]
+        },
+        "FRR": {
+          "errors": 2,
+          "total": 3,
+          "rate": 0.6666666666666666,
+          "wilson_95": [
+            0.2076596008020477,
+            0.9385080552796037
+          ]
+        }
+      },
+      "pad": {
+        "threshold": 0.6,
+        "APCER": {
+          "errors": 0,
+          "total": 2,
+          "rate": 0.0,
+          "wilson_95": [
+            0.0,
+            0.6576197724933469
+          ]
+        },
+        "BPCER": {
+          "errors": 0,
+          "total": 1,
+          "rate": 0.0,
+          "wilson_95": [
+            0.0,
+            0.7934506856227626
+          ]
+        }
+      },
+      "identity_threshold_sweep": [
+        {
+          "threshold": 0.7,
+          "FAR": {
+            "errors": 0,
+            "total": 2,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.6576197724933469
+            ]
+          },
+          "FRR": {
+            "errors": 2,
+            "total": 3,
+            "rate": 0.6666666666666666,
+            "wilson_95": [
+              0.2076596008020477,
+              0.9385080552796037
+            ]
+          }
+        },
+        {
+          "threshold": 0.75,
+          "FAR": {
+            "errors": 0,
+            "total": 2,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.6576197724933469
+            ]
+          },
+          "FRR": {
+            "errors": 2,
+            "total": 3,
+            "rate": 0.6666666666666666,
+            "wilson_95": [
+              0.2076596008020477,
+              0.9385080552796037
+            ]
+          }
+        },
+        {
+          "threshold": 0.8,
+          "FAR": {
+            "errors": 0,
+            "total": 2,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.6576197724933469
+            ]
+          },
+          "FRR": {
+            "errors": 2,
+            "total": 3,
+            "rate": 0.6666666666666666,
+            "wilson_95": [
+              0.2076596008020477,
+              0.9385080552796037
+            ]
+          }
+        },
+        {
+          "threshold": 0.85,
+          "FAR": {
+            "errors": 0,
+            "total": 2,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.6576197724933469
+            ]
+          },
+          "FRR": {
+            "errors": 2,
+            "total": 3,
+            "rate": 0.6666666666666666,
+            "wilson_95": [
+              0.2076596008020477,
+              0.9385080552796037
+            ]
+          }
+        },
+        {
+          "threshold": 0.9,
+          "FAR": {
+            "errors": 0,
+            "total": 2,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.6576197724933469
+            ]
+          },
+          "FRR": {
+            "errors": 2,
+            "total": 3,
+            "rate": 0.6666666666666666,
+            "wilson_95": [
+              0.2076596008020477,
+              0.9385080552796037
+            ]
+          }
+        }
+      ],
+      "pad_threshold_sweep": [
+        {
+          "threshold": 0.6,
+          "APCER": {
+            "errors": 0,
+            "total": 2,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.6576197724933469
+            ]
+          },
+          "BPCER": {
+            "errors": 0,
+            "total": 1,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.7934506856227626
+            ]
+          }
+        },
+        {
+          "threshold": 0.7,
+          "APCER": {
+            "errors": 0,
+            "total": 2,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.6576197724933469
+            ]
+          },
+          "BPCER": {
+            "errors": 0,
+            "total": 1,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.7934506856227626
+            ]
+          }
+        },
+        {
+          "threshold": 0.8,
+          "APCER": {
+            "errors": 0,
+            "total": 2,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.6576197724933469
+            ]
+          },
+          "BPCER": {
+            "errors": 0,
+            "total": 1,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.7934506856227626
+            ]
+          }
+        },
+        {
+          "threshold": 0.9,
+          "APCER": {
+            "errors": 0,
+            "total": 2,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.6576197724933469
+            ]
+          },
+          "BPCER": {
+            "errors": 0,
+            "total": 1,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.7934506856227626
+            ]
+          }
+        }
+      ],
+      "identity_requested": 5,
+      "pad_requested": 3,
+      "identity_http_errors": 0,
+      "pad_http_errors": 0
+    },
+    "rotate_right": {
+      "identity": {
+        "threshold": 0.7,
+        "FAR": {
+          "errors": 0,
+          "total": 2,
+          "rate": 0.0,
+          "wilson_95": [
+            0.0,
+            0.6576197724933469
+          ]
+        },
+        "FRR": {
+          "errors": 2,
+          "total": 3,
+          "rate": 0.6666666666666666,
+          "wilson_95": [
+            0.2076596008020477,
+            0.9385080552796037
+          ]
+        }
+      },
+      "pad": {
+        "threshold": 0.6,
+        "APCER": {
+          "errors": 0,
+          "total": 2,
+          "rate": 0.0,
+          "wilson_95": [
+            0.0,
+            0.6576197724933469
+          ]
+        },
+        "BPCER": {
+          "errors": 0,
+          "total": 1,
+          "rate": 0.0,
+          "wilson_95": [
+            0.0,
+            0.7934506856227626
+          ]
+        }
+      },
+      "identity_threshold_sweep": [
+        {
+          "threshold": 0.7,
+          "FAR": {
+            "errors": 0,
+            "total": 2,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.6576197724933469
+            ]
+          },
+          "FRR": {
+            "errors": 2,
+            "total": 3,
+            "rate": 0.6666666666666666,
+            "wilson_95": [
+              0.2076596008020477,
+              0.9385080552796037
+            ]
+          }
+        },
+        {
+          "threshold": 0.75,
+          "FAR": {
+            "errors": 0,
+            "total": 2,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.6576197724933469
+            ]
+          },
+          "FRR": {
+            "errors": 3,
+            "total": 3,
+            "rate": 1.0,
+            "wilson_95": [
+              0.4385029682449546,
+              1.0
+            ]
+          }
+        },
+        {
+          "threshold": 0.8,
+          "FAR": {
+            "errors": 0,
+            "total": 2,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.6576197724933469
+            ]
+          },
+          "FRR": {
+            "errors": 3,
+            "total": 3,
+            "rate": 1.0,
+            "wilson_95": [
+              0.4385029682449546,
+              1.0
+            ]
+          }
+        },
+        {
+          "threshold": 0.85,
+          "FAR": {
+            "errors": 0,
+            "total": 2,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.6576197724933469
+            ]
+          },
+          "FRR": {
+            "errors": 3,
+            "total": 3,
+            "rate": 1.0,
+            "wilson_95": [
+              0.4385029682449546,
+              1.0
+            ]
+          }
+        },
+        {
+          "threshold": 0.9,
+          "FAR": {
+            "errors": 0,
+            "total": 2,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.6576197724933469
+            ]
+          },
+          "FRR": {
+            "errors": 3,
+            "total": 3,
+            "rate": 1.0,
+            "wilson_95": [
+              0.4385029682449546,
+              1.0
+            ]
+          }
+        }
+      ],
+      "pad_threshold_sweep": [
+        {
+          "threshold": 0.6,
+          "APCER": {
+            "errors": 0,
+            "total": 2,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.6576197724933469
+            ]
+          },
+          "BPCER": {
+            "errors": 0,
+            "total": 1,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.7934506856227626
+            ]
+          }
+        },
+        {
+          "threshold": 0.7,
+          "APCER": {
+            "errors": 0,
+            "total": 2,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.6576197724933469
+            ]
+          },
+          "BPCER": {
+            "errors": 0,
+            "total": 1,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.7934506856227626
+            ]
+          }
+        },
+        {
+          "threshold": 0.8,
+          "APCER": {
+            "errors": 0,
+            "total": 2,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.6576197724933469
+            ]
+          },
+          "BPCER": {
+            "errors": 0,
+            "total": 1,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.7934506856227626
+            ]
+          }
+        },
+        {
+          "threshold": 0.9,
+          "APCER": {
+            "errors": 0,
+            "total": 2,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.6576197724933469
+            ]
+          },
+          "BPCER": {
+            "errors": 0,
+            "total": 1,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.7934506856227626
+            ]
+          }
+        }
+      ],
+      "identity_requested": 5,
+      "pad_requested": 3,
+      "identity_http_errors": 0,
+      "pad_http_errors": 0
+    },
+    "jpeg40": {
+      "identity": {
+        "threshold": 0.7,
+        "FAR": {
+          "errors": 0,
+          "total": 2,
+          "rate": 0.0,
+          "wilson_95": [
+            0.0,
+            0.6576197724933469
+          ]
+        },
+        "FRR": {
+          "errors": 2,
+          "total": 3,
+          "rate": 0.6666666666666666,
+          "wilson_95": [
+            0.2076596008020477,
+            0.9385080552796037
+          ]
+        }
+      },
+      "pad": {
+        "threshold": 0.6,
+        "APCER": {
+          "errors": 0,
+          "total": 2,
+          "rate": 0.0,
+          "wilson_95": [
+            0.0,
+            0.6576197724933469
+          ]
+        },
+        "BPCER": {
+          "errors": 0,
+          "total": 1,
+          "rate": 0.0,
+          "wilson_95": [
+            0.0,
+            0.7934506856227626
+          ]
+        }
+      },
+      "identity_threshold_sweep": [
+        {
+          "threshold": 0.7,
+          "FAR": {
+            "errors": 0,
+            "total": 2,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.6576197724933469
+            ]
+          },
+          "FRR": {
+            "errors": 2,
+            "total": 3,
+            "rate": 0.6666666666666666,
+            "wilson_95": [
+              0.2076596008020477,
+              0.9385080552796037
+            ]
+          }
+        },
+        {
+          "threshold": 0.75,
+          "FAR": {
+            "errors": 0,
+            "total": 2,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.6576197724933469
+            ]
+          },
+          "FRR": {
+            "errors": 2,
+            "total": 3,
+            "rate": 0.6666666666666666,
+            "wilson_95": [
+              0.2076596008020477,
+              0.9385080552796037
+            ]
+          }
+        },
+        {
+          "threshold": 0.8,
+          "FAR": {
+            "errors": 0,
+            "total": 2,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.6576197724933469
+            ]
+          },
+          "FRR": {
+            "errors": 2,
+            "total": 3,
+            "rate": 0.6666666666666666,
+            "wilson_95": [
+              0.2076596008020477,
+              0.9385080552796037
+            ]
+          }
+        },
+        {
+          "threshold": 0.85,
+          "FAR": {
+            "errors": 0,
+            "total": 2,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.6576197724933469
+            ]
+          },
+          "FRR": {
+            "errors": 2,
+            "total": 3,
+            "rate": 0.6666666666666666,
+            "wilson_95": [
+              0.2076596008020477,
+              0.9385080552796037
+            ]
+          }
+        },
+        {
+          "threshold": 0.9,
+          "FAR": {
+            "errors": 0,
+            "total": 2,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.6576197724933469
+            ]
+          },
+          "FRR": {
+            "errors": 2,
+            "total": 3,
+            "rate": 0.6666666666666666,
+            "wilson_95": [
+              0.2076596008020477,
+              0.9385080552796037
+            ]
+          }
+        }
+      ],
+      "pad_threshold_sweep": [
+        {
+          "threshold": 0.6,
+          "APCER": {
+            "errors": 0,
+            "total": 2,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.6576197724933469
+            ]
+          },
+          "BPCER": {
+            "errors": 0,
+            "total": 1,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.7934506856227626
+            ]
+          }
+        },
+        {
+          "threshold": 0.7,
+          "APCER": {
+            "errors": 0,
+            "total": 2,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.6576197724933469
+            ]
+          },
+          "BPCER": {
+            "errors": 0,
+            "total": 1,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.7934506856227626
+            ]
+          }
+        },
+        {
+          "threshold": 0.8,
+          "APCER": {
+            "errors": 0,
+            "total": 2,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.6576197724933469
+            ]
+          },
+          "BPCER": {
+            "errors": 0,
+            "total": 1,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.7934506856227626
+            ]
+          }
+        },
+        {
+          "threshold": 0.9,
+          "APCER": {
+            "errors": 0,
+            "total": 2,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.6576197724933469
+            ]
+          },
+          "BPCER": {
+            "errors": 0,
+            "total": 1,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.7934506856227626
+            ]
+          }
+        }
+      ],
+      "identity_requested": 5,
+      "pad_requested": 3,
+      "identity_http_errors": 0,
+      "pad_http_errors": 0
+    },
+    "resize512": {
+      "identity": {
+        "threshold": 0.7,
+        "FAR": {
+          "errors": 0,
+          "total": 2,
+          "rate": 0.0,
+          "wilson_95": [
+            0.0,
+            0.6576197724933469
+          ]
+        },
+        "FRR": {
+          "errors": 2,
+          "total": 3,
+          "rate": 0.6666666666666666,
+          "wilson_95": [
+            0.2076596008020477,
+            0.9385080552796037
+          ]
+        }
+      },
+      "pad": {
+        "threshold": 0.6,
+        "APCER": {
+          "errors": 0,
+          "total": 2,
+          "rate": 0.0,
+          "wilson_95": [
+            0.0,
+            0.6576197724933469
+          ]
+        },
+        "BPCER": {
+          "errors": 0,
+          "total": 1,
+          "rate": 0.0,
+          "wilson_95": [
+            0.0,
+            0.7934506856227626
+          ]
+        }
+      },
+      "identity_threshold_sweep": [
+        {
+          "threshold": 0.7,
+          "FAR": {
+            "errors": 0,
+            "total": 2,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.6576197724933469
+            ]
+          },
+          "FRR": {
+            "errors": 2,
+            "total": 3,
+            "rate": 0.6666666666666666,
+            "wilson_95": [
+              0.2076596008020477,
+              0.9385080552796037
+            ]
+          }
+        },
+        {
+          "threshold": 0.75,
+          "FAR": {
+            "errors": 0,
+            "total": 2,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.6576197724933469
+            ]
+          },
+          "FRR": {
+            "errors": 2,
+            "total": 3,
+            "rate": 0.6666666666666666,
+            "wilson_95": [
+              0.2076596008020477,
+              0.9385080552796037
+            ]
+          }
+        },
+        {
+          "threshold": 0.8,
+          "FAR": {
+            "errors": 0,
+            "total": 2,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.6576197724933469
+            ]
+          },
+          "FRR": {
+            "errors": 2,
+            "total": 3,
+            "rate": 0.6666666666666666,
+            "wilson_95": [
+              0.2076596008020477,
+              0.9385080552796037
+            ]
+          }
+        },
+        {
+          "threshold": 0.85,
+          "FAR": {
+            "errors": 0,
+            "total": 2,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.6576197724933469
+            ]
+          },
+          "FRR": {
+            "errors": 2,
+            "total": 3,
+            "rate": 0.6666666666666666,
+            "wilson_95": [
+              0.2076596008020477,
+              0.9385080552796037
+            ]
+          }
+        },
+        {
+          "threshold": 0.9,
+          "FAR": {
+            "errors": 0,
+            "total": 2,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.6576197724933469
+            ]
+          },
+          "FRR": {
+            "errors": 2,
+            "total": 3,
+            "rate": 0.6666666666666666,
+            "wilson_95": [
+              0.2076596008020477,
+              0.9385080552796037
+            ]
+          }
+        }
+      ],
+      "pad_threshold_sweep": [
+        {
+          "threshold": 0.6,
+          "APCER": {
+            "errors": 0,
+            "total": 2,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.6576197724933469
+            ]
+          },
+          "BPCER": {
+            "errors": 0,
+            "total": 1,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.7934506856227626
+            ]
+          }
+        },
+        {
+          "threshold": 0.7,
+          "APCER": {
+            "errors": 0,
+            "total": 2,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.6576197724933469
+            ]
+          },
+          "BPCER": {
+            "errors": 0,
+            "total": 1,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.7934506856227626
+            ]
+          }
+        },
+        {
+          "threshold": 0.8,
+          "APCER": {
+            "errors": 0,
+            "total": 2,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.6576197724933469
+            ]
+          },
+          "BPCER": {
+            "errors": 0,
+            "total": 1,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.7934506856227626
+            ]
+          }
+        },
+        {
+          "threshold": 0.9,
+          "APCER": {
+            "errors": 0,
+            "total": 2,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.6576197724933469
+            ]
+          },
+          "BPCER": {
+            "errors": 0,
+            "total": 1,
+            "rate": 0.0,
+            "wilson_95": [
+              0.0,
+              0.7934506856227626
+            ]
+          }
+        }
+      ],
+      "identity_requested": 5,
+      "pad_requested": 3,
+      "identity_http_errors": 0,
+      "pad_http_errors": 0
+    }
+  },
+  "transform_version": 2,
+  "exif_orientation_normalized_before_transforms": true,
+  "score_policy": "estimated_cosine_clipped_v2",
+  "independent_identities": 2,
+  "independent_pad_sources": 3,
+  "newly_collected_faces": 0,
+  "identity_pairs_per_condition": 5,
+  "genuine_pairs_derived_from_enrollment_per_condition": 1,
+  "transport_checks_passed": true,
+  "limitations": [
+    "Existing repository samples and pinned publisher demos only; no new dataset authorization is claimed.",
+    "Transformations are correlated; they are not independent FAR/FRR or PAD trials.",
+    "The B genuine probe is derived from its enrollment image, not a separate capture.",
+    "Rates and binomial intervals are descriptive, not population security estimates.",
+    "Misclassifications remain in the report; production thresholds are never changed."
+  ],
+  "all_conditions_classified_correctly": false,
+  "release_gate_passed": false
+}

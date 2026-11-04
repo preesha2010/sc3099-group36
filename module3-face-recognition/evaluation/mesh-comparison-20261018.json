@@ -1,0 +1,67 @@
+{
+  "timestamp_utc": "2026-10-18T13:33:10.002830+00:00",
+  "conditions": {
+    "original": {
+      "comparisons": 3,
+      "reference_errors": 0,
+      "optimized_errors": 0,
+      "decision_disagreements": 0,
+      "maximum_score_difference": 0.0
+    },
+    "dark": {
+      "comparisons": 3,
+      "reference_errors": 1,
+      "optimized_errors": 1,
+      "decision_disagreements": 0,
+      "maximum_score_difference": 0.0
+    },
+    "bright": {
+      "comparisons": 3,
+      "reference_errors": 1,
+      "optimized_errors": 1,
+      "decision_disagreements": 0,
+      "maximum_score_difference": 0.0
+    },
+    "low_contrast": {
+      "comparisons": 3,
+      "reference_errors": 1,
+      "optimized_errors": 1,
+      "decision_disagreements": 0,
+      "maximum_score_difference": 0.0
+    },
+    "rotate_left": {
+      "comparisons": 3,
+      "reference_errors": 1,
+      "optimized_errors": 1,
+      "decision_disagreements": 0,
+      "maximum_score_difference": 0.0
+    },
+    "rotate_right": {
+      "comparisons": 3,
+      "reference_errors": 1,
+      "optimized_errors": 1,
+      "decision_disagreements": 0,
+      "maximum_score_difference": 0.0
+    },
+    "jpeg40": {
+      "comparisons": 3,
+      "reference_errors": 2,
+      "optimized_errors": 2,
+      "decision_disagreements": 0,
+      "maximum_score_difference": 0.0
+    },
+    "resize512": {
+      "comparisons": 3,
+      "reference_errors": 2,
+      "optimized_errors": 2,
+      "decision_disagreements": 0,
+      "maximum_score_difference": 0.0
+    }
+  },
+  "completed": true,
+  "limitations": [
+    "Only three publisher demos and correlated perturbations; no population accuracy claim.",
+    "ASGI algorithm comparison, not real network throughput or production validation."
+  ],
+  "all_decisions_agree": true
+}

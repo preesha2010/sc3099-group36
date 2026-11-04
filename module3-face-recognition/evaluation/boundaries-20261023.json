@@ -1,0 +1,149 @@
+{
+  "timestamp_utc": "2026-10-23T08:17:11.963936+00:00",
+  "state": "complete",
+  "passed": true,
+  "profile": "enhanced",
+  "clients": 8,
+  "requested_seconds": 120,
+  "counts": {
+    "/face/verify": {
+      "normal": {
+        "requests": 123,
+        "valid": 123,
+        "statuses": {
+          "200": 123
+        }
+      },
+      "blank_exactly_12mp": {
+        "requests": 123,
+        "valid": 123,
+        "statuses": {
+          "200": 123
+        }
+      },
+      "side_over_limit": {
+        "requests": 123,
+        "valid": 123,
+        "statuses": {
+          "413": 123
+        }
+      },
+      "corrupt": {
+        "requests": 123,
+        "valid": 123,
+        "statuses": {
+          "400": 123
+        }
+      },
+      "face_exactly_12mp": {
+        "requests": 123,
+        "valid": 123,
+        "statuses": {
+          "200": 123
+        }
+      },
+      "pixels_over_limit": {
+        "requests": 123,
+        "valid": 123,
+        "statuses": {
+          "413": 123
+        }
+      },
+      "below_minimum": {
+        "requests": 123,
+        "valid": 123,
+        "statuses": {
+          "400": 123
+        }
+      },
+      "base64_over_limit": {
+        "requests": 123,
+        "valid": 123,
+        "statuses": {
+          "413": 123
+        }
+      }
+    },
+    "/liveness/check": {
+      "face_exactly_12mp": {
+        "requests": 123,
+        "valid": 123,
+        "statuses": {
+          "200": 123
+        }
+      },
+      "pixels_over_limit": {
+        "requests": 123,
+        "valid": 123,
+        "statuses": {
+          "413": 123
+        }
+      },
+      "below_minimum": {
+        "requests": 123,
+        "valid": 123,
+        "statuses": {
+          "400": 123
+        }
+      },
+      "base64_over_limit": {
+        "requests": 123,
+        "valid": 123,
+        "statuses": {
+          "413": 123
+        }
+      },
+      "blank_exactly_12mp": {
+        "requests": 123,
+        "valid": 123,
+        "statuses": {
+          "200": 123
+        }
+      },
+      "side_over_limit": {
+        "requests": 123,
+        "valid": 123,
+        "statuses": {
+          "413": 123
+        }
+      },
+      "corrupt": {
+        "requests": 123,
+        "valid": 123,
+        "statuses": {
+          "400": 123
+        }
+      },
+      "normal": {
+        "requests": 123,
+        "valid": 123,
+        "statuses": {
+          "200": 123
+        }
+      }
+    }
+  },
+  "health_failures": 0,
+  "maximum_seconds": 1.156,
+  "limitations": [
+    "Existing sample upscaling/synthetic images are not new authorized accuracy data.",
+    "All workload cases are warmed before memory baseline; allocator high-watermark is not a leak proof.",
+    "Local finite stress, not Docker/full-system or universal deployment capacity validation."
+  ],
+  "declared_body_over_limit_rejected": true,
+  "elapsed_seconds": 120.156,
+  "memory": {
+    "available": true,
+    "sample_count": 247,
+    "window_samples": 10,
+    "initial_bytes": 1018171392.0,
+    "final_bytes": 733753344.0,
+    "peak_bytes": 1018171392.0,
+    "end_minus_initial_mib": -271.242,
+    "window_growth_mib": -44.098,
+    "growth_within_budget": true
+  },
+  "local_five_second_target_met": true,
+  "all_cases_per_endpoint_observed": true,
+  "recovery_ready": true
+}

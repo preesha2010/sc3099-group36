@@ -1,430 +1,274 @@
-"""
-SAIV Face Recognition & Risk Service - Module 3
+"""SAIV Module 3 HTTP API: face enrollment, verification, liveness, and risk."""
 
-This is the skeleton implementation for the Face Recognition module.
-Students must implement face enrollment, verification, liveness detection,
-and risk scoring.
+import os
+import asyncio
+import cv2
+from contextlib import asynccontextmanager
 
-Privacy Requirements:
-- NO raw face images should be stored
-- Process images in-memory only
-- Store only SHA-256 hashes of face embeddings
+import anyio.to_thread
 
-Recommended Libraries:
-- MediaPipe: Face detection and 468-landmark face mesh
-- OpenCV: Image processing
-- Pillow: Image loading from base64
-- NumPy: Numerical operations
-"""
-
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request, Response
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-from typing import Optional, Dict, List, Any
+from fastapi.responses import JSONResponse, PlainTextResponse
+
+from app.middleware import BodySizeLimitMiddleware, ServiceMiddleware, TelemetryMiddleware
+from app.config import Settings
+from app.observability import metrics
+from app.runtime import Runtime
+from app.telemetry import Telemetry
+
+from app.schemas import (
+    FaceEnrollRequest,
+    FaceEnrollResponse,
+    FaceMatchRequest,
+    FaceVerifyRequest,
+    FaceVerifyResponse,
+    LivenessRequest,
+    LivenessResponse,
+    RiskAssessRequest,
+    RiskAssessResponse,
+)
+from app.services.face import detect_face, extract_face_embedding, generate_face_hash
+from app.services.image import calculate_quality_score, decode_base64_image
+from app.services.liveness import assess_passive_liveness
+from app.risk_policy import RISK_POLICY_ID, RISK_POLICY_SHA256, assess_payload, policy_document
+from app.services.templates import match_templates, template_mode, validate_reference, SCORE_POLICY, match_query_to_template, template_format_id
+
+
+@asynccontextmanager
+async def lifespan(application: FastAPI):
+    # Bound the whole synchronous pipeline, not just individual neural models:
+    # queued callers must not all decode and hold full-sized images in memory.
+    settings = Settings.load()
+    runtime = Runtime(settings)
+    await anyio.to_thread.run_sync(runtime.start)
+    application.state.settings = settings
+    application.state.runtime = runtime
+    application.state.inference_slots = asyncio.Semaphore(settings.concurrency)
+    application.state.admitted = 0
+    application.state.telemetry = Telemetry(settings.otel_endpoint, failed=metrics.trace_failed)
+    limiter = anyio.to_thread.current_default_thread_limiter()
+    previous = limiter.total_tokens
+    limiter.total_tokens = settings.concurrency
+
+    async def recovery_loop():
+        while True:
+            await asyncio.sleep(2)
+            await anyio.to_thread.run_sync(runtime.recover)
+
+    recovery = asyncio.create_task(recovery_loop())
+    try:
+        yield
+    finally:
+        recovery.cancel()
+        try:
+            await recovery
+        except asyncio.CancelledError:
+            pass
+        limiter.total_tokens = previous
+        await anyio.to_thread.run_sync(application.state.telemetry.close)
+
 
 app = FastAPI(
     title="SAIV Face Recognition Service",
-    description="Face enrollment, verification, liveness detection, and risk scoring service",
-    version="1.0.0"
+    description="Face enrollment, verification, liveness detection, and risk assessment service",
+    version="1.0.0",
+    lifespan=lifespan,
 )
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=[origin.strip() for origin in os.getenv(
+        "CORS_ORIGINS", "http://localhost:3000,http://localhost:8501"
+    ).split(",") if origin.strip() and origin.strip() != "*"],
+    allow_credentials=False,
+    allow_methods=["GET", "POST"],
+    allow_headers=["Content-Type"],
 )
+app.add_middleware(BodySizeLimitMiddleware)
+app.add_middleware(ServiceMiddleware)
+app.add_middleware(TelemetryMiddleware)
 
 
-# =============================================================================
-# REQUEST/RESPONSE MODELS
-# =============================================================================
-
-class FaceEnrollRequest(BaseModel):
-    """Request model for face enrollment."""
-    user_id: str
-    image: str  # Base64 encoded image
-    camera_consent: bool = False
+@app.exception_handler(RequestValidationError)
+async def validation_error_handler(_: Request, exc: RequestValidationError):
+    # Pydantic normally echoes the rejected input, which may contain biometric
+    # base64 or a public key. Return only field locations and safe error metadata.
+    errors = [{key: error[key] for key in ("loc", "msg", "type")}
+              for error in exc.errors()]
+    return JSONResponse(status_code=422, content={"detail": errors})
 
 
-class FaceEnrollResponse(BaseModel):
-    """Response model for face enrollment."""
-    enrollment_successful: bool
-    face_template_hash: str  # 64-char SHA-256 hex string
-    quality_score: float  # 0.0 to 1.0
-    details: Dict[str, Any]
+@app.exception_handler(cv2.error)
+async def inference_error_handler(_: Request, exc: cv2.error):
+    return JSONResponse(status_code=503, content={"detail": "Local model inference is unavailable"})
 
-
-class FaceVerifyRequest(BaseModel):
-    """Request model for face verification."""
-    image: str  # Base64 encoded image
-    reference_template_hash: str  # Hash from enrollment
-
-
-class FaceVerifyResponse(BaseModel):
-    """Response model for face verification."""
-    match_passed: bool
-    match_score: float  # 0.0 to 1.0
-    match_threshold: float  # Default: 0.70
-    face_detected: bool
-    current_template_hash: str
-
-
-class LivenessRequest(BaseModel):
-    """Request model for liveness check."""
-    challenge_response: str  # Base64 encoded image
-    challenge_type: str = "blink"  # blink, head_turn, passive
-
-
-class LivenessResponse(BaseModel):
-    """Response model for liveness check."""
-    liveness_passed: bool
-    liveness_score: float  # 0.0 to 1.0
-    liveness_threshold: float  # Default: 0.60
-    face_embedding_hash: str
-    details: Dict[str, Any]
-
-
-class GeolocationData(BaseModel):
-    """Geolocation data for risk assessment."""
-    latitude: float
-    longitude: float
-    accuracy: float
-
-
-class RiskAssessRequest(BaseModel):
-    """Request model for risk assessment."""
-    liveness_score: Optional[float] = None
-    face_match_score: Optional[float] = None
-    device_signature: Optional[str] = None
-    device_public_key: Optional[str] = None
-    ip_address: Optional[str] = None
-    user_agent: Optional[str] = None
-    geolocation: Optional[GeolocationData] = None
-
-
-class RiskAssessResponse(BaseModel):
-    """Response model for risk assessment."""
-    risk_score: float  # 0.0 to 1.0
-    risk_level: str  # LOW, MEDIUM, HIGH, CRITICAL
-    pass_threshold: bool
-    risk_threshold: float  # Default: 0.50
-    signal_breakdown: Dict[str, float]
-    recommendations: List[str]
-
-
-# =============================================================================
-# HEALTH & ROOT ENDPOINTS
-# =============================================================================
 
 @app.get("/health")
 async def health_check():
-    """Basic health check endpoint."""
-    return {"status": "healthy"}
+    """Return the minimal service-health contract used by Docker and public tests."""
+    return {"status": "healthy", "service": "face-recognition"}
+
+
+@app.get("/ready")
+async def readiness():
+    ready = app.state.runtime.ready()
+    return JSONResponse({"status": "ready" if ready else "not_ready", "service": "face-recognition"},
+                        status_code=200 if ready else 503)
+
+
+@app.get("/metrics", response_class=PlainTextResponse)
+async def service_metrics():
+    text = metrics.render() + "# TYPE module3_model_degraded_slots gauge\n# TYPE module3_model_slots gauge\n"
+    for name, instance in app.state.runtime.pool_names.items():
+        text += f'module3_model_degraded_slots{{model="{name}"}} {instance.degraded_slots}\n'
+        text += f'module3_model_slots{{model="{name}"}} {instance.count}\n'
+    return PlainTextResponse(text, media_type="text/plain; version=0.0.4")
 
 
 @app.get("/")
 async def root():
-    """List available endpoints."""
+    """List the public endpoints exposed by this internal microservice."""
     return {
         "service": "SAIV Face Recognition & Risk Service",
         "version": "1.0.0",
+        "template_mode": template_mode(),
+        "template_format": template_format_id(),
+        "match_score_policy": SCORE_POLICY if template_mode() == "simhash" else "exact_sha256_v1",
+        "risk_policy_id": RISK_POLICY_ID,
+        "risk_policy_sha256": RISK_POLICY_SHA256,
         "endpoints": [
-            "GET /health - Health check",
-            "POST /face/enroll - Enroll a face for verification",
-            "POST /face/verify - Verify a face against enrolled template",
-            "POST /face/match - Legacy face matching (use /face/verify)",
-            "POST /liveness/check - Perform liveness detection",
-            "POST /risk/assess - Multi-signal risk assessment"
-        ]
+            "/health",
+            "/ready",
+            "/metrics",
+            "/face/enroll",
+            "/face/verify",
+            "/face/match",
+            "/liveness/check",
+            "/risk/assess",
+            "/risk/policy",
+        ],
     }
 
 
-# =============================================================================
-# FACE ENROLLMENT ENDPOINT (REQUIRED - 4 points in public tests)
-# =============================================================================
-
 @app.post("/face/enroll", response_model=FaceEnrollResponse, status_code=201)
-async def enroll_face(request: FaceEnrollRequest):
-    """
-    Enroll a user's face for future verification.
+def enroll_face(request: FaceEnrollRequest):
+    """Create the privacy-preserving face-template hash for one enrolled user."""
+    if not request.camera_consent:
+        raise HTTPException(status_code=400, detail="Camera consent is required for face enrollment")
 
-    TODO: Implement the following:
-    1. Validate camera_consent is True (return 400 if False)
-    2. Decode base64 image to numpy array
-    3. Detect face using MediaPipe FaceDetection
-    4. If no face detected, return 400 with "No face detected"
-    5. Extract face features/embedding
-    6. Generate SHA-256 hash of embedding (64 hex chars)
-    7. Calculate quality score based on:
-       - Face detection confidence
-       - Image resolution
-       - Face size relative to image
-    8. Return enrollment response
+    image_array = decode_base64_image(request.image)
+    detection = detect_face(image_array)
+    if detection is None:
+        raise HTTPException(status_code=400, detail="No face detected")
 
-    Success Criteria:
-    - Face detected with confidence >= 0.7
-    - Quality score >= 0.5
-    - Returns 64-char SHA-256 hex hash
-    """
-    # TODO: Implement face enrollment
-    raise HTTPException(status_code=501, detail="Not implemented")
+    quality_score, image_quality = calculate_quality_score(image_array, detection)
+    if quality_score < 0.5:
+        raise HTTPException(status_code=400, detail="Face image quality is too low")
 
+    embedding = extract_face_embedding(image_array, detection)
+    face_template_hash = generate_face_hash(embedding)
+    del image_array, embedding
+    return FaceEnrollResponse(
+        enrollment_successful=True,
+        face_template_hash=face_template_hash,
+        quality_score=quality_score,
+        details={
+            "face_detected": True,
+            "face_detection_confidence": float(detection["confidence"]),
+            "image_quality": image_quality,
+            "template_mode": template_mode(),
+            "template_format": template_format_id(),
+            "match_score_policy": SCORE_POLICY if template_mode() == "simhash" else "exact_sha256_v1",
+        },
+    )
 
-# =============================================================================
-# FACE VERIFICATION ENDPOINT (REQUIRED - 4 points in public tests)
-# =============================================================================
 
 @app.post("/face/verify", response_model=FaceVerifyResponse)
-async def verify_face(request: FaceVerifyRequest):
-    """
-    Verify a face against an enrolled template.
+def verify_face(request: FaceVerifyRequest):
+    """Compare a submitted image against the hash previously returned at enrollment."""
+    validate_reference(request.reference_template_hash)
+    image_array = decode_base64_image(request.image)
+    detection = detect_face(image_array)
+    if detection is None:
+        return FaceVerifyResponse(
+            match_passed=False,
+            match_score=0.0,
+            match_threshold=0.70,
+            face_detected=False,
+            current_template_hash="",
+        )
 
-    TODO: Implement the following:
-    1. Decode base64 image to numpy array
-    2. Detect face using MediaPipe FaceDetection
-    3. If no face detected, return with face_detected=False
-    4. Extract face features/embedding
-    5. Generate SHA-256 hash of current face
-    6. Compare hashes or embeddings (choose your approach)
-    7. Calculate match_score (0.0 to 1.0)
-    8. match_passed = (match_score >= 0.70)
-
-    Note: Hash comparison alone gives binary match. For continuous
-    scores, consider perceptual hashing or embedding similarity.
-    """
-    # TODO: Implement face verification
-    raise HTTPException(status_code=501, detail="Not implemented")
+    embedding = extract_face_embedding(image_array, detection)
+    current_template_hash = generate_face_hash(embedding)
+    match_score = (match_query_to_template(embedding, request.reference_template_hash) if template_mode() == "simhash"
+                   else match_templates(current_template_hash, request.reference_template_hash))
+    del image_array, embedding
+    return FaceVerifyResponse(
+        match_passed=match_score >= 0.70,
+        match_score=match_score,
+        match_threshold=0.70,
+        face_detected=True,
+        current_template_hash=current_template_hash,
+    )
 
 
 @app.post("/face/match")
-async def match_face(request: FaceVerifyRequest):
-    """
-    Legacy face matching endpoint. Redirects to /face/verify.
-    Kept for backwards compatibility.
-    """
-    return await verify_face(request)
+def match_face(request: FaceMatchRequest):
+    """Preserve the documented legacy request and response format."""
+    result = verify_face(
+        FaceVerifyRequest(image=request.image, reference_template_hash=request.reference_hash)
+    )
+    return {
+        "match_passed": result.match_passed,
+        "match_score": result.match_score,
+        "face_embedding_hash": result.current_template_hash,
+    }
 
-
-# =============================================================================
-# LIVENESS DETECTION ENDPOINT (REQUIRED - partial; BONUS for advanced)
-# =============================================================================
 
 @app.post("/liveness/check", response_model=LivenessResponse)
-async def check_liveness(request: LivenessRequest):
-    """
-    Perform liveness detection on submitted image.
+def check_liveness(request: LivenessRequest):
+    """Perform the documented single-image passive liveness check."""
+    if request.challenge_type != "passive":
+        raise HTTPException(
+            status_code=400,
+            detail="Motion challenges require multiple frames; this endpoint supports passive single-image checks only",
+        )
 
-    TODO: Implement the following:
-    1. Decode base64 image to numpy array
-    2. Detect face using MediaPipe FaceDetection
-    3. If no face detected, return with liveness_passed=False
-    4. Analyze face for liveness signals:
+    image_array = decode_base64_image(request.challenge_response)
+    detection = detect_face(image_array)
+    if detection is None:
+        return LivenessResponse(
+            liveness_passed=False,
+            liveness_score=0.0,
+            liveness_threshold=0.60,
+            challenge_type=request.challenge_type,
+            face_embedding_hash="",
+            details={"face_detected": False, "challenge_type": request.challenge_type},
+        )
 
-    REQUIRED (for partial credit):
-    - Basic face detection confidence
-    - Image quality assessment
-    - Face size validation
+    liveness_passed, liveness_score, face_embedding_hash, details = assess_passive_liveness(image_array, detection)
+    del image_array
+    return LivenessResponse(
+        liveness_passed=liveness_passed,
+        liveness_score=liveness_score,
+        liveness_threshold=0.60,
+        challenge_type=request.challenge_type,
+        face_embedding_hash=face_embedding_hash,
+        details={"face_detected": True, "challenge_type": request.challenge_type, **details},
+    )
 
-    BONUS (for extra credit - see API-SPECIFICATION.md):
-    - MediaPipe Face Mesh 3D analysis (468 landmarks)
-    - Depth cue analysis (nose_tip_z coordinate)
-    - Face mesh completeness check
-    - Challenge-response detection (blink, head movement)
-
-    Challenge Types:
-    - "passive": No user action required (depth/texture analysis)
-    - "blink": Detect eye blink (compare eye aspect ratios)
-    - "head_turn": Detect head rotation (face mesh landmarks)
-
-    5. Calculate liveness_score (0.0 to 1.0)
-    6. liveness_passed = (liveness_score >= 0.60)
-    7. Generate face embedding hash
-
-    Depth Analysis Hints (BONUS):
-    - Use MediaPipe FaceMesh to get 3D landmarks
-    - nose_tip_z (landmark 1, z-coordinate) indicates depth
-    - Real faces: |nose_tip_z| > 0.03 (significant depth)
-    - Flat images: |nose_tip_z| < 0.01 (minimal depth)
-    """
-    # TODO: Implement liveness detection
-    raise HTTPException(status_code=501, detail="Not implemented")
-
-
-# =============================================================================
-# RISK ASSESSMENT ENDPOINT (REQUIRED - 3 points in public tests)
-# =============================================================================
 
 @app.post("/risk/assess", response_model=RiskAssessResponse)
-async def assess_risk(request: RiskAssessRequest):
-    """
-    Perform multi-signal risk assessment.
-
-    TODO: Implement the following:
-    1. Collect all available signals from request
-    2. Calculate individual signal scores (0.0 = safe, 1.0 = risky)
-    3. Apply weighted fusion:
-       - Liveness: 25%
-       - Face match: 25%
-       - Device attestation: 20%
-       - Network/VPN: 15%
-       - Geolocation: 15%
-    4. Calculate combined risk_score
-    5. Determine risk_level:
-       - LOW: risk_score < 0.3
-       - MEDIUM: 0.3 <= risk_score < 0.5
-       - HIGH: 0.5 <= risk_score < 0.7
-       - CRITICAL: risk_score >= 0.7
-    6. pass_threshold = (risk_score < 0.50)
-    7. Generate recommendations for low-scoring signals
-
-    Signal Analysis:
-    - Liveness: Invert score (low liveness = high risk)
-    - Face match: Invert score (low match = high risk)
-    - Device: Check signature validity, public key format
-    - Network: Detect VPN/proxy (private IPs, Tor exit nodes)
-    - Geolocation: Check accuracy, validate coordinates
-
-    VPN/Proxy Detection Hints:
-    - Private IP ranges: 10.x.x.x, 172.16-31.x.x, 192.168.x.x
-    - Check user_agent for VPN indicators
-    - High geolocation accuracy (< 10m) might be spoofed
-    - Very low accuracy (> 5000m) indicates issues
-    """
-    # TODO: Implement risk assessment
-    raise HTTPException(status_code=501, detail="Not implemented")
+def assess_checkin_risk(request: RiskAssessRequest, response: Response):
+    """Apply the documented weighted multi-signal risk policy."""
+    response.headers["X-Risk-Policy-ID"] = RISK_POLICY_ID
+    response.headers["X-Risk-Policy-SHA256"] = RISK_POLICY_SHA256
+    return assess_payload(request.model_dump())
 
 
-# =============================================================================
-# HELPER FUNCTIONS (Implement these to support your endpoints)
-# =============================================================================
-
-def decode_base64_image(base64_string: str):
-    """
-    Decode a base64 encoded image to a numpy array.
-
-    TODO: Implement using:
-    - base64.b64decode()
-    - PIL.Image.open(BytesIO(...))
-    - numpy.array()
-
-    Handle errors gracefully (invalid base64, corrupt image, etc.)
-    """
-    pass
-
-
-def detect_face(image_array):
-    """
-    Detect faces in an image using MediaPipe.
-
-    TODO: Implement using:
-    - mediapipe.solutions.face_detection.FaceDetection
-    - Return detection results with confidence scores
-
-    Consider setting min_detection_confidence=0.5
-    """
-    pass
-
-
-def extract_face_embedding(image_array, detection):
-    """
-    Extract face embedding/features for hashing.
-
-    TODO: Choose your approach:
-    - Simple: Crop face region, resize to standard size, flatten
-    - Advanced: Use MediaPipe Face Mesh landmarks
-    - Even more advanced: Use face recognition model (dlib, etc.)
-
-    Return numpy array that can be hashed.
-    """
-    pass
-
-
-def generate_face_hash(embedding) -> str:
-    """
-    Generate SHA-256 hash of face embedding.
-
-    TODO: Implement using:
-    - hashlib.sha256()
-    - embedding.tobytes() or embedding.tostring()
-    - Return 64-character hex string
-    """
-    pass
-
-
-def analyze_face_mesh(image_array):
-    """
-    Analyze face using MediaPipe Face Mesh (BONUS).
-
-    TODO: Implement using:
-    - mediapipe.solutions.face_mesh.FaceMesh
-    - Extract 468 landmarks
-    - Calculate depth from nose_tip_z (landmark index 1)
-    - Check mesh completeness
-
-    Return dict with:
-    - face_mesh_complete: bool
-    - landmark_count: int
-    - nose_tip_z: float
-    - depth_quality: "good" | "moderate" | "poor"
-    """
-    pass
-
-
-def detect_blink(face_mesh_landmarks):
-    """
-    Detect eye blink from face mesh landmarks (BONUS).
-
-    TODO: Implement using:
-    - Eye landmark indices (see MediaPipe docs)
-    - Calculate Eye Aspect Ratio (EAR)
-    - EAR < threshold indicates closed eye
-    """
-    pass
-
-
-def detect_vpn_proxy(ip_address: str, user_agent: str) -> tuple:
-    """
-    Detect VPN/proxy usage.
-
-    TODO: Check for:
-    - Private IP ranges (10.x, 172.16-31.x, 192.168.x)
-    - Localhost (127.x, ::1)
-    - VPN keywords in user_agent
-    - Known proxy headers (not available here, but could extend)
-
-    Return (is_vpn: bool, confidence: float)
-    """
-    pass
-
-
-# =============================================================================
-# PRIVACY REQUIREMENTS (IMPORTANT!)
-# =============================================================================
-"""
-Your implementation MUST follow these privacy requirements:
-
-1. NO RAW IMAGES STORED
-   - Process images in-memory only
-   - Do not write images to disk
-   - Do not send images to external APIs
-
-2. HASH-ONLY STORAGE
-   - Store only SHA-256 hashes (64 hex characters)
-   - Hashes are one-way - cannot reconstruct face
-   - Different faces must produce different hashes
-
-3. EPHEMERAL PROCESSING
-   - Clear image data after processing
-   - No caching of raw biometric data
-   - Use Python's memory management (del, gc.collect)
-
-4. CONSENT TRACKING
-   - Require camera_consent=True for enrollment
-   - Log consent in audit trail (backend responsibility)
-
-5. RESPONSE HYGIENE
-   - Never include base64 image data in responses
-   - Only return hashes, scores, and metadata
-"""
+@app.get("/risk/policy")
+async def risk_policy():
+    """Discover numerical semantics; this is not an attendance-approval policy."""
+    return policy_document()

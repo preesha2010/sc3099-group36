@@ -1,0 +1,44 @@
+{
+  "timestamp_utc": "2026-10-20T15:16:10.009981+00:00",
+  "completed": true,
+  "passed": true,
+  "limitations": [
+    "Loopback diagnostic receiver, not the actual Module 4 Collector or complete backend trace.",
+    "No inference accuracy, external proxy/header deadlines or production network certification."
+  ],
+  "uploads": [
+    {
+      "chunked": false,
+      "trickle": false,
+      "passed": true
+    },
+    {
+      "chunked": false,
+      "trickle": true,
+      "passed": true
+    },
+    {
+      "chunked": true,
+      "trickle": false,
+      "passed": true
+    },
+    {
+      "chunked": true,
+      "trickle": true,
+      "passed": true
+    }
+  ],
+  "otlp": {
+    "passed": true,
+    "batches_received": 1,
+    "spans_received": 3,
+    "parent_continuity": true,
+    "worker_stage_continuity": true,
+    "sensitive_marker_absent": true
+  },
+  "collector_failure": {
+    "passed": true,
+    "export_failure_observed": true,
+    "health_and_readiness_unchanged": true
+  }
+}

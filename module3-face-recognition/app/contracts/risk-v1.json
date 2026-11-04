@@ -1,0 +1,27 @@
+{
+  "policy_id": "weighted_signals_v1",
+  "input_schema": "RiskAssessRequest",
+  "numeric_scores": "finite JSON numbers in [0,1]; boolean/string coercion forbidden",
+  "weights": {"liveness": 0.25, "face_match": 0.25, "device": 0.2, "network": 0.15, "geolocation": 0.15},
+  "missing_signal_risk": 0.5,
+  "biometric_risk": "1 - score; missing/null => 0.5",
+  "device_risk": {"both_missing": 0.5, "missing_one_or_malformed": 1.0, "parseable_key_nonempty_base64_signature_unverified": 0.5},
+  "network_risk": {"both_ip_and_user_agent_empty": 0.5, "private_or_loopback_ip_or_invalid_ip": 0.5, "vpn_proxy_tor_word_in_user_agent": 0.5, "combination": "sum flags, cap at 1.0", "otherwise": 0.0},
+  "network_classifier": "Python ipaddress.is_private/is_loopback plus case-insensitive whole-word vpn|proxy|tor; heuristic, not VPN proof",
+  "geolocation_risk": {"missing_or_null": 0.5, "accuracy_at_most_100m": 0.0, "accuracy_above_100m_at_most_5000m": 0.5, "accuracy_above_5000m": 1.0},
+  "arithmetic": "decimal representation of validated numbers; sum weighted contributions; no intermediate rounding",
+  "risk_level_boundaries": {"MEDIUM": 0.3, "HIGH": 0.5, "CRITICAL": 0.7},
+  "default_threshold": 0.5,
+  "pass_threshold": "risk_score < default_threshold; equality does not pass",
+  "fallback_conformance_fields": ["risk_score", "risk_level", "pass_threshold", "risk_threshold", "signal_breakdown"],
+  "conformance_absolute_tolerance": 1e-9,
+  "limitations": [
+    "Version identifies current Module 3 numerical semantics, not team approval of every missing-signal rule.",
+    "A risk pass is not biometric success or permission to approve attendance.",
+    "Unavailable, disabled and missing are different caller states; this legacy input schema cannot distinguish them.",
+    "Required biometric evidence must be checked by Module 2 BEFORE scoring or fallback.",
+    "Device signatures lack a signed server challenge; no signature authenticity is established.",
+    "Geolocation risk measures accuracy/validity, not distance to a course venue.",
+    "Pin the Python/ipaddress runtime and run the shared corpus before enabling a fallback; finite tests are not a proof of equivalence."
+  ]
+}

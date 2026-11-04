@@ -1,0 +1,630 @@
+{
+  "timestamp_utc": "2026-10-28T05:04:21.984227+00:00",
+  "completed": true,
+  "passed": true,
+  "profiles": {
+    "sha256": [
+      {
+        "check": "enroll_data_url_and_64_hex_template",
+        "passed": true
+      },
+      {
+        "check": "verify_stored_template_round_trip",
+        "passed": true
+      },
+      {
+        "check": "passive_liveness_fields_and_same_template",
+        "passed": true
+      },
+      {
+        "check": "risk_weighted_contributions",
+        "passed": true
+      },
+      {
+        "check": "consent_false",
+        "passed": true
+      },
+      {
+        "check": "consent_string_not_boolean",
+        "passed": true
+      },
+      {
+        "check": "invalid_image",
+        "passed": true
+      },
+      {
+        "check": "blank_enrollment",
+        "passed": true
+      },
+      {
+        "check": "invalid_reference",
+        "passed": true
+      },
+      {
+        "check": "unsupported_blink",
+        "passed": true
+      },
+      {
+        "check": "unsupported_head_turn",
+        "passed": true
+      },
+      {
+        "check": "invalid_risk_score",
+        "passed": true
+      },
+      {
+        "check": "no_face_verify_negative_not_transport_failure",
+        "passed": true
+      },
+      {
+        "check": "no_face_liveness_negative_not_transport_failure",
+        "passed": true
+      }
+    ],
+    "enhanced": [
+      {
+        "check": "enroll_data_url_and_64_hex_template",
+        "passed": true
+      },
+      {
+        "check": "verify_stored_template_round_trip",
+        "passed": true
+      },
+      {
+        "check": "passive_liveness_fields_and_same_template",
+        "passed": true
+      },
+      {
+        "check": "risk_weighted_contributions",
+        "passed": true
+      },
+      {
+        "check": "consent_false",
+        "passed": true
+      },
+      {
+        "check": "consent_string_not_boolean",
+        "passed": true
+      },
+      {
+        "check": "invalid_image",
+        "passed": true
+      },
+      {
+        "check": "blank_enrollment",
+        "passed": true
+      },
+      {
+        "check": "invalid_reference",
+        "passed": true
+      },
+      {
+        "check": "unsupported_blink",
+        "passed": true
+      },
+      {
+        "check": "unsupported_head_turn",
+        "passed": true
+      },
+      {
+        "check": "invalid_risk_score",
+        "passed": true
+      },
+      {
+        "check": "no_face_verify_negative_not_transport_failure",
+        "passed": true
+      },
+      {
+        "check": "no_face_liveness_negative_not_transport_failure",
+        "passed": true
+      }
+    ]
+  },
+  "risk_corpus": {
+    "sha256": [
+      {
+        "case": "all_missing",
+        "passed": true
+      },
+      {
+        "case": "explicit_nulls",
+        "passed": true
+      },
+      {
+        "case": "normal",
+        "passed": true
+      },
+      {
+        "case": "highest_risk",
+        "passed": true
+      },
+      {
+        "case": "missing_face_is_not_authorization",
+        "passed": true
+      },
+      {
+        "case": "failed_face_low_total_still_requires_gate",
+        "passed": true
+      },
+      {
+        "case": "below_medium",
+        "passed": true
+      },
+      {
+        "case": "at_medium",
+        "passed": true
+      },
+      {
+        "case": "above_medium",
+        "passed": true
+      },
+      {
+        "case": "below_high",
+        "passed": true
+      },
+      {
+        "case": "at_high",
+        "passed": true
+      },
+      {
+        "case": "above_high",
+        "passed": true
+      },
+      {
+        "case": "below_critical",
+        "passed": true
+      },
+      {
+        "case": "at_critical",
+        "passed": true
+      },
+      {
+        "case": "above_critical",
+        "passed": true
+      },
+      {
+        "case": "geo_100",
+        "passed": true
+      },
+      {
+        "case": "geo_over_100",
+        "passed": true
+      },
+      {
+        "case": "geo_5000",
+        "passed": true
+      },
+      {
+        "case": "geo_over_5000",
+        "passed": true
+      },
+      {
+        "case": "public_network",
+        "passed": true
+      },
+      {
+        "case": "ipv6_public",
+        "passed": true
+      },
+      {
+        "case": "private_network",
+        "passed": true
+      },
+      {
+        "case": "loopback_network",
+        "passed": true
+      },
+      {
+        "case": "ipv6_loopback",
+        "passed": true
+      },
+      {
+        "case": "invalid_ip",
+        "passed": true
+      },
+      {
+        "case": "vpn_word",
+        "passed": true
+      },
+      {
+        "case": "word_boundary",
+        "passed": true
+      },
+      {
+        "case": "private_and_proxy",
+        "passed": true
+      },
+      {
+        "case": "only_signature",
+        "passed": true
+      },
+      {
+        "case": "malformed_key",
+        "passed": true
+      },
+      {
+        "case": "parseable_device_not_verified",
+        "passed": true
+      },
+      {
+        "case": "empty_signature",
+        "passed": true
+      },
+      {
+        "case": "negative_score",
+        "passed": true
+      },
+      {
+        "case": "score_over_one",
+        "passed": true
+      },
+      {
+        "case": "boolean_score",
+        "passed": true
+      },
+      {
+        "case": "boolean_liveness",
+        "passed": true
+      },
+      {
+        "case": "string_score",
+        "passed": true
+      },
+      {
+        "case": "nan_string",
+        "passed": true
+      },
+      {
+        "case": "array_score",
+        "passed": true
+      },
+      {
+        "case": "object_score",
+        "passed": true
+      },
+      {
+        "case": "invalid_latitude",
+        "passed": true
+      },
+      {
+        "case": "invalid_longitude",
+        "passed": true
+      },
+      {
+        "case": "negative_accuracy",
+        "passed": true
+      },
+      {
+        "case": "missing_geo_field",
+        "passed": true
+      },
+      {
+        "case": "numeric_public_key",
+        "passed": true
+      }
+    ],
+    "enhanced": [
+      {
+        "case": "all_missing",
+        "passed": true
+      },
+      {
+        "case": "explicit_nulls",
+        "passed": true
+      },
+      {
+        "case": "normal",
+        "passed": true
+      },
+      {
+        "case": "highest_risk",
+        "passed": true
+      },
+      {
+        "case": "missing_face_is_not_authorization",
+        "passed": true
+      },
+      {
+        "case": "failed_face_low_total_still_requires_gate",
+        "passed": true
+      },
+      {
+        "case": "below_medium",
+        "passed": true
+      },
+      {
+        "case": "at_medium",
+        "passed": true
+      },
+      {
+        "case": "above_medium",
+        "passed": true
+      },
+      {
+        "case": "below_high",
+        "passed": true
+      },
+      {
+        "case": "at_high",
+        "passed": true
+      },
+      {
+        "case": "above_high",
+        "passed": true
+      },
+      {
+        "case": "below_critical",
+        "passed": true
+      },
+      {
+        "case": "at_critical",
+        "passed": true
+      },
+      {
+        "case": "above_critical",
+        "passed": true
+      },
+      {
+        "case": "geo_100",
+        "passed": true
+      },
+      {
+        "case": "geo_over_100",
+        "passed": true
+      },
+      {
+        "case": "geo_5000",
+        "passed": true
+      },
+      {
+        "case": "geo_over_5000",
+        "passed": true
+      },
+      {
+        "case": "public_network",
+        "passed": true
+      },
+      {
+        "case": "ipv6_public",
+        "passed": true
+      },
+      {
+        "case": "private_network",
+        "passed": true
+      },
+      {
+        "case": "loopback_network",
+        "passed": true
+      },
+      {
+        "case": "ipv6_loopback",
+        "passed": true
+      },
+      {
+        "case": "invalid_ip",
+        "passed": true
+      },
+      {
+        "case": "vpn_word",
+        "passed": true
+      },
+      {
+        "case": "word_boundary",
+        "passed": true
+      },
+      {
+        "case": "private_and_proxy",
+        "passed": true
+      },
+      {
+        "case": "only_signature",
+        "passed": true
+      },
+      {
+        "case": "malformed_key",
+        "passed": true
+      },
+      {
+        "case": "parseable_device_not_verified",
+        "passed": true
+      },
+      {
+        "case": "empty_signature",
+        "passed": true
+      },
+      {
+        "case": "negative_score",
+        "passed": true
+      },
+      {
+        "case": "score_over_one",
+        "passed": true
+      },
+      {
+        "case": "boolean_score",
+        "passed": true
+      },
+      {
+        "case": "boolean_liveness",
+        "passed": true
+      },
+      {
+        "case": "string_score",
+        "passed": true
+      },
+      {
+        "case": "nan_string",
+        "passed": true
+      },
+      {
+        "case": "array_score",
+        "passed": true
+      },
+      {
+        "case": "object_score",
+        "passed": true
+      },
+      {
+        "case": "invalid_latitude",
+        "passed": true
+      },
+      {
+        "case": "invalid_longitude",
+        "passed": true
+      },
+      {
+        "case": "negative_accuracy",
+        "passed": true
+      },
+      {
+        "case": "missing_geo_field",
+        "passed": true
+      },
+      {
+        "case": "numeric_public_key",
+        "passed": true
+      }
+    ]
+  },
+  "backend_modified": false,
+  "limitations": [
+    "Only the actual FaceClient/Module 3 HTTP boundary; not backend auth, DB or attendance decisions.",
+    "Only the backend settings import is stubbed, not client methods or HTTP responses.",
+    "Classification correctness and deployment capacity are separate release gates."
+  ],
+  "backend_commit": "7963b06641dc5ed5f3f4f5df8a843b61b068f53c",
+  "backend_client_sha256": "b35df5cd628919d5626e5856b8c116a3416c21300d250ad1d99d61bea9feec53",
+  "fault_checks": [
+    {
+      "check": "unavailable",
+      "passed": true,
+      "outcome_kind": "unavailable",
+      "http_status": 503,
+      "client_timeout_seconds": 5.0,
+      "request_body_consumed": true
+    },
+    {
+      "check": "error",
+      "passed": true,
+      "outcome_kind": "unavailable",
+      "http_status": 500,
+      "client_timeout_seconds": 5.0,
+      "request_body_consumed": true
+    },
+    {
+      "check": "schema",
+      "passed": true,
+      "outcome_kind": "client_error",
+      "http_status": 422,
+      "client_timeout_seconds": 5.0,
+      "request_body_consumed": true
+    },
+    {
+      "check": "upload",
+      "passed": true,
+      "outcome_kind": "client_error",
+      "http_status": 408,
+      "client_timeout_seconds": 5.0,
+      "request_body_consumed": true
+    },
+    {
+      "check": "timeout",
+      "passed": true,
+      "outcome_kind": "unavailable",
+      "http_status": null,
+      "client_timeout_seconds": 0.03,
+      "request_body_consumed": true
+    },
+    {
+      "check": "malformed",
+      "passed": true,
+      "outcome_kind": "malformed",
+      "http_status": 200,
+      "client_timeout_seconds": 5.0,
+      "request_body_consumed": true
+    },
+    {
+      "check": "empty",
+      "passed": true,
+      "outcome_kind": "malformed",
+      "http_status": 200,
+      "client_timeout_seconds": 5.0,
+      "request_body_consumed": true
+    },
+    {
+      "check": "boolean_score",
+      "passed": true,
+      "outcome_kind": "malformed",
+      "http_status": 200,
+      "client_timeout_seconds": 5.0,
+      "request_body_consumed": true
+    },
+    {
+      "check": "string_boolean",
+      "passed": true,
+      "outcome_kind": "malformed",
+      "http_status": 200,
+      "client_timeout_seconds": 5.0,
+      "request_body_consumed": true
+    },
+    {
+      "check": "nan_score",
+      "passed": true,
+      "outcome_kind": "malformed",
+      "http_status": 200,
+      "client_timeout_seconds": 5.0,
+      "request_body_consumed": true
+    },
+    {
+      "check": "bad_hash",
+      "passed": true,
+      "outcome_kind": "malformed",
+      "http_status": 200,
+      "client_timeout_seconds": 5.0,
+      "request_body_consumed": true
+    },
+    {
+      "check": "valid_negative",
+      "passed": true,
+      "outcome_kind": "ok",
+      "http_status": 200,
+      "client_timeout_seconds": 5.0,
+      "request_body_consumed": true
+    }
+  ],
+  "caller_observations": {
+    "non_json_200_status_only": false,
+    "non_json_200_is_success": false,
+    "risk_method_outcomes": [
+      {
+        "probe": "unavailable",
+        "outcome_kind": "unavailable",
+        "http_status": null,
+        "transport_success": false,
+        "required_score_present": false
+      },
+      {
+        "probe": "malformed",
+        "outcome_kind": "unavailable",
+        "http_status": null,
+        "transport_success": false,
+        "required_score_present": false
+      },
+      {
+        "probe": "empty",
+        "outcome_kind": "legacy_dict",
+        "http_status": 200,
+        "transport_success": true,
+        "required_score_present": false
+      }
+    ],
+    "risk_outage_distinguished_from_non_json": false,
+    "risk_empty_object_rejected": false
+  },
+  "integration_pending": [
+    "M2 assess_risk still conflates unavailable/non-JSON results or accepts missing score fields.",
+    "Classify and validate risk outcomes before enabling fallback; this report does not enable or verify M2 fallback."
+  ],
+  "risk_policy_id": "weighted_signals_v1",
+  "risk_policy_sha256": "5b3a07c3a6f2c3392599e24766ac8b2fff9290eaa6458b39b2cba4b5643f9d5d"
+}

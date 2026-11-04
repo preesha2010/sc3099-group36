@@ -1,0 +1,204 @@
+{
+  "timestamp_utc": "2026-10-18T13:20:32.381443+00:00",
+  "python": "3.12.10",
+  "platform": "Windows",
+  "opencv": "4.11.0",
+  "model_workers": 4,
+  "template_mode": "simhash",
+  "liveness_backend": "minifasnet",
+  "identity": [
+    {
+      "image": "obama.jpg",
+      "expected_match": true,
+      "actual_match": true,
+      "score": 1.0
+    },
+    {
+      "image": "obama2.jpg",
+      "expected_match": true,
+      "actual_match": true,
+      "score": 0.853553
+    },
+    {
+      "image": "obama3.jpg",
+      "expected_match": true,
+      "actual_match": true,
+      "score": 0.817197
+    },
+    {
+      "image": "biden.jpg",
+      "expected_match": false,
+      "actual_match": false,
+      "score": 0.597545
+    }
+  ],
+  "pad": [
+    {
+      "image": "image_F1.jpg",
+      "expected_live": false,
+      "actual_live": false,
+      "score": 0.072331,
+      "neural_score": 0.072331
+    },
+    {
+      "image": "image_F2.jpg",
+      "expected_live": false,
+      "actual_live": false,
+      "score": 0.181286,
+      "neural_score": 0.181286
+    },
+    {
+      "image": "image_T1.jpg",
+      "expected_live": true,
+      "actual_live": true,
+      "score": 0.993568,
+      "neural_score": 0.993568
+    }
+  ],
+  "load": {
+    "/face/verify": [
+      {
+        "clients": 100,
+        "successful": 100,
+        "http_status_counts": {
+          "200": 100
+        },
+        "elapsed_seconds": 2.906,
+        "p50_seconds": 1.375,
+        "p95_seconds": 2.422,
+        "maximum_seconds": 2.547,
+        "health_maximum_seconds": 0.016,
+        "health_failures": 0,
+        "repetition": 1
+      },
+      {
+        "clients": 100,
+        "successful": 100,
+        "http_status_counts": {
+          "200": 100
+        },
+        "elapsed_seconds": 2.922,
+        "p50_seconds": 1.296,
+        "p95_seconds": 2.532,
+        "maximum_seconds": 2.828,
+        "health_maximum_seconds": 0.125,
+        "health_failures": 0,
+        "repetition": 2
+      },
+      {
+        "clients": 100,
+        "successful": 100,
+        "http_status_counts": {
+          "200": 100
+        },
+        "elapsed_seconds": 4.453,
+        "p50_seconds": 2.094,
+        "p95_seconds": 4.079,
+        "maximum_seconds": 4.282,
+        "health_maximum_seconds": 0.157,
+        "health_failures": 0,
+        "repetition": 3
+      }
+    ],
+    "/liveness/check": [
+      {
+        "clients": 100,
+        "successful": 100,
+        "http_status_counts": {
+          "200": 100
+        },
+        "elapsed_seconds": 5.672,
+        "p50_seconds": 2.968,
+        "p95_seconds": 5.157,
+        "maximum_seconds": 5.531,
+        "health_maximum_seconds": 0.078,
+        "health_failures": 0,
+        "repetition": 1
+      },
+      {
+        "clients": 100,
+        "successful": 100,
+        "http_status_counts": {
+          "200": 100
+        },
+        "elapsed_seconds": 6.25,
+        "p50_seconds": 3.172,
+        "p95_seconds": 5.828,
+        "maximum_seconds": 6.156,
+        "health_maximum_seconds": 0.218,
+        "health_failures": 0,
+        "repetition": 2
+      },
+      {
+        "clients": 100,
+        "successful": 100,
+        "http_status_counts": {
+          "200": 100
+        },
+        "elapsed_seconds": 6.172,
+        "p50_seconds": 3.485,
+        "p95_seconds": 5.453,
+        "maximum_seconds": 5.625,
+        "health_maximum_seconds": 0.062,
+        "health_failures": 0,
+        "repetition": 3
+      }
+    ]
+  },
+  "inference_pending": 128,
+  "inference_queue_seconds": 30,
+  "native_threads": 2,
+  "repetitions": 3,
+  "inference_concurrency": 8,
+  "limitations": [
+    "Identity corpus has only two people; no general FAR/FRR claim.",
+    "PAD samples are three publisher demos, not independent camera/attack validation.",
+    "These are local process timings, not Docker or full-system performance."
+  ],
+  "public_test_exit_code": 0,
+  "final_metrics": "# TYPE module3_http_requests_total counter\nmodule3_http_requests_total{route=\"/\",status=\"200\"} 1\nmodule3_http_requests_total{route=\"/face/enroll\",status=\"201\"} 9\nmodule3_http_requests_total{route=\"/face/enroll\",status=\"400\"} 2\nmodule3_http_requests_total{route=\"/face/verify\",status=\"200\"} 308\nmodule3_http_requests_total{route=\"/health\",status=\"200\"} 419\nmodule3_http_requests_total{route=\"/liveness/check\",status=\"200\"} 304\nmodule3_http_requests_total{route=\"/ready\",status=\"200\"} 1\nmodule3_http_requests_total{route=\"/risk/assess\",status=\"200\"} 3\n# TYPE module3_stage_seconds histogram\nmodule3_stage_seconds_bucket{stage=\"admission_wait\",le=\"0.01\"} 71\nmodule3_stage_seconds_bucket{stage=\"admission_wait\",le=\"0.05\"} 73\nmodule3_stage_seconds_bucket{stage=\"admission_wait\",le=\"0.1\"} 76\nmodule3_stage_seconds_bucket{stage=\"admission_wait\",le=\"0.25\"} 98\nmodule3_stage_seconds_bucket{stage=\"admission_wait\",le=\"0.5\"} 142\nmodule3_stage_seconds_bucket{stage=\"admission_wait\",le=\"1\"} 224\nmodule3_stage_seconds_bucket{stage=\"admission_wait\",le=\"2\"} 380\nmodule3_stage_seconds_bucket{stage=\"admission_wait\",le=\"5\"} 613\nmodule3_stage_seconds_bucket{stage=\"admission_wait\",le=\"10\"} 623\nmodule3_stage_seconds_bucket{stage=\"admission_wait\",le=\"30\"} 623\nmodule3_stage_seconds_bucket{stage=\"admission_wait\",le=\"+Inf\"} 623\nmodule3_stage_seconds_count{stage=\"admission_wait\"} 623\nmodule3_stage_seconds_sum{stage=\"admission_wait\"} 1126.760758499\nmodule3_stage_seconds_bucket{stage=\"anti_spoof\",le=\"0.01\"} 0\nmodule3_stage_seconds_bucket{stage=\"anti_spoof\",le=\"0.05\"} 8\nmodule3_stage_seconds_bucket{stage=\"anti_spoof\",le=\"0.1\"} 191\nmodule3_stage_seconds_bucket{stage=\"anti_spoof\",le=\"0.25\"} 299\nmodule3_stage_seconds_bucket{stage=\"anti_spoof\",le=\"0.5\"} 304\nmodule3_stage_seconds_bucket{stage=\"anti_spoof\",le=\"1\"} 304\nmodule3_stage_seconds_bucket{stage=\"anti_spoof\",le=\"2\"} 304\nmodule3_stage_seconds_bucket{stage=\"anti_spoof\",le=\"5\"} 304\nmodule3_stage_seconds_bucket{stage=\"anti_spoof\",le=\"10\"} 304\nmodule3_stage_seconds_bucket{stage=\"anti_spoof\",le=\"30\"} 304\nmodule3_stage_seconds_bucket{stage=\"anti_spoof\",le=\"+Inf\"} 304\nmodule3_stage_seconds_count{stage=\"anti_spoof\"} 304\nmodule3_stage_seconds_sum{stage=\"anti_spoof\"} 30.662686500\nmodule3_stage_seconds_bucket{stage=\"detector_cleanup\",le=\"0.01\"} 83\nmodule3_stage_seconds_bucket{stage=\"detector_cleanup\",le=\"0.05\"} 611\nmodule3_stage_seconds_bucket{stage=\"detector_cleanup\",le=\"0.1\"} 622\nmodule3_stage_seconds_bucket{stage=\"detector_cleanup\",le=\"0.25\"} 622\nmodule3_stage_seconds_bucket{stage=\"detector_cleanup\",le=\"0.5\"} 622\nmodule3_stage_seconds_bucket{stage=\"detector_cleanup\",le=\"1\"} 622\nmodule3_stage_seconds_bucket{stage=\"detector_cleanup\",le=\"2\"} 622\nmodule3_stage_seconds_bucket{stage=\"detector_cleanup\",le=\"5\"} 622\nmodule3_stage_seconds_bucket{stage=\"detector_cleanup\",le=\"10\"} 622\nmodule3_stage_seconds_bucket{stage=\"detector_cleanup\",le=\"30\"} 622\nmodule3_stage_seconds_bucket{stage=\"detector_cleanup\",le=\"+Inf\"} 622\nmodule3_stage_seconds_count{stage=\"detector_cleanup\"} 622\nmodule3_stage_seconds_sum{stage=\"detector_cleanup\"} 11.263583700\nmodule3_stage_seconds_bucket{stage=\"embedding\",le=\"0.01\"} 0\nmodule3_stage_seconds_bucket{stage=\"embedding\",le=\"0.05\"} 0\nmodule3_stage_seconds_bucket{stage=\"embedding\",le=\"0.1\"} 10\nmodule3_stage_seconds_bucket{stage=\"embedding\",le=\"0.25\"} 474\nmodule3_stage_seconds_bucket{stage=\"embedding\",le=\"0.5\"} 616\nmodule3_stage_seconds_bucket{stage=\"embedding\",le=\"1\"} 620\nmodule3_stage_seconds_bucket{stage=\"embedding\",le=\"2\"} 620\nmodule3_stage_seconds_bucket{stage=\"embedding\",le=\"5\"} 620\nmodule3_stage_seconds_bucket{stage=\"embedding\",le=\"10\"} 620\nmodule3_stage_seconds_bucket{stage=\"embedding\",le=\"30\"} 620\nmodule3_stage_seconds_bucket{stage=\"embedding\",le=\"+Inf\"} 620\nmodule3_stage_seconds_count{stage=\"embedding\"} 620\nmodule3_stage_seconds_sum{stage=\"embedding\"} 132.989006700\nmodule3_stage_seconds_bucket{stage=\"embedding_cleanup\",le=\"0.01\"} 0\nmodule3_stage_seconds_bucket{stage=\"embedding_cleanup\",le=\"0.05\"} 69\nmodule3_stage_seconds_bucket{stage=\"embedding_cleanup\",le=\"0.1\"} 448\nmodule3_stage_seconds_bucket{stage=\"embedding_cleanup\",le=\"0.25\"} 616\nmodule3_stage_seconds_bucket{stage=\"embedding_cleanup\",le=\"0.5\"} 620\nmodule3_stage_seconds_bucket{stage=\"embedding_cleanup\",le=\"1\"} 620\nmodule3_stage_seconds_bucket{stage=\"embedding_cleanup\",le=\"2\"} 620\nmodule3_stage_seconds_bucket{stage=\"embedding_cleanup\",le=\"5\"} 620\nmodule3_stage_seconds_bucket{stage=\"embedding_cleanup\",le=\"10\"} 620\nmodule3_stage_seconds_bucket{stage=\"embedding_cleanup\",le=\"30\"} 620\nmodule3_stage_seconds_bucket{stage=\"embedding_cleanup\",le=\"+Inf\"} 620\nmodule3_stage_seconds_count{stage=\"embedding_cleanup\"} 620\nmodule3_stage_seconds_sum{stage=\"embedding_cleanup\"} 51.366946599\nmodule3_stage_seconds_bucket{stage=\"face_detect\",le=\"0.01\"} 2\nmodule3_stage_seconds_bucket{stage=\"face_detect\",le=\"0.05\"} 508\nmodule3_stage_seconds_bucket{stage=\"face_detect\",le=\"0.1\"} 610\nmodule3_stage_seconds_bucket{stage=\"face_detect\",le=\"0.25\"} 622\nmodule3_stage_seconds_bucket{stage=\"face_detect\",le=\"0.5\"} 622\nmodule3_stage_seconds_bucket{stage=\"face_detect\",le=\"1\"} 622\nmodule3_stage_seconds_bucket{stage=\"face_detect\",le=\"2\"} 622\nmodule3_stage_seconds_bucket{stage=\"face_detect\",le=\"5\"} 622\nmodule3_stage_seconds_bucket{stage=\"face_detect\",le=\"10\"} 622\nmodule3_stage_seconds_bucket{stage=\"face_detect\",le=\"30\"} 622\nmodule3_stage_seconds_bucket{stage=\"face_detect\",le=\"+Inf\"} 622\nmodule3_stage_seconds_count{stage=\"face_detect\"} 622\nmodule3_stage_seconds_sum{stage=\"face_detect\"} 24.002231700\nmodule3_stage_seconds_bucket{stage=\"http__\",le=\"0.01\"} 1\nmodule3_stage_seconds_bucket{stage=\"http__\",le=\"0.05\"} 1\nmodule3_stage_seconds_bucket{stage=\"http__\",le=\"0.1\"} 1\nmodule3_stage_seconds_bucket{stage=\"http__\",le=\"0.25\"} 1\nmodule3_stage_seconds_bucket{stage=\"http__\",le=\"0.5\"} 1\nmodule3_stage_seconds_bucket{stage=\"http__\",le=\"1\"} 1\nmodule3_stage_seconds_bucket{stage=\"http__\",le=\"2\"} 1\nmodule3_stage_seconds_bucket{stage=\"http__\",le=\"5\"} 1\nmodule3_stage_seconds_bucket{stage=\"http__\",le=\"10\"} 1\nmodule3_stage_seconds_bucket{stage=\"http__\",le=\"30\"} 1\nmodule3_stage_seconds_bucket{stage=\"http__\",le=\"+Inf\"} 1\nmodule3_stage_seconds_count{stage=\"http__\"} 1\nmodule3_stage_seconds_sum{stage=\"http__\"} 0.000547200\nmodule3_stage_seconds_bucket{stage=\"http__face_enroll\",le=\"0.01\"} 2\nmodule3_stage_seconds_bucket{stage=\"http__face_enroll\",le=\"0.05\"} 2\nmodule3_stage_seconds_bucket{stage=\"http__face_enroll\",le=\"0.1\"} 2\nmodule3_stage_seconds_bucket{stage=\"http__face_enroll\",le=\"0.25\"} 11\nmodule3_stage_seconds_bucket{stage=\"http__face_enroll\",le=\"0.5\"} 11\nmodule3_stage_seconds_bucket{stage=\"http__face_enroll\",le=\"1\"} 11\nmodule3_stage_seconds_bucket{stage=\"http__face_enroll\",le=\"2\"} 11\nmodule3_stage_seconds_bucket{stage=\"http__face_enroll\",le=\"5\"} 11\nmodule3_stage_seconds_bucket{stage=\"http__face_enroll\",le=\"10\"} 11\nmodule3_stage_seconds_bucket{stage=\"http__face_enroll\",le=\"30\"} 11\nmodule3_stage_seconds_bucket{stage=\"http__face_enroll\",le=\"+Inf\"} 11\nmodule3_stage_seconds_count{stage=\"http__face_enroll\"} 11\nmodule3_stage_seconds_sum{stage=\"http__face_enroll\"} 1.294249700\nmodule3_stage_seconds_bucket{stage=\"http__face_verify\",le=\"0.01\"} 0\nmodule3_stage_seconds_bucket{stage=\"http__face_verify\",le=\"0.05\"} 1\nmodule3_stage_seconds_bucket{stage=\"http__face_verify\",le=\"0.1\"} 1\nmodule3_stage_seconds_bucket{stage=\"http__face_verify\",le=\"0.25\"} 25\nmodule3_stage_seconds_bucket{stage=\"http__face_verify\",le=\"0.5\"} 62\nmodule3_stage_seconds_bucket{stage=\"http__face_verify\",le=\"1\"} 117\nmodule3_stage_seconds_bucket{stage=\"http__face_verify\",le=\"2\"} 221\nmodule3_stage_seconds_bucket{stage=\"http__face_verify\",le=\"5\"} 308\nmodule3_stage_seconds_bucket{stage=\"http__face_verify\",le=\"10\"} 308\nmodule3_stage_seconds_bucket{stage=\"http__face_verify\",le=\"30\"} 308\nmodule3_stage_seconds_bucket{stage=\"http__face_verify\",le=\"+Inf\"} 308\nmodule3_stage_seconds_count{stage=\"http__face_verify\"} 308\nmodule3_stage_seconds_sum{stage=\"http__face_verify\"} 445.941791100\nmodule3_stage_seconds_bucket{stage=\"http__liveness_check\",le=\"0.01\"} 0\nmodule3_stage_seconds_bucket{stage=\"http__liveness_check\",le=\"0.05\"} 0\nmodule3_stage_seconds_bucket{stage=\"http__liveness_check\",le=\"0.1\"} 0\nmodule3_stage_seconds_bucket{stage=\"http__liveness_check\",le=\"0.25\"} 4\nmodule3_stage_seconds_bucket{stage=\"http__liveness_check\",le=\"0.5\"} 12\nmodule3_stage_seconds_bucket{stage=\"http__liveness_check\",le=\"1\"} 42\nmodule3_stage_seconds_bucket{stage=\"http__liveness_check\",le=\"2\"} 98\nmodule3_stage_seconds_bucket{stage=\"http__liveness_check\",le=\"5\"} 272\nmodule3_stage_seconds_bucket{stage=\"http__liveness_check\",le=\"10\"} 304\nmodule3_stage_seconds_bucket{stage=\"http__liveness_check\",le=\"30\"} 304\nmodule3_stage_seconds_bucket{stage=\"http__liveness_check\",le=\"+Inf\"} 304\nmodule3_stage_seconds_count{stage=\"http__liveness_check\"} 304\nmodule3_stage_seconds_sum{stage=\"http__liveness_check\"} 899.456668800\nmodule3_stage_seconds_bucket{stage=\"http__risk_assess\",le=\"0.01\"} 3\nmodule3_stage_seconds_bucket{stage=\"http__risk_assess\",le=\"0.05\"} 3\nmodule3_stage_seconds_bucket{stage=\"http__risk_assess\",le=\"0.1\"} 3\nmodule3_stage_seconds_bucket{stage=\"http__risk_assess\",le=\"0.25\"} 3\nmodule3_stage_seconds_bucket{stage=\"http__risk_assess\",le=\"0.5\"} 3\nmodule3_stage_seconds_bucket{stage=\"http__risk_assess\",le=\"1\"} 3\nmodule3_stage_seconds_bucket{stage=\"http__risk_assess\",le=\"2\"} 3\nmodule3_stage_seconds_bucket{stage=\"http__risk_assess\",le=\"5\"} 3\nmodule3_stage_seconds_bucket{stage=\"http__risk_assess\",le=\"10\"} 3\nmodule3_stage_seconds_bucket{stage=\"http__risk_assess\",le=\"30\"} 3\nmodule3_stage_seconds_bucket{stage=\"http__risk_assess\",le=\"+Inf\"} 3\nmodule3_stage_seconds_count{stage=\"http__risk_assess\"} 3\nmodule3_stage_seconds_sum{stage=\"http__risk_assess\"} 0.005416500\nmodule3_stage_seconds_bucket{stage=\"image_decode\",le=\"0.01\"} 110\nmodule3_stage_seconds_bucket{stage=\"image_decode\",le=\"0.05\"} 617\nmodule3_stage_seconds_bucket{stage=\"image_decode\",le=\"0.1\"} 622\nmodule3_stage_seconds_bucket{stage=\"image_decode\",le=\"0.25\"} 622\nmodule3_stage_seconds_bucket{stage=\"image_decode\",le=\"0.5\"} 622\nmodule3_stage_seconds_bucket{stage=\"image_decode\",le=\"1\"} 622\nmodule3_stage_seconds_bucket{stage=\"image_decode\",le=\"2\"} 622\nmodule3_stage_seconds_bucket{stage=\"image_decode\",le=\"5\"} 622\nmodule3_stage_seconds_bucket{stage=\"image_decode\",le=\"10\"} 622\nmodule3_stage_seconds_bucket{stage=\"image_decode\",le=\"30\"} 622\nmodule3_stage_seconds_bucket{stage=\"image_decode\",le=\"+Inf\"} 622\nmodule3_stage_seconds_count{stage=\"image_decode\"} 622\nmodule3_stage_seconds_sum{stage=\"image_decode\"} 10.922036299\nmodule3_stage_seconds_bucket{stage=\"mesh\",le=\"0.01\"} 0\nmodule3_stage_seconds_bucket{stage=\"mesh\",le=\"0.05\"} 203\nmodule3_stage_seconds_bucket{stage=\"mesh\",le=\"0.1\"} 300\nmodule3_stage_seconds_bucket{stage=\"mesh\",le=\"0.25\"} 304\nmodule3_stage_seconds_bucket{stage=\"mesh\",le=\"0.5\"} 304\nmodule3_stage_seconds_bucket{stage=\"mesh\",le=\"1\"} 304\nmodule3_stage_seconds_bucket{stage=\"mesh\",le=\"2\"} 304\nmodule3_stage_seconds_bucket{stage=\"mesh\",le=\"5\"} 304\nmodule3_stage_seconds_bucket{stage=\"mesh\",le=\"10\"} 304\nmodule3_stage_seconds_bucket{stage=\"mesh\",le=\"30\"} 304\nmodule3_stage_seconds_bucket{stage=\"mesh\",le=\"+Inf\"} 304\nmodule3_stage_seconds_count{stage=\"mesh\"} 304\nmodule3_stage_seconds_sum{stage=\"mesh\"} 14.991791000\nmodule3_stage_seconds_bucket{stage=\"model_wait\",le=\"0.01\"} 1164\nmodule3_stage_seconds_bucket{stage=\"model_wait\",le=\"0.05\"} 1274\nmodule3_stage_seconds_bucket{stage=\"model_wait\",le=\"0.1\"} 1512\nmodule3_stage_seconds_bucket{stage=\"model_wait\",le=\"0.25\"} 1558\nmodule3_stage_seconds_bucket{stage=\"model_wait\",le=\"0.5\"} 1558\nmodule3_stage_seconds_bucket{stage=\"model_wait\",le=\"1\"} 1558\nmodule3_stage_seconds_bucket{stage=\"model_wait\",le=\"2\"} 1558\nmodule3_stage_seconds_bucket{stage=\"model_wait\",le=\"5\"} 1558\nmodule3_stage_seconds_bucket{stage=\"model_wait\",le=\"10\"} 1558\nmodule3_stage_seconds_bucket{stage=\"model_wait\",le=\"30\"} 1558\nmodule3_stage_seconds_bucket{stage=\"model_wait\",le=\"+Inf\"} 1558\nmodule3_stage_seconds_count{stage=\"model_wait\"} 1558\nmodule3_stage_seconds_sum{stage=\"model_wait\"} 25.304809601\nmodule3_stage_seconds_bucket{stage=\"template\",le=\"0.01\"} 616\nmodule3_stage_seconds_bucket{stage=\"template\",le=\"0.05\"} 620\nmodule3_stage_seconds_bucket{stage=\"template\",le=\"0.1\"} 620\nmodule3_stage_seconds_bucket{stage=\"template\",le=\"0.25\"} 620\nmodule3_stage_seconds_bucket{stage=\"template\",le=\"0.5\"} 620\nmodule3_stage_seconds_bucket{stage=\"template\",le=\"1\"} 620\nmodule3_stage_seconds_bucket{stage=\"template\",le=\"2\"} 620\nmodule3_stage_seconds_bucket{stage=\"template\",le=\"5\"} 620\nmodule3_stage_seconds_bucket{stage=\"template\",le=\"10\"} 620\nmodule3_stage_seconds_bucket{stage=\"template\",le=\"30\"} 620\nmodule3_stage_seconds_bucket{stage=\"template\",le=\"+Inf\"} 620\nmodule3_stage_seconds_count{stage=\"template\"} 620\nmodule3_stage_seconds_sum{stage=\"template\"} 0.506663299\n# TYPE module3_inference_active gauge\nmodule3_inference_active 0\n# TYPE module3_inference_pending gauge\nmodule3_inference_pending 0\n# TYPE module3_overload_rejections_total counter\nmodule3_overload_rejections_total 0\n# TYPE module3_process_resident_bytes gauge\nmodule3_process_resident_bytes 684580864\n# TYPE module3_model_degraded_slots gauge\n# TYPE module3_model_slots gauge\nmodule3_model_degraded_slots{model=\"yunet\"} 0\nmodule3_model_slots{model=\"yunet\"} 4\nmodule3_model_degraded_slots{model=\"sface\"} 0\nmodule3_model_slots{model=\"sface\"} 4\nmodule3_model_degraded_slots{model=\"pad\"} 0\nmodule3_model_slots{model=\"pad\"} 4\n",
+  "identity_statistics": {
+    "threshold": 0.7,
+    "FAR": {
+      "errors": 0,
+      "total": 1,
+      "rate": 0.0,
+      "wilson_95": [
+        0.0,
+        0.7934506856227626
+      ]
+    },
+    "FRR": {
+      "errors": 0,
+      "total": 3,
+      "rate": 0.0,
+      "wilson_95": [
+        5.551115123125783e-17,
+        0.5614970317550454
+      ]
+    }
+  },
+  "pad_statistics": {
+    "threshold": 0.6,
+    "APCER": {
+      "errors": 0,
+      "total": 2,
+      "rate": 0.0,
+      "wilson_95": [
+        0.0,
+        0.6576197724933469
+      ]
+    },
+    "BPCER": {
+      "errors": 0,
+      "total": 1,
+      "rate": 0.0,
+      "wilson_95": [
+        0.0,
+        0.7934506856227626
+      ]
+    }
+  },
+  "functional_checks_passed": true,
+  "server_exit_before_cleanup": null
+}
