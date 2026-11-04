@@ -1,5 +1,11 @@
 # Module 2 / Module 3 boundary handoff (updated 2026-10-31)
 
+**2026-11-04 update:** M2 `9dd79fe` uses the returned M3 risk score for the
+session threshold on biometric check-ins and retains GPS, liveness and face
+failure rules. It accepts image-less check-ins even with required liveness;
+the API lists the image as optional, and the enabled-liveness case needs
+teaching-staff clarification. The October 31 details below are historical.
+
 **Current M2 target:** `f1dfd77e1744d5f0c6f31066d0c2e658b259dd5b`.
 The new risk method returns typed FaceCall data and distinguishes 503,
 non-JSON 200 and empty 200. The October 28 observations immediately below are

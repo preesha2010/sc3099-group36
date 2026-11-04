@@ -1,5 +1,13 @@
 # M2/M3 integration contract, 2026-10-28
 
+**2026-11-04 update:** The check-in API marks the image optional. M2 revision
+`9dd79fe` allows image-less check-ins even when liveness is enabled; the
+conditional policy remains subject to teaching-staff clarification. M3 does
+not receive an image-less check-in and cannot decide its attendance status.
+The same M2 revision uses M3's risk score against the session threshold for
+biometric check-ins, while retaining its GPS, liveness and face-failure rules.
+The October 31 M2 risk-status observations below are historical.
+
 **2026-10-31 update:** M2 revision `f1dfd77` now returns typed risk outcomes;
 its client removes `risk_threshold`, so the M3 boundary checker validates
 the full raw M3 response separately from the retained client fields. The old
@@ -17,7 +25,7 @@ Scope is Module 3 only; no database, other-module or Docker changes.
 
 | Scenario | M3 behaviour / available contract | M2 responsibility |
 | --- | --- | --- |
-| Required liveness, missing check-in image | A requested `/liveness/check` without challenge_response returns 422 | Enforce session.require_liveness_check before calling M3; reject missing image with a clear validation error |
+| Liveness enabled, missing check-in image | A requested `/liveness/check` without challenge_response returns 422; no liveness result exists when the endpoint is not called | The check-in image is optional in the API spec; current M2 skips M3 when absent. Clarify the enabled-liveness case with teaching staff |
 | Liveness disabled, no image | No liveness operation needs to be requested | Allow the image-less path according to course/session rules; distinguish disabled from unavailable |
 | Valid visual request, no face/negative decision | 200, passed=false, score=0 for no face | Apply the final failure/review policy; HTTP success alone cannot approve attendance |
 | Bad/corrupt image or invalid request | 400/422 (413 for size limits) | Correct input; do not turn validation failures into scoring fallback |
@@ -36,9 +44,9 @@ can run after a model error and admission is released. They do NOT prove M2
 transaction rollback, uniqueness, duplicate handling or UI retry behaviour.
 M2 needs integration tests for those using its actual database/application.
 
-Existing public tests allowing image-less check-ins with liveness explicitly
-required conflict with that rule. Keep the conflict visible; do not silently
-bypass the requirement or modify shared fixtures from this branch.
+The check-in API marks the image optional, and existing public tests allow it to
+be omitted when liveness is enabled. The intended meaning of that combination
+is unresolved; do not describe an image-less check-in as liveness-verified.
 
 ## Versioned risk semantics
 
@@ -148,10 +156,10 @@ required-field validation before deciding which failures qualify for fallback.
 These pending items are explicit in the report; a boundary pass does not certify
 production fallback, final attendance or DB retry correctness.
 
-M2 still needs: required-image/registered-template gates, no-insert-on-outage,
-typed risk errors, equivalent local scoring, source/version audit metadata,
-final status/threshold rules and real DB retry/duplicate tests. The agreed
-outage policy must also be exercised through the frontend's retry UI.
+At that older revision, outstanding integration items included registered-template
+handling, no-insert-on-outage, typed risk errors, risk policy alignment, and
+real DB retry/duplicate tests. Later M2 revisions addressed some of these;
+see the dated update at the top. The missing-image policy remains unresolved.
 
 ## Template handoff
 
