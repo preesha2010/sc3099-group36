@@ -1,0 +1,21 @@
+# Grafana only reads provisioning files from provisioning/datasources and
+# provisioning/dashboards. This file used to sit one level up, at the
+# provisioning root, where Grafana ignores it: the container started with no
+# datasource at all and GET /api/datasources returned an empty list.
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    # Fixed uid so the dashboard JSON can point at this datasource by name
+    # instead of whatever id Grafana happens to generate on first start.
+    uid: saiv-prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: true
+    jsonData:
+      # Matches scrape_interval in prometheus.yml. Grafana uses it to pick a
+      # sensible minimum step, so a panel cannot ask for finer resolution
+      # than the data actually has.
+      timeInterval: 15s

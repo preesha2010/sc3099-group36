@@ -12,18 +12,21 @@ processors:
     send_batch_size: 1024
 
 exporters:
-  logging:
-    loglevel: debug
+  # 'logging' was removed from the collector; it is 'debug' now, and
+  # loglevel became verbosity. An unknown exporter is a hard config
+  # error, so the container exits 1 immediately with no other clue.
+  debug:
+    verbosity: normal
   prometheus:
-    endpoint: "0.0.0.0:8888"
+    endpoint: "0.0.0.0:8889"
 
 service:
   pipelines:
     traces:
       receivers: [otlp]
       processors: [batch]
-      exporters: [logging]
+      exporters: [debug]
     metrics:
       receivers: [otlp]
       processors: [batch]
-      exporters: [prometheus, logging]
+      exporters: [prometheus, debug]
