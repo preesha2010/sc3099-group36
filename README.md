@@ -144,6 +144,26 @@ The dashboard Overview page looks for a `face_service` field on backend `/health
 | Redis | `localhost:6380` |
 | Prometheus | http://localhost:9090 (starts with the dashboard) |
 
+### Dashboard timezone (`SAIV_TZ`)
+
+Module 4 reads `SAIV_TZ` at startup (`os.getenv("SAIV_TZ") or "UTC"`). Create-session times on the dashboard are treated as wall-clock in that zone and converted to UTC for the API. Displayed session times and "today" use the same zone. Stock `docker-compose.yml` does **not** set `SAIV_TZ`, so the dashboard defaults to UTC.
+
+For a Singapore deployment, set `SAIV_TZ=Asia/Singapore` on the **dashboard** service (then recreate that container). Example override file:
+
+```yaml
+# compose.tz.yml — not in the stock Compose file
+services:
+  dashboard:
+    environment:
+      SAIV_TZ: Asia/Singapore
+```
+
+```bash
+docker compose -f docker-compose.yml -f compose.tz.yml up -d dashboard
+```
+
+Without this, a session typed as 09:30 in the dashboard is stored as 09:30 UTC (17:30 in Singapore).
+
 There is **no migrate command**. The backend creates application tables, including `course_instructors`, on startup:
 
 ```bash
