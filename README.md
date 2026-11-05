@@ -50,7 +50,7 @@ Your team will implement 4 modules:
 - Device attestation
 - Anti-spoofing heuristics
 
-### Module 4: Observability & Instructor Dashboard 
+### Module 4: Observability & Instructor Dashboard
 **Recommended Tech Stack**: Streamlit, Prometheus, Grafana
 - Instructor web interface
 - Real-time analytics
@@ -62,34 +62,153 @@ Your team will implement 4 modules:
 
 ## Getting Started
 
-### Prerequisites
-- Docker & Docker Compose
-- Python 3.11+
-- Node.js 18+
+One procedure starts Modules 1–4 plus PostgreSQL and Redis from a fresh clone of `main`. Starting only Postgres, Redis, or Grafana is not enough.
 
-### Quick Start
+**Verified on a fresh clone of merged `main` (SHA-256 / heuristic), using an isolated Compose overlay** (remapped names, volumes, database, and loopback ports): image build, the four modules plus Postgres and Redis, health endpoints, schema creation including `course_instructors`, and a same-image enrollment / check-in / attendance read. The unmodified `docker-compose.yml` was **not** started on the assignment ports (`saiv-*` / `8000` / `5434` / …); those names and ports were already taken. The commands below are still the stock Compose names and ports.
+
+**Not independently verified:** stock Compose on the assignment ports; enhanced SimHash / MiniFASNet (commands below are copied from [Module 3 README](module3-face-recognition/README.md)); Grafana; the OpenTelemetry collector; `docker compose down -v`; and camera / dashboard UI flows.
+
+**Local development only.** `POST /api/v1/auth/register` accepts privileged roles (`admin`, `instructor`). Compose ships default database credentials, a placeholder API secret, and Grafana `admin`/`admin`. Anyone who can reach the published ports can create an admin and read local data. Do not expose this stack on a public network or treat it as a production deployment.
+
+### Prerequisites
+
+- Docker Desktop (or Docker Engine) with Compose V2 (`docker compose version`)
+- Python 3.11+ only if you run the public tests on the host (see Running Tests)
+- Node.js 18+ only if you develop Module 1 outside Docker
+
+Default Module 3 does **not** download models. On Windows PowerShell use `docker compose` and `python`. Git Bash / macOS / Linux examples use `curl` and `python3` where that is the local name.
+
+### 1. Check for existing SAIV containers and ports
+
+The default Compose file is a **single-instance** layout. Stock names (`saiv-postgres`, `saiv-redis`, `saiv-backend`, `saiv-face-recognition`, `saiv-frontend`, `saiv-dashboard`, plus Prometheus / Grafana / OTEL) and stock host ports must both be free. A different Compose project name is not enough, because `container_name` is global.
+
+Default ports (primary install): Postgres `5434`, Redis `6380`, backend `8000`, face service `8001`, frontend `3000`, dashboard `8501`, Prometheus `9090`. Grafana `3001` and OTEL `4317`/`4318` start only if you add those services.
 
 ```bash
-# Navigate to project directory
-cd student-starter
-
-# Start infrastructure services (database, redis, prometheus)
-docker-compose up -d postgres redis prometheus grafana
-
-# Wait for services to be healthy
-docker-compose ps
-
-# Start developing your modules
-# Each team member works on their assigned module
+docker ps -a --filter "name=saiv-"
 ```
 
-### Service URLs (when running)
-- Frontend: http://localhost:3000
-- Backend API: http://localhost:8000/docs
-- Face Recognition: http://localhost:8001/docs
-- Dashboard: http://localhost:8501
-- Grafana: http://localhost:3001 (admin/admin)
-- Prometheus: http://localhost:9090
+```powershell
+docker ps -a --filter "name=saiv-"
+netstat -ano | findstr "LISTENING" | findstr ":5434 :6380 :8000 :8001 :3000 :8501 :9090"
+```
+
+If those names or ports are already in use, **do not** run `docker compose up` or `docker compose down` from a new clone. Compose will reuse the stock names and can stop or replace a stack you did not intend to touch.
+
+A **second independent instance** needs all of: different `container_name`s, published ports, and volume names; a separate database name; and an M1 image rebuild with `NEXT_PUBLIC_API_URL` pointing at that instance's backend URL (see Module 1 API URL). Keep this README's commands on the assignment ports above unless you are deliberately remapping.
+
+### 2. Start the stack (primary install)
+
+From the repository root (the folder name may differ from `student-starter`):
+
+```bash
+docker compose up -d --build postgres redis backend face-recognition frontend dashboard
+docker compose ps
+```
+
+The same command works in PowerShell. The first build takes a few minutes (Module 1 runs `next build`). Compose also starts **Prometheus** because `dashboard` lists it under `depends_on`. Grafana and the OpenTelemetry collector are not required for attendance and are left off.
+
+Stock Compose publishes these ports on all interfaces (`0.0.0.0`), not loopback-only.
+
+### 3. Health checks and URLs
+
+Wait until `docker compose ps` shows Postgres and Redis as healthy **and** `GET http://localhost:8000/health` returns HTTP 200 before any first-run API calls. The backend has no Compose healthcheck, so database-healthy is not enough.
+
+```bash
+curl http://localhost:8000/health
+curl http://localhost:8001/health
+curl http://localhost:8001/ready
+curl -o /dev/null -w "%{http_code}\n" http://localhost:3000/
+curl http://localhost:8501/_stcore/health
+```
+
+```powershell
+Invoke-WebRequest -UseBasicParsing -Uri http://127.0.0.1:8000/health
+Invoke-WebRequest -UseBasicParsing -Uri http://127.0.0.1:8001/health
+Invoke-WebRequest -UseBasicParsing -Uri http://127.0.0.1:8001/ready
+Invoke-WebRequest -UseBasicParsing -Uri http://127.0.0.1:3000/
+Invoke-WebRequest -UseBasicParsing -Uri http://127.0.0.1:8501/_stcore/health
+```
+
+Expected: backend `{"status":"healthy"}`; face service `healthy` / `ready`; frontend HTTP 200; dashboard `ok`.
+
+The dashboard Overview page looks for a `face_service` field on backend `/health`. That endpoint currently returns only `{"status":"healthy"}`, so Overview may warn that the face service is not answering even when `http://localhost:8001/ready` is 200. Confirm Module 3 with `/ready`; check-ins can still succeed.
+
+| Service | URL |
+| --- | --- |
+| Frontend (M1) | http://localhost:3000 |
+| Backend API (M2) | http://localhost:8000/docs |
+| Face recognition (M3) | http://localhost:8001/docs |
+| Dashboard (M4) | http://localhost:8501 |
+| PostgreSQL | `localhost:5434` (Compose default database/user `saiv`; password is `POSTGRES_PASSWORD` in `docker-compose.yml`) |
+| Redis | `localhost:6380` |
+| Prometheus | http://localhost:9090 (starts with the dashboard) |
+
+There is **no migrate command**. The backend creates application tables, including `course_instructors`, on startup:
+
+```bash
+docker exec saiv-postgres psql -U saiv -d saiv -c "\dt"
+```
+
+### 4. Default Module 3 (SHA-256 / heuristic)
+
+This is the Compose default. You do not set extra environment variables and you do not download models.
+
+- Enroll and check in with the **same photograph** (or the same captured frame). That path was verified on the isolated overlay, not on stock Compose.
+- Different photos of the same person will not match. That is SHA-256-of-a-crop, not a failed install.
+- Still images can pass heuristic liveness. This is not MiniFASNet anti-spoofing.
+
+This profile boots the four modules and processes a same-image check-in. It is not a live-camera cross-photo identity demo.
+
+### 5. First-run account, course, and check-in
+
+There are no seed users. Use http://localhost:8000/docs or HTTP. Registering as `admin` is for trusted local/eval use only (see the warning above). Send `Content-Type: application/json`. After login, every authenticated request needs `Authorization: Bearer <access_token>`. Password minimum length is 8.
+
+1. `POST /api/v1/auth/register` - body includes `email`, `password`, `full_name`, and `role` (`admin`, `instructor`, or `student`). Then `POST /api/v1/auth/login` with `email` and `password`. Use a normal email domain such as `@saiv.edu.sg`. Reserved suffixes like `.test` are rejected.
+2. Admin: `POST /api/v1/courses/` with `code`, `name`, and `semester`. Then assign the instructor: `POST /api/v1/admin/courses/{course_id}/instructors` with `{"instructor_id": "<instructor user id>"}`. Session APIs return 403 until that row exists.
+3. Admin: `POST /api/v1/admin/enrollments/` with `{"student_id": "<id>", "course_id": "<id>"}`.
+4. Instructor: `POST /api/v1/sessions/` with `course_id`, `name`, `scheduled_start`, `scheduled_end`, an open check-in window, `venue_latitude`, and `venue_longitude`. For a SHA-256 **match** demo set `"require_face_match": true` (the schema default is `false`) and keep `"require_liveness_check": true`. Admin: `PATCH /api/v1/admin/sessions/{session_id}/status` with `{"status": "active"}`.
+5. Student: `PUT /api/v1/users/me` with `camera_consent` and `geolocation_consent` set true. Face enroll: `POST /api/v1/users/me/face/enroll` with `{"image": "<base64 jpeg or png>"}`. `sample_images/obama.jpg` works for a same-photo smoke test.
+6. Student: `POST /api/v1/checkins/` from inside the geofence, with `session_id`, `latitude`, `longitude`, and `liveness_challenge_response` set to the **same** base64 image used at enroll. Instructor: `GET /api/v1/checkins/session/{session_id}`. Student: `GET /api/v1/checkins/my-checkins`.
+
+On the default SHA-256 profile, a different photograph of the same person will not match.
+
+### Module 1 API URL is a build-time setting
+
+Next.js inlines `NEXT_PUBLIC_*` into the browser bundle at **image build** time. The Module 1 Dockerfile ARG defaults to `http://localhost:8000`, which matches the default Compose backend port. Runtime `environment:` on the `frontend` service does **not** change the URL the browser calls.
+
+Keep backend host port `8000` for the primary install. If you remap the backend to another host port (second instance), rebuild M1 so the ARG matches that URL:
+
+```powershell
+docker compose build --build-arg NEXT_PUBLIC_API_URL="http://localhost:YOUR_PORT" frontend
+docker compose up -d frontend
+```
+
+The quoted `--build-arg` form on unmodified `docker-compose.yml` was not separately tested. Compose `build.args` is the mechanism that was used when the backend was not on port `8000`.
+
+### Optional enhanced Module 3 (not tested in the fresh-install check)
+
+SimHash / MiniFASNet is **opt-in** and was **not** run for this README. Copy the procedure and claims from [module3-face-recognition/README.md](module3-face-recognition/README.md). In short, that file asks for:
+
+1. A one-time `python scripts/bootstrap_models.py` in the Module 3 API environment (YuNet/SFace weights and `models/template.key`; needs internet).
+2. Optional PAD: a **separate** tools environment with the pinned CPU PyTorch / ONNX / numpy / httpx versions listed there, then `python scripts/bootstrap_models.py --pad`.
+3. Do not commit `models/template.key` or weights. Do not mix SHA-256 and SimHash templates (re-enroll after a switch). Missing enhanced assets fail closed.
+
+After bootstrap, that README starts the overlay with:
+
+```bash
+docker compose -f docker-compose.yml -f module3-face-recognition/compose.enhanced.yml up --build
+```
+
+### Stop the stack
+
+From the **same directory** you used to start it:
+
+```bash
+docker compose down
+```
+
+The same command works in PowerShell. This stops containers and **keeps** the Postgres volume. `docker compose down -v` also deletes database data; do not run it unless you intend to wipe the local database. Never run `down` / `down -v` from this repo if the running `saiv-*` containers belong to another project you still need.
 
 ---
 
@@ -101,40 +220,31 @@ You have access to the public test suite (75% of your grade).
 
 ### Step 1: Install Test Dependencies
 
+From the repository root:
+
 ```bash
-cd student-starter
-
-# Create virtual environment
 python3 -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-
-# Install test dependencies
+source .venv/bin/activate
 pip install --upgrade pip
 pip install -r requirements-test.txt
 ```
 
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+python -m pip install -r requirements-test.txt
+```
+
 ### Step 2: Start Your Services
 
-```bash
-# Build and start all your services
-docker-compose up -d
-
-# Wait for services to be healthy (about 30 seconds)
-docker-compose ps
-
-# Verify services are accessible
-curl http://localhost:8000/health
-curl http://localhost:8001/health
-```
+Complete **Getting Started** (the primary `docker compose up` command) and confirm the health checks there. Do not start a second Compose project against the same `saiv-*` names.
 
 ### Step 3: Run Tests
 
 ```bash
-# Set test environment variables (optional - defaults to localhost)
 export TEST_BACKEND_URL=http://localhost:8000
 export TEST_FACE_URL=http://localhost:8001
-
-# Run all public tests
 python3 -m pytest tests/public/ -v
 
 # Run specific test category
@@ -150,28 +260,29 @@ python3 -m pytest tests/public/test_integration.py -v
 # LETTER GRADE: A
 ```
 
+```powershell
+$env:TEST_BACKEND_URL = "http://localhost:8000"
+$env:TEST_FACE_URL = "http://localhost:8001"
+python -m pytest tests/public/ -v
+```
+
 ### Step 4: Stop Services
 
-```bash
-# Stop all services
-docker-compose down
-
-# Stop and remove volumes (clean slate)
-docker-compose down -v
-```
+Use **Stop the stack** in Getting Started (`docker compose down` without `-v`).
 
 ### Troubleshooting
 
-**Tests skipping with "Backend service not running":**
-```bash
-docker-compose up -d
-docker-compose ps  # Verify all services are "Up"
-```
+**Tests skipping with "Backend service not running":** finish Getting Started and confirm `http://localhost:8000/health`.
+
+**`Conflict. The container name "/saiv-..." is already in use`:** another stack owns those names. Do not run `docker compose down -v` unless that stack is disposable. See Getting Started step 1.
 
 **Connection refused errors:**
 ```bash
-export TEST_BACKEND_URL=http://localhost:8000
-curl $TEST_BACKEND_URL/health
+curl http://localhost:8000/health
+```
+
+```powershell
+Invoke-WebRequest -UseBasicParsing -Uri http://127.0.0.1:8000/health
 ```
 
 ### Note on System Dependencies
@@ -236,7 +347,7 @@ student-starter/
 │   └── scoring/               # Pytest scoring plugin
 ├── docs/
 │   ├── API-SPECIFICATION.md
-│   └── DATABASE-SCHEMA.md
+│   └── recommended_design/DATABASE-SCHEMA.md
 └── docker-compose.yml
 ```
 
