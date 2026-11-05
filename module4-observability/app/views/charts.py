@@ -18,7 +18,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
-from app import theme
+from app import tables, theme
 
 
 def _frame(title: str, subtitle: str = "") -> None:
@@ -44,7 +44,7 @@ def _show(figure: go.Figure, table: pd.DataFrame, label: str) -> None:
     st.plotly_chart(figure, use_container_width=True,
                     config={"displayModeBar": False})
     with st.expander(f"Table view · {label}"):
-        st.dataframe(table, use_container_width=True, hide_index=True)
+        tables.show(table)
 
 
 def trend_line(points: List[Dict], title: str, subtitle: str = "") -> None:
@@ -53,7 +53,9 @@ def trend_line(points: List[Dict], title: str, subtitle: str = "") -> None:
     if not points:
         st.caption("No data for this period.")
         return
-    frame = pd.DataFrame(points)
+    # Sorted here because backends differ: one returns oldest first, the
+    # other newest first, and a line drawn in the wrong order zig-zags.
+    frame = pd.DataFrame(points).sort_values("date")
     figure = go.Figure(go.Scatter(
         x=frame["date"], y=frame["count"],
         mode="lines+markers",
@@ -171,22 +173,29 @@ def risk_bars(distribution: Dict[str, int], title: str,
 
 
 def arrival_timeline(points: List[Dict], title: str, subtitle: str = "") -> None:
-    """When people actually turned up, in five minute buckets."""
+    """
+    When people actually turned up, in five minute buckets measured from
+    the scheduled start. Negative buckets are early arrivals.
+    """
     _frame(title, subtitle)
     if not points:
         st.caption("No check-ins yet.")
         return
-    frame = pd.DataFrame(points)
+    frame = pd.DataFrame(points).sort_values("minute")
+    # Each point is a five minute bucket. Labelled as a range on a category
+    # axis, so a single bucket does not stretch into a decimal axis.
+    labels = frame["minute"].map(lambda m: f"{int(m)} to {int(m) + 5}")
     figure = go.Figure(go.Bar(
-        x=frame["minute"], y=frame["count"],
+        x=labels, y=frame["count"],
         marker={"color": theme.SERIES[0],
                 "line": {"color": theme.SURFACE, "width": 2}},
-        hovertemplate="%{x} min after opening<br>%{y} check-ins<extra></extra>",
+        hovertemplate="%{x} min from the start<br>%{y} check-ins<extra></extra>",
     ))
     layout = theme.base_layout(200)
-    layout["xaxis"]["title"] = {"text": "Minutes after check-in opened",
+    layout["xaxis"]["type"] = "category"
+    layout["xaxis"]["title"] = {"text": "Minutes from scheduled start (negative = early)",
                                 "font": {"color": theme.INK_MUTED, "size": 11}}
     figure.update_layout(**layout)
-    _show(figure, frame.rename(columns={"minute": "Minutes after opening",
+    _show(figure, frame.rename(columns={"minute": "Minutes from start",
                                         "count": "Check-ins"}),
           title)

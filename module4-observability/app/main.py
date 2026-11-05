@@ -67,6 +67,9 @@ def sidebar(user: dict) -> str:
             label_visibility="collapsed", key="nav",
         )
 
+        st.session_state["_switched"] = st.session_state.get("_page") not in (None, choice)
+        st.session_state["_page"] = choice
+
         st.divider()
         if st.button("Refresh data", use_container_width=True):
             st.cache_data.clear()
@@ -88,18 +91,20 @@ def main() -> None:
         st.rerun()
         return
 
+    # The sidebar goes first: it needs only the user, and drawing it before
+    # the course list loads means a page switch clears the old page at once.
+    choice = sidebar(user)
+
     # Loaded once per rerun and shared by every view, so switching tabs does
     # not re-fetch the course list five times.
     try:
-        st.session_state["courses"] = api.courses()
+        st.session_state["courses"] = api.my_courses(user["role"])
     except api.ApiError as exc:
         if exc.status == 401:
             st.rerun()
             return
         st.error(exc.detail)
         st.session_state["courses"] = []
-
-    choice = sidebar(user)
 
     from app.views import analytics, export, overview, review, sessions
     view = {
@@ -110,12 +115,35 @@ def main() -> None:
         "Export": export.render,
     }[choice]
 
+    # Page switch without ghosting. Streamlit keeps the previous page on
+    # screen, greyed out, until the new page has finished rendering, so for a
+    # moment the new title sits on top of the old page's charts, tables and
+    # expanders.
+    #
+    # The page renders into one of two slots. On a page change the slots
+    # swap: the old page's slot becomes an empty placeholder, which removes
+    # the old page from the browser straight away, and the new page draws
+    # into the other slot. (Clearing and redrawing the same slot does not
+    # work: Streamlit merges two updates to one position before sending, so
+    # the clear never reaches the browser.) Same-page reruns keep their slot
+    # and update in place as before, so nothing blinks while you work.
+    slot = st.session_state.get("_slot", 0)
+    if st.session_state.get("_switched"):
+        slot = 1 - slot
+        st.session_state["_slot"] = slot
+    slots = [st.empty(), st.empty()]
+    page = slots[slot].container()
+
     try:
-        view()
+        with page:
+            view()
     except api.ApiError as exc:
         if exc.status == 401:
             st.warning(exc.detail)
             st.rerun()
+        elif exc.status == 403:
+            st.info("You do not have access to this. An instructor sees only "
+                    "the courses an admin has assigned them to.")
         else:
             st.error(exc.detail)
 

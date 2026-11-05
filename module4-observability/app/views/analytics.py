@@ -4,7 +4,7 @@ from __future__ import annotations
 import pandas as pd
 import streamlit as st
 
-from app import api, clock, theme
+from app import api, clock, tables, theme
 from app.views import charts
 
 LOW_ATTENDANCE = 0.6
@@ -14,7 +14,7 @@ def render() -> None:
     st.subheader("Analytics")
     courses = st.session_state.get("courses", [])
     if not courses:
-        st.info("No courses yet.")
+        st.info("No courses assigned to you yet. An admin assigns instructors to courses.")
         return
 
     labels = [f"{c['code']} · {c['name']}" for c in courses]
@@ -49,22 +49,20 @@ def _course_view(course: dict) -> None:
     else:
         frame = pd.DataFrame(alerts)
         frame["attendance_rate"] = frame["attendance_rate"].map(lambda v: f"{v:.0%}")
-        st.dataframe(frame.rename(columns={
+        tables.show(frame.rename(columns={
             "student_name": "Student", "attendance_rate": "Attendance",
             "sessions_missed": "Sessions missed", "student_id": "ID",
-        })[["Student", "Attendance", "Sessions missed"]],
-            use_container_width=True, hide_index=True)
+        })[["Student", "Attendance", "Sessions missed"]])
 
     with st.expander("Every student"):
         frame = pd.DataFrame(data["student_attendance"])
         if len(frame):
             frame["attendance_rate"] = frame["attendance_rate"].map(lambda v: f"{v:.0%}")
             frame["average_risk_score"] = frame["average_risk_score"].map(lambda v: f"{v:.2f}")
-            st.dataframe(frame.rename(columns={
+            tables.show(frame.rename(columns={
                 "student_name": "Student", "sessions_attended": "Attended",
                 "attendance_rate": "Attendance", "average_risk_score": "Avg risk",
-            })[["Student", "Attended", "Attendance", "Avg risk"]],
-                use_container_width=True, hide_index=True)
+            })[["Student", "Attended", "Attendance", "Avg risk"]])
 
 
 def _session_view(course: dict) -> None:
@@ -77,6 +75,8 @@ def _session_view(course: dict) -> None:
               for s in listing]
     session = listing[labels.index(st.selectbox("Session", labels, key="an_session"))]
     data = api.stats_session(session["id"])
+    rows = api.session_checkins(session["id"])
+    _fill_session_stats(data, rows, session)
 
     columns = st.columns(4)
     columns[0].metric("Enrolled", data["total_enrolled"])
@@ -95,12 +95,10 @@ def _session_view(course: dict) -> None:
                          "How many check-ins fell in each band")
     with right:
         charts.arrival_timeline(data["checkin_timeline"], "When people arrived",
-                                f"Average {data['average_checkin_time_minutes']:.0f} "
-                                "min after opening")
+                                _average_arrival(data["average_checkin_time_minutes"]))
 
     st.markdown('<p class="saiv-chart-title">Who checked in</p>',
                 unsafe_allow_html=True)
-    rows = api.session_checkins(session["id"])
     if not rows:
         st.caption("Nobody has checked in yet.")
         return
@@ -117,5 +115,60 @@ def _session_view(course: dict) -> None:
                  else "no match" if r.get("face_match_passed") is False else "—"),
         "Risk": f"{r['risk_score']:.2f}",
     } for r in rows])
-    st.dataframe(frame.style.map(theme.checkin_cell_style, subset=["Status"]),
-                 use_container_width=True, hide_index=True)
+    tables.show(frame.style.map(theme.checkin_cell_style, subset=["Status"]))
+
+
+def _fill_session_stats(data: dict, rows: list, session: dict) -> None:
+    """
+    Fill in whatever the session stats endpoint leaves out, from the
+    check-in rows the view loads anyway.
+
+    The API spec's session stats carry risk_distribution, checkin_timeline
+    and average_checkin_time_minutes; not every backend returns them, and
+    by_status may leave out "appealed". Computed here from the same rows the
+    table shows, so the charts and the table can never disagree.
+    """
+    by_status = {}
+    for row in rows:
+        by_status[row["status"]] = by_status.get(row["status"], 0) + 1
+    if rows or not data.get("by_status"):
+        data["by_status"] = by_status
+
+    if "risk_distribution" not in data:
+        bands = {"low": 0, "medium": 0, "high": 0}
+        for row in rows:
+            score = row.get("risk_score") or 0.0
+            bands["low" if score < 0.3 else "medium" if score < 0.5 else "high"] += 1
+        data["risk_distribution"] = bands
+
+    if "checkin_timeline" not in data or "average_checkin_time_minutes" not in data:
+        # Same convention as the backend: minutes from the scheduled start,
+        # negative for early arrivals, five minute buckets by floor, so a
+        # check-in 3 minutes early lands in the -5 bucket.
+        start = clock.parse(session.get("scheduled_start"))
+        minutes = []
+        for row in rows:
+            at = clock.parse(row.get("checked_in_at"))
+            if start and at:
+                minutes.append((at - start).total_seconds() / 60)
+        buckets = {}
+        for m in minutes:
+            key = int(m // 5) * 5
+            buckets[key] = buckets.get(key, 0) + 1
+        data.setdefault("checkin_timeline",
+                        [{"minute": k, "count": v} for k, v in sorted(buckets.items())])
+        data.setdefault("average_checkin_time_minutes",
+                        sum(minutes) / len(minutes) if minutes else 0.0)
+
+    data.setdefault("checked_in_count", data.get("checked_in", len(rows)))
+    data.setdefault("average_risk_score", 0.0)
+
+
+def _average_arrival(minutes: float) -> str:
+    """Average arrival relative to the scheduled start, in words."""
+    whole = round(minutes or 0)
+    if whole < 0:
+        return f"On average {-whole} min early"
+    if whole == 0:
+        return "On average right on time"
+    return f"On average {whole} min after the start"

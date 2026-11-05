@@ -14,7 +14,7 @@ import json
 import pandas as pd
 import streamlit as st
 
-from app import api, clock
+from app import api, clock, tables
 
 
 def render() -> None:
@@ -24,7 +24,7 @@ def render() -> None:
 
     courses = st.session_state.get("courses", [])
     if not courses:
-        st.info("No courses yet.")
+        st.info("No courses assigned to you yet. An admin assigns instructors to courses.")
         return
 
     labels = [f"{c['code']} · {c['name']}" for c in courses]
@@ -83,7 +83,7 @@ def render() -> None:
             text = payload.decode("utf-8-sig")
             frame = pd.read_csv(io.StringIO(text))
             st.caption(f"{len(frame)} rows, {len(frame.columns)} columns")
-            st.dataframe(frame.head(50), use_container_width=True, hide_index=True)
+            tables.show(frame.head(50))
         else:
             data = json.loads(payload)
             records = data.get("records", [])
@@ -91,7 +91,6 @@ def render() -> None:
             if "summary" in data:
                 st.json(data["summary"])
             if records:
-                st.dataframe(pd.DataFrame(records).head(50),
-                             use_container_width=True, hide_index=True)
+                tables.show(pd.DataFrame(records).head(50))
     except Exception as exc:  # noqa: BLE001 - preview is best effort
         st.caption(f"Preview unavailable ({exc}). The download is still valid.")

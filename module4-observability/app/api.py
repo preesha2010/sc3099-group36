@@ -10,6 +10,7 @@ confusion.
 from __future__ import annotations
 
 import os
+import time
 from typing import Any, Dict, List, Optional
 
 import requests
@@ -111,6 +112,46 @@ def courses() -> List[Dict[str, Any]]:
     return _request("GET", "/api/v1/courses/", params={"limit": 100})["items"]
 
 
+def my_courses(role: str) -> List[Dict[str, Any]]:
+    """
+    The courses this user can actually work with.
+
+    GET /courses/ lists every course to every signed-in user. An instructor
+    is only allowed into the ones they are assigned to, and picking any
+    other one ends in a 403 on every view. So for anyone below admin, each
+    course is checked against an endpoint that enforces the assignment
+    (the roster), and only the ones that answer are kept.
+
+    Cached per sign-in for five minutes, so a rerun does not repeat it. If
+    the backend starts scoping GET /courses/ itself, this still holds: the
+    check simply passes for every course it returns.
+    """
+    every = courses()
+    if role == "admin":
+        return every
+
+    token = st.session_state.get("access_token")
+    cache = st.session_state.get("_course_access") or {}
+    if cache.get("token") == token and time.time() - cache.get("at", 0) < 300:
+        allowed = cache["ids"]
+    else:
+        allowed = set()
+        for course in every:
+            try:
+                _request("GET", f"/api/v1/enrollments/course/{course['id']}")
+                allowed.add(course["id"])
+            except ApiError as exc:
+                if exc.status == 401:
+                    raise
+                if exc.status != 403:
+                    # Anything other than a clear "not yours" keeps the
+                    # course visible, so a backend hiccup never hides data.
+                    allowed.add(course["id"])
+        st.session_state["_course_access"] = {"token": token, "at": time.time(),
+                                              "ids": allowed}
+    return [c for c in every if c["id"] in allowed]
+
+
 def sessions(**params) -> Dict[str, Any]:
     return _request("GET", "/api/v1/sessions/", params={"limit": 100, **params})
 
@@ -163,6 +204,10 @@ def stats_student(student_id: str) -> Dict[str, Any]:
 
 def session_checkins(session_id: str) -> List[Dict[str, Any]]:
     return _request("GET", f"/api/v1/checkins/session/{session_id}")
+
+
+def checkin(checkin_id: str) -> Dict[str, Any]:
+    return _request("GET", f"/api/v1/checkins/{checkin_id}")
 
 
 def flagged(**params) -> Dict[str, Any]:

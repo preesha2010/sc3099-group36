@@ -104,6 +104,11 @@ services:
       DATABASE_URL: postgresql://saiv:saiv_password@postgres:5432/saiv
       BACKEND_URL: http://backend:8000
       PROMETHEUS_URL: http://prometheus:9090
+      # Timezone the dashboard shows and accepts times in. The API and the
+      # container stay on UTC; only the dashboard converts. Singapore matches
+      # NTU and the student app (which uses the browser's clock). Override
+      # with SAIV_TZ=... in a .env file next to this one.
+      SAIV_TZ: ${SAIV_TZ:-Asia/Singapore}
     depends_on:
       - backend
       - prometheus

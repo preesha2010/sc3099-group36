@@ -27,7 +27,7 @@ def render() -> None:
     st.subheader("Sessions")
     courses = st.session_state.get("courses", [])
     if not courses:
-        st.info("No courses yet. An admin creates courses.")
+        st.info("No courses assigned to you yet. An admin creates courses and assigns instructors to them.")
         return
 
     labels = [f"{c['code']} · {c['name']}" for c in courses]

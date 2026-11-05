@@ -13,7 +13,7 @@ from html import escape
 import pandas as pd
 import streamlit as st
 
-from app import api, clock, theme
+from app import api, clock, tables, theme
 
 # Plain-English readings of the risk signal types the backend emits.
 EXPLAIN = {
@@ -49,8 +49,8 @@ def render() -> None:
         params["course_id"] = courses[labels.index(choice) - 1]["id"]
 
     page = api.flagged(**params)
-    queue = page["items"]
-    total = page["total"]
+    queue = _complete(page["items"], courses)
+    total = page["total"] - (len(page["items"]) - len(queue))
     if not queue:
         st.success("Nothing waiting. Every check-in has been decided.")
         return
@@ -81,7 +81,7 @@ def _queue_table(queue: list) -> None:
     styled = (frame.style
               .map(theme.checkin_cell_style, subset=["Status"])
               .map(_band_cell_style, subset=["Risk band"]))
-    st.dataframe(styled, use_container_width=True, hide_index=True)
+    tables.show(styled)
 
 
 def _band_cell_style(value: str) -> str:
@@ -162,6 +162,59 @@ def _card(item: dict) -> None:
             _decide(item, "approved", notes)
         if reject.button("Reject", key=f"no-{item['id']}", use_container_width=True):
             _decide(item, "rejected", notes)
+
+
+def _complete(items: list, courses: list) -> list:
+    """
+    Bring every queue item up to what the cards show, and keep only the
+    courses this user can act on.
+
+    The API spec's flagged items carry course_code, student_email,
+    risk_level and the evidence (distance, liveness, face match). Backends
+    that return a slimmer item get the evidence filled from the check-in
+    detail endpoint, the course from the session list, and the risk band
+    from the score.
+
+    Items from courses outside the user's list are dropped. The review
+    itself is refused by the backend for those anyway, so showing them only
+    offers buttons that fail, and it shows student names and appeal text to
+    staff who do not teach that course.
+    """
+    if not items:
+        return items
+    allowed = {c["id"] for c in courses}
+    by_session = {s["id"]: s for s in api.sessions()["items"]}
+
+    kept = []
+    for item in items:
+        session = by_session.get(item.get("session_id"))
+        if session is not None and session.get("course_id") not in allowed:
+            continue
+        if session is not None:
+            item.setdefault("course_code", session.get("course_code"))
+        if not item.get("risk_level"):
+            # A critical or high factor outranks the score: the backend
+            # rejects on a critical factor (say, 2 km from the venue) even
+            # when the weighted score is small, and calling that "low risk"
+            # would invite the wrong decision.
+            severities = {f.get("severity") for f in item.get("risk_factors") or []}
+            score = item.get("risk_score") or 0.0
+            if "critical" in severities:
+                item["risk_level"] = "CRITICAL"
+            elif "high" in severities or score >= 0.5:
+                item["risk_level"] = "HIGH"
+            else:
+                item["risk_level"] = "MEDIUM" if score >= 0.3 else "LOW"
+        if "distance_from_venue_meters" not in item:
+            try:
+                detail = api.checkin(item["id"])
+            except api.ApiError:
+                detail = {}
+            for key in ("distance_from_venue_meters", "liveness_passed",
+                        "face_match_passed"):
+                item.setdefault(key, detail.get(key))
+        kept.append(item)
+    return kept
 
 
 def _level_text(level: str) -> str:

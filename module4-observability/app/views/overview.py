@@ -192,22 +192,30 @@ def _service_health() -> None:
         st.error(f"Backend unreachable: {exc.detail}")
         return
 
+    # Some backends report each dependency, others only {"status": "healthy"}.
+    # A dependency the backend does not report is shown as "not reported",
+    # not as down: it is unknown, and a false alarm here would send an
+    # instructor chasing a face-service outage that is not happening.
+    reported = lambda key: key in health
+    api_value = health.get("api") or health.get("status") or "unknown"
     columns = st.columns(4)
     for column, (label, key) in zip(columns, [
         ("API", "api"), ("Database", "database"),
         ("Cache", "redis"), ("Face service", "face_service"),
     ]):
-        value = str(health.get(key, "unknown"))
-        up = value in ("ok", "connected")
+        value = str(api_value if key == "api" else health.get(key, "not reported"))
+        up = value in ("ok", "connected", "healthy")
+        unknown = key != "api" and not reported(key)
+        colour = theme.NEUTRAL if unknown else theme.GOOD if up else theme.WARNING
+        icon = "•" if unknown else "✓" if up else "!"
         column.markdown(
             f'<div class="saiv-card" style="text-align:center">'
-            f'<div style="font-size:1.1rem;color:'
-            f'{theme.GOOD if up else theme.WARNING}">{"✓" if up else "!"}</div>'
+            f'<div style="font-size:1.1rem;color:{colour}">{icon}</div>'
             f'<div style="font-size:0.75rem;color:{theme.INK_SECONDARY}">{label}</div>'
             f'<div style="font-size:0.7rem;color:{theme.INK_MUTED}">{value}</div>'
             f'</div>', unsafe_allow_html=True)
 
-    if health.get("face_service") != "connected":
+    if reported("face_service") and health.get("face_service") != "connected":
         st.info(
             "The face service is not answering. Check-ins still work, but "
             "liveness and face match come back unknown, which pushes risk "
