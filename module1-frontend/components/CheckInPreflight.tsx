@@ -10,11 +10,12 @@
  * — (2) kicks off a best-effort device registration in the background, and
  * (3) shows an informational summary of what the check-in will need.
  *
- * Everything shown here is INFORMATIONAL except one thing: "Start check-in" is
- * held back while the session's check-in window is closed or not yet open (by this
- * device's clock, see lib/sessionWindow.ts). The backend remains the sole authority
- * on whether a check-in is accepted, so other notices, such as "face match required
- * but not enrolled", warn the user but never stop them from continuing.
+ * Everything shown here is INFORMATIONAL except two things that hold back "Start
+ * check-in": the session's check-in window being closed or not yet open (by this
+ * device's clock, see lib/sessionWindow.ts), and a session that requires a face
+ * match when the student has no face enrolled (lib/checkinRequirements.ts), where
+ * "Enroll now" is offered instead. The backend remains the sole authority on
+ * whether a check-in is accepted, so the other notices only warn the user.
  *
  * Device registration never blocks this screen or the user: it starts only
  * after the details load, its outcome only updates one line of text, and any
@@ -27,6 +28,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import * as api from '@/lib/api'
 import { ACCOUNT_LOCKED_MESSAGE, ApiError } from '@/lib/errors'
+import { describePhotoRequirement, mustEnrollFaceFirst } from '@/lib/checkinRequirements'
 import {
   ensureDeviceRegistered,
   type DeviceRegistrationStatus,
@@ -157,10 +159,12 @@ export default function CheckInPreflight({
       )
     : null
   const windowOpen = windowInfo?.state === 'open'
+  // A face match needs an enrolled face to compare with, so enrolling comes first.
+  const mustEnroll = result ? mustEnrollFaceFirst(result.sessionDetail, result.user) : false
 
   const handleStart = useCallback(() => {
-    if (result && windowOpen) onReady(result)
-  }, [result, windowOpen, onReady])
+    if (result && windowOpen && !mustEnroll) onReady(result)
+  }, [result, windowOpen, mustEnroll, onReady])
 
   return (
     <div className="card">
@@ -220,12 +224,7 @@ export default function CheckInPreflight({
           </h3>
           <ul className="mb-4 space-y-2 text-sm text-gray-700">
             <li>Location: your position is checked against the venue.</li>
-            <li>
-              Photo:{' '}
-              {result.sessionDetail.require_liveness_check
-                ? 'a live photo is required.'
-                : 'no photo is required for this session.'}
-            </li>
+            <li>Photo: {describePhotoRequirement(result.sessionDetail)}</li>
             {result.sessionDetail.require_face_match && (
               <li>
                 Face match: required
@@ -257,10 +256,10 @@ export default function CheckInPreflight({
                 {formatDateTime(result.sessionDetail.checkin_opens_at)}. You can start then.
               </div>
             )}
-            {result.sessionDetail.require_face_match && !result.user.face_enrolled && (
+            {mustEnroll && (
               <div className={NOTICE_CLASSES}>
-                This session requires a face match, but no face is enrolled on your
-                account. Your check-in may be rejected.
+                This session requires a face match, so you need to enroll your face
+                before you can check in.
                 {onEnrollFace && (
                   <button
                     type="button"
@@ -288,14 +287,16 @@ export default function CheckInPreflight({
           <button
             type="button"
             onClick={handleStart}
-            disabled={!isOnline || !windowOpen}
+            disabled={!isOnline || !windowOpen || mustEnroll}
             className="btn btn-primary"
           >
             {windowInfo?.state === 'closed'
               ? 'Check-in closed'
               : windowInfo?.state === 'not-open-yet'
                 ? 'Check-in not open yet'
-                : 'Start check-in'}
+                : mustEnroll
+                  ? 'Enroll your face to continue'
+                  : 'Start check-in'}
           </button>
         </>
       )}

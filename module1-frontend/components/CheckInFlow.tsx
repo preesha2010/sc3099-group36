@@ -17,8 +17,10 @@
  *   Skipped if the profile already has the needed flags set.
  * - Photo: one screen with the instructions and CameraCapture takes exactly ONE
  *   photo, matching the single `liveness_challenge_response` field in the API
- *   (the liveness check is that photo analysed on the server; there is no separate
- *   step to perform). Skipped entirely when the session needs no liveness photo.
+ *   (the liveness check and the face match are both that one photo analysed on
+ *   the server; there is no separate step to perform). Skipped entirely when the
+ *   session needs neither a liveness check nor a face match (see
+ *   lib/checkinRequirements.ts).
  * - Already checked in: when the session selector knows the student already has a
  *   check-in for this session, `existingCheckin` is passed in and its result is
  *   shown straight away instead of running any of the steps above. (If that read
@@ -42,6 +44,7 @@ import {
   submitCheckin,
   type SubmitPhase,
 } from '@/lib/checkin'
+import { sessionNeedsPhoto } from '@/lib/checkinRequirements'
 import ConsentPrompt from '@/components/ConsentPrompt'
 import CameraCapture from '@/components/CameraCapture'
 import { CheckIcon } from '@/components/icons'
@@ -347,7 +350,7 @@ export default function CheckInFlow({
   const saveConsent = useCallback(async () => {
     if (!preflightResult || consentSavedRef.current) return
     const { sessionDetail, user } = preflightResult
-    const needsPhoto = sessionDetail.require_liveness_check
+    const needsPhoto = sessionNeedsPhoto(sessionDetail)
 
     // Only record consent for what this check-in actually uses, and only if the
     // profile doesn't already have it recorded.
@@ -373,7 +376,7 @@ export default function CheckInFlow({
 
   const handleConsentGranted = useCallback(() => {
     if (!preflightResult) return
-    setStep(preflightResult.sessionDetail.require_liveness_check ? 'photo' : 'review')
+    setStep(sessionNeedsPhoto(preflightResult.sessionDetail) ? 'photo' : 'review')
   }, [preflightResult])
 
   const handleLivenessCameraCapture = useCallback((imageData: string) => {
@@ -389,6 +392,13 @@ export default function CheckInFlow({
 
   const handleSubmit = useCallback(async () => {
     if (!preflightResult || isSubmittingRef.current) return
+    // A session that needs a photo is never submitted without one: the server skips
+    // the liveness and face checks when no photo arrives. The review step is only
+    // reached after the photo step, so this is a safety net, not a normal path.
+    if (sessionNeedsPhoto(preflightResult.sessionDetail) && !livenessImage) {
+      setStep('photo')
+      return
+    }
     isSubmittingRef.current = true
     setSubmitFailure(null)
     setSubmitPhase('locating')
@@ -450,7 +460,7 @@ export default function CheckInFlow({
     )
   }
 
-  const needsPhoto = preflightResult.sessionDetail.require_liveness_check
+  const needsPhoto = sessionNeedsPhoto(preflightResult.sessionDetail)
   const stepOrder: Array<'consent' | 'photo' | 'review'> = needsPhoto
     ? ['consent', 'photo', 'review']
     : ['consent', 'review']
