@@ -96,3 +96,21 @@ runs log `checkins_deleted` / `risk_signals_deleted` and print the same JSON.
 User PII is documented as “30 days after deletion”, but accounts currently set
 `scheduled_deletion_at` at creation and there is no account-deletion API.
 User rows are not purged until that policy is decided.
+
+## Client IP and `X-Forwarded-For`
+
+Singapore-only check-ins and IP rate limits use `client_ip()`. By default
+`TRUSTED_PROXY_IPS` is empty, so client-supplied `X-Forwarded-For` is ignored
+and the TCP peer is used. Local Docker / M1 traffic (private or loopback peer,
+no proxy) stays allowed; GPS and the Singapore bounding box are unchanged.
+
+To honour forwarded headers, set `TRUSTED_PROXY_IPS` to the reverse proxy's
+IP or CIDR (comma-separated). The header is read only when the connecting peer
+matches that list. Walk the chain from the right and skip trusted hops; a
+boolean "trust XFF" flag is not supported.
+
+Uvicorn 0.27 defaults `proxy_headers=True` and trusts `127.0.0.1`, which would
+rewrite `request.client` from a spoofed header before M2 runs. The Dockerfile
+passes `--no-proxy-headers`. Local `uvicorn` must do the same. Do not enable
+`--proxy-headers` or `FORWARDED_ALLOW_IPS=*` unless a real reverse proxy is in
+front and `TRUSTED_PROXY_IPS` lists it.

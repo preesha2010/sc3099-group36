@@ -246,6 +246,26 @@ def _face_required(session, course) -> tuple[bool, bool]:
     return require_liveness, require_face
 
 
+def _ensure_required_face_prerequisites(
+    current_user: User,
+    payload: CheckinCreate,
+    *,
+    require_face: bool,
+) -> None:
+    """Fail closed before Module 3 or persistence when a face match is required.
+
+    400 matches other check-in preconditions (inactive session, not enrolled).
+    403 remains location/RBAC. Image-less check-ins stay valid when matching
+    is not required, including public tests that omit the photo.
+    """
+    if not require_face:
+        return
+    if not current_user.face_embedding_hash:
+        raise bad_request("Face enrollment required")
+    if not payload.liveness_challenge_response:
+        raise bad_request("Face image required")
+
+
 def _face_signals(
     payload: CheckinCreate,
     current_user: User,
@@ -304,6 +324,8 @@ _ATTEMPT_REASON_BY_DETAIL = {
     "Image payload too large": "image_too_large",
     "Face recognition service unavailable": "face_unavailable",
     "Invalid face image": "invalid_face_image",
+    "Face enrollment required": "face_enrollment_required",
+    "Face image required": "face_image_required",
 }
 
 
@@ -441,6 +463,7 @@ def _submit_checkin(db: Session, payload: CheckinCreate, current_user: User, req
 
     course = session.course
     require_liveness, require_face = _face_required(session, course)
+    _ensure_required_face_prerequisites(current_user, payload, require_face=require_face)
     face = _face_signals(
         payload,
         current_user,
@@ -597,10 +620,32 @@ def list_checkins(
     limit: int,
     offset: int,
 ) -> dict[str, Any]:
+    """Instructors only see assigned courses. Admins keep a global list.
+
+    Course scope is applied in SQL via course_ids, not after fetch.
+    """
+    scoped_course_ids: Optional[list[str]] = None
+    if current_user.role == UserRole.INSTRUCTOR.value:
+        assigned = enrollments_repo.list_assigned_course_ids(db, current_user.id)
+        if not assigned:
+            limit, offset = clamp_page(limit, offset)
+            return page_of([], 0, limit, offset)
+        if course_id and course_id not in assigned:
+            limit, offset = clamp_page(limit, offset)
+            return page_of([], 0, limit, offset)
+        if session_id and not course_id:
+            session = sessions_repo.get_by_id(db, session_id)
+            if session is None:
+                raise not_found("Session not found")
+            if session.course_id not in assigned:
+                limit, offset = clamp_page(limit, offset)
+                return page_of([], 0, limit, offset)
+        scoped_course_ids = assigned
     items, total, limit, offset = checkins_repo.list_checkins(
         db,
         session_id=session_id,
         course_id=course_id,
+        course_ids=scoped_course_ids,
         student_id=student_id,
         status=status,
         min_risk_score=min_risk_score,
@@ -684,6 +729,11 @@ def flagged_checkins(
     session_id: Optional[str] = None,
     limit: int = 50,
 ) -> Any:
+    """TAs and instructors only see assigned courses. Admins keep a global queue.
+
+    Instructor scope is applied in SQL via course_ids, matching GET /checkins/.
+    Unassigned instructors get an empty page so M4 "All courses" stays a 200.
+    """
     scoped_course_ids: Optional[list[str]] = None
     if current_user.role == UserRole.TA.value:
         assigned = enrollments_repo.list_assigned_course_ids(db, current_user.id)
@@ -702,6 +752,22 @@ def flagged_checkins(
                 limit, offset = clamp_page(limit, 0)
                 return page_of([], 0, limit, offset)
             scoped_course_ids = assigned
+    elif current_user.role == UserRole.INSTRUCTOR.value:
+        assigned = enrollments_repo.list_assigned_course_ids(db, current_user.id)
+        if not assigned:
+            limit, offset = clamp_page(limit, 0)
+            return page_of([], 0, limit, offset)
+        if course_id and course_id not in assigned:
+            limit, offset = clamp_page(limit, 0)
+            return page_of([], 0, limit, offset)
+        if session_id and not course_id:
+            session = sessions_repo.get_by_id(db, session_id)
+            if session is None:
+                raise not_found("Session not found")
+            if session.course_id not in assigned:
+                limit, offset = clamp_page(limit, 0)
+                return page_of([], 0, limit, offset)
+        scoped_course_ids = assigned
     items, total, limit, offset = checkins_repo.list_flagged(
         db,
         course_id=course_id,
