@@ -42,6 +42,12 @@ class Settings(BaseSettings):
 
     CORS_ORIGINS: str = "http://localhost:3000,http://localhost:8501"
 
+    # Comma-separated IPs or CIDRs of reverse proxies allowed to set
+    # X-Forwarded-For. Empty (the Compose/default) means never trust the
+    # header — a boolean "trust forwarded headers" flag is intentionally
+    # absent so clients cannot make their own XFF trustworthy.
+    TRUSTED_PROXY_IPS: str = ""
+
     @property
     def cors_origin_list(self) -> List[str]:
         return [o.strip() for o in self.CORS_ORIGINS.split(",") if o.strip()]

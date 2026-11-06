@@ -405,9 +405,8 @@ class TestRedisResilience:
 
         app.add_middleware(RateLimitMiddleware)
         client = TestClient(app)
-        ip = f"203.0.113.{(int(uuid.uuid4().hex[:2], 16) % 200) + 1}"
         monkeypatch.setattr(rate_limit_mod.settings, "LOGIN_RATE_LIMIT", 100000)
-        response = client.post("/api/v1/auth/login", headers={"X-Forwarded-For": ip})
+        response = client.post("/api/v1/auth/login")
         assert response.status_code == 200, response.text
         assert redis_state._client is None
 

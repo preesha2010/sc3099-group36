@@ -728,8 +728,8 @@ def test_risk_payload_sends_trustworthy_context_only():
             "accuracy": 12.5,
         },
         "user_agent": "SAIV-Test/1.0",
-        "ip_address": "8.8.8.8",
     }
+    assert "ip_address" not in payload
     dumped = str(payload)
     assert "fp_should_not_be_sent" not in dumped
     assert VALID_HASH not in dumped
