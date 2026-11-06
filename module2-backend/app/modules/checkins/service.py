@@ -729,6 +729,11 @@ def flagged_checkins(
     session_id: Optional[str] = None,
     limit: int = 50,
 ) -> Any:
+    """TAs and instructors only see assigned courses. Admins keep a global queue.
+
+    Instructor scope is applied in SQL via course_ids, matching GET /checkins/.
+    Unassigned instructors get an empty page so M4 "All courses" stays a 200.
+    """
     scoped_course_ids: Optional[list[str]] = None
     if current_user.role == UserRole.TA.value:
         assigned = enrollments_repo.list_assigned_course_ids(db, current_user.id)
@@ -747,6 +752,22 @@ def flagged_checkins(
                 limit, offset = clamp_page(limit, 0)
                 return page_of([], 0, limit, offset)
             scoped_course_ids = assigned
+    elif current_user.role == UserRole.INSTRUCTOR.value:
+        assigned = enrollments_repo.list_assigned_course_ids(db, current_user.id)
+        if not assigned:
+            limit, offset = clamp_page(limit, 0)
+            return page_of([], 0, limit, offset)
+        if course_id and course_id not in assigned:
+            limit, offset = clamp_page(limit, 0)
+            return page_of([], 0, limit, offset)
+        if session_id and not course_id:
+            session = sessions_repo.get_by_id(db, session_id)
+            if session is None:
+                raise not_found("Session not found")
+            if session.course_id not in assigned:
+                limit, offset = clamp_page(limit, 0)
+                return page_of([], 0, limit, offset)
+        scoped_course_ids = assigned
     items, total, limit, offset = checkins_repo.list_flagged(
         db,
         course_id=course_id,
