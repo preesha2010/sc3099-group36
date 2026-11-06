@@ -69,6 +69,7 @@ def seed() -> dict[str, str]:
 
     from app.core.security import hash_password
     from app.core.utils import utcnow_naive
+    from app.db import models as _models  # noqa: F401
     from app.modules.checkins.model import CheckIn
     from app.modules.checkins.risk_signal import RiskSignal
     from app.modules.courses.instructor_model import CourseInstructor
