@@ -48,6 +48,11 @@ class Settings(BaseSettings):
     # absent so clients cannot make their own XFF trustworthy.
     TRUSTED_PROXY_IPS: str = ""
 
+    # Timeout for GET {FACE_SERVICE_URL}/health only. SHA-256 Module 3 takes
+    # ~0.9–1.4s; 0.35s produced false "unavailable". Face enroll/verify/
+    # liveness/risk keep FaceClient's 5s timeout.
+    FACE_HEALTH_TIMEOUT: float = 3.0
+
     @property
     def cors_origin_list(self) -> List[str]:
         return [o.strip() for o in self.CORS_ORIGINS.split(",") if o.strip()]
