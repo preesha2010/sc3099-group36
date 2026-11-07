@@ -28,6 +28,7 @@ settings = get_settings()
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     init_db()
+    _schedule_face_probe()
     yield
 
 
@@ -56,16 +57,19 @@ app.include_router(api_router, prefix="/api/v1")
 # from the public tests shape this:
 #   * always 200: the test fixtures skip the whole suite if /health is not 200,
 #     so a dependency being down is reported in the body, not the status code
-#   * under 0.5 s: the checks run in parallel, each with a short deadline, and
-#     the result is cached for a few seconds so load tests do not hammer the
-#     database, Redis and the face service through this endpoint
+#   * under 0.5 s: database and Redis are probed in parallel with a short
+#     deadline, and the assembled body is cached. Module 3 /health can take
+#     ~1s, so that probe uses FACE_HEALTH_TIMEOUT in the background and
+#     /health returns the last known face_service value without waiting.
 
 HEALTH_TTL_SECONDS = 5.0
 HEALTH_CHECK_DEADLINE = 0.35
 
-_health_pool = ThreadPoolExecutor(max_workers=3, thread_name_prefix="health")
+_health_pool = ThreadPoolExecutor(max_workers=4, thread_name_prefix="health")
 _health_lock = threading.Lock()
 _health_cache: dict = {"at": 0.0, "body": None}
+_face_lock = threading.Lock()
+_face_health: dict = {"value": "unavailable", "at": 0.0, "inflight": False}
 
 
 def _check_database() -> str:
@@ -86,10 +90,60 @@ def _check_redis() -> str:
         return "unavailable"
 
 
+def _face_status_from_health(status_code: int, payload: object) -> str:
+    """Map Module 3 GET /health to the dashboard's connected/unavailable field.
+
+    Connection success is not enough: the body must be the documented
+    {"status": "healthy", ...} object. Non-200, malformed, or any other
+    status string stays unavailable.
+    """
+    if status_code != 200:
+        return "unavailable"
+    if not isinstance(payload, dict) or payload.get("status") != "healthy":
+        return "unavailable"
+    return "connected"
+
+
 def _check_face_service() -> str:
-    url = settings.FACE_SERVICE_URL.rstrip("/") + "/health"
-    response = httpx.get(url, timeout=HEALTH_CHECK_DEADLINE)
-    return "connected" if response.status_code == 200 else "unavailable"
+    cfg = get_settings()
+    url = cfg.FACE_SERVICE_URL.rstrip("/") + "/health"
+    try:
+        response = httpx.get(url, timeout=cfg.FACE_HEALTH_TIMEOUT)
+        try:
+            payload = response.json()
+        except Exception:
+            payload = None
+        return _face_status_from_health(response.status_code, payload)
+    except Exception:
+        return "unavailable"
+
+
+def _face_value() -> str:
+    with _face_lock:
+        return str(_face_health["value"])
+
+
+def _run_face_probe() -> None:
+    try:
+        value = _check_face_service()
+    except Exception:
+        value = "unavailable"
+    with _face_lock:
+        _face_health["value"] = value
+        _face_health["at"] = time.monotonic()
+        _face_health["inflight"] = False
+
+
+def _schedule_face_probe() -> None:
+    """Start a background M3 /health probe unless one is fresh or in flight."""
+    with _face_lock:
+        if _face_health["inflight"]:
+            return
+        last = _face_health["at"]
+        if last and time.monotonic() - last < HEALTH_TTL_SECONDS:
+            return
+        _face_health["inflight"] = True
+    _health_pool.submit(_run_face_probe)
 
 
 def _probe(check):
@@ -108,20 +162,22 @@ def _result(future) -> str:
 @app.get("/health")
 def health_check():
     """API status plus database, Redis and face-service reachability."""
+    _schedule_face_probe()
     with _health_lock:
         cached = _health_cache["body"]
         if cached is not None and time.monotonic() - _health_cache["at"] < HEALTH_TTL_SECONDS:
-            return cached
+            body = dict(cached)
+            body["face_service"] = _face_value()
+            return body
 
     database = _probe(_check_database)
     redis_ = _probe(_check_redis)
-    face = _probe(_check_face_service)
     body = {
         "status": "healthy",
         "api": "ok",
         "database": _result(database),
         "redis": _result(redis_),
-        "face_service": _result(face),
+        "face_service": _face_value(),
     }
 
     with _health_lock:
