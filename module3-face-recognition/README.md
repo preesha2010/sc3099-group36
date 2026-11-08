@@ -13,6 +13,22 @@ at `/app/state`; a named volume or bind mount must be configured for durable
 retention across `docker compose down` and deployments. The existing root
 Compose file does not declare such a named volume. Do not commit the key.
 
+For the default SimHash setup, start Compose from the repository root with the
+Module 3 persistent-key overlay:
+
+```powershell
+docker compose -f docker-compose.yml -f module3-face-recognition/compose.persistent-key.yml up --build
+```
+
+Use the same Compose project and both files on subsequent launches so the
+named `m3_template_state` volume is reused. `docker compose down -v` removes
+the volume: back up the key securely and do not use that command when keeping
+enrollments. If enrollments already exist, preserve the *existing* key and
+restore it to the named volume before starting with the overlay; an empty
+volume generates a new key and will not validate old templates. This overlay
+has not yet been tested with Docker. The separate MiniFASNet overlay mounts
+its key from the specified models directory and does not use `/app/state`.
+
 The default liveness backend remains the single-image heuristic. The optional
 MiniFASNet backend still needs its model bootstrap as described below. Set
 `FACE_TEMPLATE_MODE=sha256` explicitly for legacy exact-image compatibility.
