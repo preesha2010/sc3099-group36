@@ -88,7 +88,7 @@ Local, isolated and not pushed: `module2-backend` 33a2230 + `module3-face-recogn
 **Backend issues found (reported to the team, not fixed here; none needs a frontend change)**
 
 * `POST /auth/register` accepts any role, including admin and instructor, without authentication (the public test fixtures also register instructors and admins this way).
-* The client IP is taken from the first `X-Forwarded-For` value, so it can be spoofed (rate-limit key and the Singapore IP check).
+* Default (empty `TRUSTED_PROXY_IPS`): the client IP is the first `X-Forwarded-For` value when present. That is coursework/hidden-test compatibility and **is spoofable** (rate-limit key and the Singapore IP check). Production should set `TRUSTED_PROXY_IPS` to real reverse-proxy CIDRs; private/loopback peers are not trusted proxies.
 * Rate limits default to 100000 (effectively off); Compose does not set them.
 * A session with `require_liveness_check` accepts a check-in sent without a photo and approves it; with a photo but no requirement, a face-service outage still approves the check-in unverified.
 * `/docs`, `/redoc` and `/openapi.json` are public (and the face service's `/docs` and `/metrics` are unauthenticated). Refresh tokens cannot be revoked.

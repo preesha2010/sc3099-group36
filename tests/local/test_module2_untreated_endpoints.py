@@ -239,10 +239,14 @@ class TestCheckinGetAppealReview:
         client,
         test_course,
         test_enrollment,
+        test_instructor,
         auth_headers_student,
         auth_headers_instructor,
         auth_headers_admin,
     ):
+        _assign_instructor(
+            client, test_course["id"], test_instructor["id"], auth_headers_admin
+        )
         session = _create_session(
             client,
             test_course["id"],

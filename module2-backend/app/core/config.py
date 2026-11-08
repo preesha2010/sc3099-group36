@@ -42,6 +42,14 @@ class Settings(BaseSettings):
 
     CORS_ORIGINS: str = "http://localhost:3000,http://localhost:8501"
 
+    # Comma-separated IPs or CIDRs of reverse proxies allowed to set
+    # X-Forwarded-For. Empty (the Compose/default) is coursework
+    # compatibility: use the first XFF address when present. That default
+    # is spoofable and is not secure production proxy handling.
+    # Production must set this to the actual reverse-proxy IPs/CIDRs.
+    # Private/loopback peers are not trusted just because they are private.
+    TRUSTED_PROXY_IPS: str = ""
+
     @property
     def cors_origin_list(self) -> List[str]:
         return [o.strip() for o in self.CORS_ORIGINS.split(",") if o.strip()]

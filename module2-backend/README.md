@@ -96,3 +96,29 @@ runs log `checkins_deleted` / `risk_signals_deleted` and print the same JSON.
 User PII is documented as “30 days after deletion”, but accounts currently set
 `scheduled_deletion_at` at creation and there is no account-deletion API.
 User rows are not purged until that policy is decided.
+
+## Client IP and `X-Forwarded-For`
+
+Singapore-only check-ins and IP rate limits use `client_ip()`.
+
+**Default (empty `TRUSTED_PROXY_IPS`, including Compose and TestClient):**
+coursework compatibility. If `X-Forwarded-For` is present, the **first**
+address is the client IP. If the header is absent or the first token is not
+a valid IP, the TCP peer is used. A malformed first hop does not skip ahead
+to a later address. This matches the reported hidden-test convention
+(foreign public first-XFF is rejected). It is **spoofable**: any client can
+set the Singapore IP check and the rate-limit key. Do not describe this
+default as secure production proxy handling. Private or loopback peers are
+not treated as trusted proxies.
+
+**Production:** set `TRUSTED_PROXY_IPS` to the reverse proxy's IP or CIDR
+(comma-separated). The header is then read only when the connecting peer
+matches that list. Walk the chain from the right and skip trusted hops. A
+boolean "trust XFF" flag is not supported, and trusting every private
+address is not a substitute for this allow-list.
+
+Uvicorn 0.27 defaults `proxy_headers=True` and trusts `127.0.0.1`, which would
+rewrite `request.client` from a spoofed header before M2 runs. The Dockerfile
+passes `--no-proxy-headers`. Local `uvicorn` must do the same. Do not enable
+`--proxy-headers` or `FORWARDED_ALLOW_IPS=*` unless a real reverse proxy is in
+front and `TRUSTED_PROXY_IPS` lists it.

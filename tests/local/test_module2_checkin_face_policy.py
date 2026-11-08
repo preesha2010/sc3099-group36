@@ -321,6 +321,94 @@ def test_retry_after_recovery_creates_checkin():
     db.commit.assert_called()
 
 
+def test_required_face_without_enrollment_is_400_without_row():
+    mock_face = Mock()
+    error, created, db = _run_submit(
+        _active_session(require_liveness=False, require_face=True),
+        _student(),
+        _payload(),
+        mock_face,
+    )
+    assert isinstance(error, HTTPException)
+    assert error.status_code == 400
+    assert error.detail == "Face enrollment required"
+    assert created == []
+    mock_face.liveness.assert_not_called()
+    mock_face.verify.assert_not_called()
+    mock_face.assess_risk.assert_not_called()
+    db.rollback.assert_called()
+
+
+def test_required_course_face_without_enrollment_is_400_without_row():
+    mock_face = Mock()
+    error, created, _db = _run_submit(
+        _active_session(require_liveness=False, require_face=False, require_course_face=True),
+        _student(),
+        _payload(),
+        mock_face,
+    )
+    assert isinstance(error, HTTPException)
+    assert error.status_code == 400
+    assert error.detail == "Face enrollment required"
+    assert created == []
+    mock_face.verify.assert_not_called()
+
+
+def test_required_face_without_image_is_400_without_row():
+    mock_face = Mock()
+    error, created, _db = _run_submit(
+        _active_session(require_liveness=False, require_face=True),
+        _student(face_hash=VALID_HASH),
+        _payload(image=None),
+        mock_face,
+    )
+    assert isinstance(error, HTTPException)
+    assert error.status_code == 400
+    assert error.detail == "Face image required"
+    assert created == []
+    mock_face.liveness.assert_not_called()
+    mock_face.verify.assert_not_called()
+
+
+def test_required_face_with_enrollment_match_creates_row():
+    mock_face = Mock()
+    mock_face.liveness.return_value = LIVE_OK
+    mock_face.verify.return_value = MATCH_OK
+    mock_face.assess_risk.return_value = _advisory_ok(
+        risk_score=0.05, risk_level="LOW", pass_threshold=True
+    )
+    result, created, db = _run_submit(
+        _active_session(require_liveness=True, require_face=True),
+        _student(face_hash=VALID_HASH),
+        _payload(),
+        mock_face,
+    )
+    assert not isinstance(result, HTTPException)
+    assert result["face_match_passed"] is True
+    assert result["status"] in {CheckinStatus.APPROVED.value, CheckinStatus.FLAGGED.value}
+    assert len(created) == 1
+    db.commit.assert_called()
+    mock_face.verify.assert_called_once()
+
+
+def test_optional_face_image_less_unenrolled_still_creates_row():
+    mock_face = Mock()
+    result, created, db = _run_submit(
+        _active_session(require_liveness=True, require_face=False),
+        _student(),
+        _payload(image=None),
+        mock_face,
+    )
+    assert not isinstance(result, HTTPException)
+    assert result["liveness_passed"] is None
+    assert result["face_match_passed"] is None
+    assert len(created) == 1
+    mock_face.liveness.assert_not_called()
+    mock_face.verify.assert_not_called()
+    mock_face.assess_risk.assert_not_called()
+    db.commit.assert_called()
+
+
 def test_failed_face_match_is_flagged_and_creates_row():
     mock_face = Mock()
     mock_face.liveness.return_value = LIVE_OK
@@ -640,8 +728,8 @@ def test_risk_payload_sends_trustworthy_context_only():
             "accuracy": 12.5,
         },
         "user_agent": "SAIV-Test/1.0",
-        "ip_address": "8.8.8.8",
     }
+    assert "ip_address" not in payload
     dumped = str(payload)
     assert "fp_should_not_be_sent" not in dumped
     assert VALID_HASH not in dumped

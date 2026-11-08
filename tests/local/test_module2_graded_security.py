@@ -13,6 +13,7 @@ from unittest.mock import Mock
 import pytest
 from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 _BACKEND = Path(__file__).resolve().parents[2] / "module2-backend"
 if str(_BACKEND) not in sys.path:
@@ -146,7 +147,19 @@ class TestAccountLockout:
 # ---------------------------------------------------------------------------
 
 
-def _mini_auth_app() -> TestClient:
+class _SetPeer:
+    def __init__(self, app: ASGIApp, host: str):
+        self.app = app
+        self.host = host
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] == "http":
+            scope = dict(scope)
+            scope["client"] = (self.host, 50000)
+        await self.app(scope, receive, send)
+
+
+def _mini_auth_app(peer: str | None = None) -> TestClient:
     app = FastAPI()
 
     @app.post("/api/v1/auth/login")
@@ -158,7 +171,8 @@ def _mini_auth_app() -> TestClient:
         return {"ok": True}
 
     app.add_middleware(RateLimitMiddleware)
-    return TestClient(app)
+    asgi = _SetPeer(app, peer) if peer else app
+    return TestClient(asgi)
 
 
 class TestRateLimiting:
@@ -203,25 +217,24 @@ class TestRateLimiting:
         redis_client = _require_redis()
         monkeypatch.setattr(rate_limit_mod.settings, "LOGIN_RATE_LIMIT", 2)
         monkeypatch.setattr(rate_limit_mod.settings, "REGISTER_RATE_LIMIT", 1)
-        client = _mini_auth_app()
 
         login_ip = _unique_test_net_ip()
-        login_headers = {"X-Forwarded-For": login_ip}
-        assert client.post("/api/v1/auth/login", headers=login_headers).status_code == 200
-        assert client.post("/api/v1/auth/login", headers=login_headers).status_code == 200
-        limited = client.post("/api/v1/auth/login", headers=login_headers)
+        login_client = _mini_auth_app(login_ip)
+        assert login_client.post("/api/v1/auth/login").status_code == 200
+        assert login_client.post("/api/v1/auth/login").status_code == 200
+        limited = login_client.post("/api/v1/auth/login")
         assert limited.status_code == 429
         assert limited.json()["detail"] == "Rate limit exceeded"
         assert redis_client.get(f"rl:login:{login_ip}") == "3"
 
         register_ip = _unique_test_net_ip()
-        register_headers = {"X-Forwarded-For": register_ip}
-        assert client.post("/api/v1/auth/register", headers=register_headers).status_code == 200
-        limited_reg = client.post("/api/v1/auth/register", headers=register_headers)
+        register_client = _mini_auth_app(register_ip)
+        assert register_client.post("/api/v1/auth/register").status_code == 200
+        limited_reg = register_client.post("/api/v1/auth/register")
         assert limited_reg.status_code == 429
         assert redis_client.get(f"rl:register:{register_ip}") == "2"
 
-    def test_live_login_increments_xff_keyed_redis_counter(self, client):
+    def test_live_login_increments_first_xff_counter(self, client):
         redis_client = _require_redis()
         ip = _unique_test_net_ip()
         key = f"rl:login:{ip}"
@@ -280,7 +293,7 @@ def _request_with_xff(xff: str | None, host: str = "127.0.0.1"):
 
 
 class TestSingaporeCheckins:
-    def test_private_and_singapore_ips_allowed_foreign_denied(
+    def test_default_first_xff_drives_singapore_decision(
         self, client, test_session, test_course, auth_headers_admin
     ):
         session_id = test_session["id"]
@@ -311,18 +324,21 @@ class TestSingaporeCheckins:
         assert foreign.status_code == 403, foreign.text
         assert foreign.json()["detail"] == "Check-in not allowed from this location"
 
-    def test_xff_first_hop_precedence(self, client, test_session, test_course, auth_headers_admin):
+    def test_default_multi_hop_xff_uses_first_address(
+        self, client, test_session, test_course, auth_headers_admin
+    ):
         session_id = test_session["id"]
         course_id = test_course["id"]
 
         foreign_first = _enroll_student(client, auth_headers_admin, course_id)
-        denied = _submit_checkin(
+        denied_foreign_first = _submit_checkin(
             client,
             session_id,
             foreign_first["headers"],
             extra_headers={"X-Forwarded-For": "8.8.8.8, 155.69.1.10"},
         )
-        assert denied.status_code == 403, denied.text
+        assert denied_foreign_first.status_code == 403, denied_foreign_first.text
+        assert denied_foreign_first.json()["detail"] == "Check-in not allowed from this location"
 
         private_first = _enroll_student(client, auth_headers_admin, course_id)
         allowed = _submit_checkin(
@@ -371,11 +387,12 @@ class TestSingaporeCheckins:
         )
         assert private_denied.status_code == 403, private_denied.text
 
-    def test_client_ip_uses_first_forwarded_hop(self):
+    def test_client_ip_uses_first_xff_by_default(self):
         assert client_ip(_request_with_xff("8.8.8.8, 155.69.1.10")) == "8.8.8.8"
         assert client_ip(_request_with_xff("10.0.0.1, 8.8.8.8")) == "10.0.0.1"
         assert client_ip(_request_with_xff(None, host="192.168.0.4")) == "192.168.0.4"
         assert client_ip(_request_with_xff("not-an-ip", host="10.0.0.9")) == "10.0.0.9"
+        assert client_ip(_request_with_xff("not-an-ip, 155.69.1.10", host="10.0.0.9")) == "10.0.0.9"
 
     def test_singapore_helper_matrix_matches_current_policy(self):
         assert singapore_checkin_allowed("127.0.0.1", 1.3483, 103.6831) is True
