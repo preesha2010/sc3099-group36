@@ -51,6 +51,7 @@ def test_windows_native_path_failures_are_explained_before_serving():
 def test_enhanced_missing_assets_fail_before_serving(monkeypatch, tmp_path, failure):
     monkeypatch.setenv("FACE_TEMPLATE_MODE", "simhash")
     monkeypatch.setenv("FACE_MODEL_DIR", str(tmp_path))
+    monkeypatch.delenv("FACE_TEMPLATE_KEY_PATH", raising=False)
     if failure == "corrupt_model":
         (tmp_path / "template.key").write_bytes(b"k" * 32)
         (tmp_path / "yunet.onnx").write_bytes(b"invalid-model")
