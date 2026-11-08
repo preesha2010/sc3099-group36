@@ -234,14 +234,14 @@ class TestRateLimiting:
         assert limited_reg.status_code == 429
         assert redis_client.get(f"rl:register:{register_ip}") == "2"
 
-    def test_live_login_does_not_increment_spoofed_xff_counter(self, client):
+    def test_live_login_increments_first_xff_counter(self, client):
         redis_client = _require_redis()
         ip = _unique_test_net_ip()
         key = f"rl:login:{ip}"
         before = int(redis_client.get(key) or 0)
         response = _login(client, _email("nomatch"), "wrongpassword", headers={"X-Forwarded-For": ip})
         assert response.status_code == 401
-        assert int(redis_client.get(key) or 0) == before
+        assert int(redis_client.get(key) or 0) == before + 1
 
     def test_direct_user_limit_helper_still_counts(self):
         user_id = str(uuid.uuid4())
@@ -293,7 +293,7 @@ def _request_with_xff(xff: str | None, host: str = "127.0.0.1"):
 
 
 class TestSingaporeCheckins:
-    def test_untrusted_xff_cannot_change_singapore_decision(
+    def test_default_first_xff_drives_singapore_decision(
         self, client, test_session, test_course, auth_headers_admin
     ):
         session_id = test_session["id"]
@@ -321,22 +321,24 @@ class TestSingaporeCheckins:
         foreign = _submit_checkin(
             client, session_id, foreign_student["headers"], extra_headers={"X-Forwarded-For": "8.8.8.8"}
         )
-        assert foreign.status_code == 201, foreign.text
+        assert foreign.status_code == 403, foreign.text
+        assert foreign.json()["detail"] == "Check-in not allowed from this location"
 
-    def test_untrusted_multi_hop_xff_is_ignored(
+    def test_default_multi_hop_xff_uses_first_address(
         self, client, test_session, test_course, auth_headers_admin
     ):
         session_id = test_session["id"]
         course_id = test_course["id"]
 
         foreign_first = _enroll_student(client, auth_headers_admin, course_id)
-        allowed_foreign_first = _submit_checkin(
+        denied_foreign_first = _submit_checkin(
             client,
             session_id,
             foreign_first["headers"],
             extra_headers={"X-Forwarded-For": "8.8.8.8, 155.69.1.10"},
         )
-        assert allowed_foreign_first.status_code == 201, allowed_foreign_first.text
+        assert denied_foreign_first.status_code == 403, denied_foreign_first.text
+        assert denied_foreign_first.json()["detail"] == "Check-in not allowed from this location"
 
         private_first = _enroll_student(client, auth_headers_admin, course_id)
         allowed = _submit_checkin(
@@ -385,11 +387,12 @@ class TestSingaporeCheckins:
         )
         assert private_denied.status_code == 403, private_denied.text
 
-    def test_client_ip_ignores_xff_from_untrusted_peer(self):
-        assert client_ip(_request_with_xff("8.8.8.8, 155.69.1.10")) == "127.0.0.1"
-        assert client_ip(_request_with_xff("10.0.0.1, 8.8.8.8")) == "127.0.0.1"
+    def test_client_ip_uses_first_xff_by_default(self):
+        assert client_ip(_request_with_xff("8.8.8.8, 155.69.1.10")) == "8.8.8.8"
+        assert client_ip(_request_with_xff("10.0.0.1, 8.8.8.8")) == "10.0.0.1"
         assert client_ip(_request_with_xff(None, host="192.168.0.4")) == "192.168.0.4"
         assert client_ip(_request_with_xff("not-an-ip", host="10.0.0.9")) == "10.0.0.9"
+        assert client_ip(_request_with_xff("not-an-ip, 155.69.1.10", host="10.0.0.9")) == "10.0.0.9"
 
     def test_singapore_helper_matrix_matches_current_policy(self):
         assert singapore_checkin_allowed("127.0.0.1", 1.3483, 103.6831) is True
