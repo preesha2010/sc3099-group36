@@ -3,7 +3,6 @@
 import base64
 import binascii
 import ipaddress
-import re
 from decimal import Decimal
 from typing import Dict, List, Tuple
 
@@ -17,19 +16,19 @@ from app.risk_policy import WEIGHTS, LEVEL_BOUNDARIES
 
 def detect_vpn_proxy(ip_address: str, user_agent: str) -> Tuple[bool, float]:
     """Flag documented private/loopback IPs and common VPN/proxy client labels."""
-    reasons = []
+    confidence = 0.0
     if not ip_address and not user_agent:
         return False, 0.5
     try:
         if ip_address:
             address = ipaddress.ip_address(ip_address)
             if address.is_private or address.is_loopback:
-                reasons.append("private_or_loopback_ip")
+                confidence = 0.7
     except ValueError:
-        reasons.append("invalid_ip")
-    if user_agent and re.search(r"\b(?:vpn|proxy|tor)\b", user_agent, flags=re.IGNORECASE):
-        reasons.append("vpn_or_proxy_user_agent")
-    return bool(reasons), min(1.0, 0.5 * len(reasons))
+        confidence = 0.5
+    if user_agent and any(word in user_agent.lower() for word in ("vpn", "proxy", "tunnel", "tor")):
+        confidence = max(confidence, 0.8)
+    return confidence >= 0.7, confidence
 
 
 def device_risk(signature: str | None, public_key: str | None) -> float:
@@ -71,6 +70,7 @@ def assess_risk(request: RiskAssessRequest) -> Tuple[float, str, Dict[str, float
     recommendations.append("Device trust is unverified; verify a signed server challenge")
     is_vpn, network_risk = detect_vpn_proxy(request.ip_address or "", request.user_agent or "")
     if is_vpn:
+        recommendations.append("Disable VPN for check-in")
         recommendations.append("Review network signals; private IP or client labels do not prove VPN use")
 
     geolocation_risk = 0.5

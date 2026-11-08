@@ -55,7 +55,7 @@ class Settings:
 
     @classmethod
     def load(cls):
-        mode = os.getenv("FACE_TEMPLATE_MODE", "sha256")
+        mode = os.getenv("FACE_TEMPLATE_MODE", "simhash")
         backend = os.getenv("LIVENESS_BACKEND", "heuristic")
         if mode not in {"sha256", "simhash"}:
             raise ValueError("Invalid FACE_TEMPLATE_MODE")

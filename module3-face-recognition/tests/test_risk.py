@@ -19,11 +19,19 @@ def test_well_formed_but_unverified_device_stays_uncertain(client):
     assert result["signal_breakdown"]["device"] == pytest.approx(0.1)
 
 
-def test_network_keywords_do_not_match_inside_words(client):
-    response = client.post("/risk/assess", json={"user_agent": "Motorola browser", "ip_address": "8.8.8.8"}).json()
-    assert response["signal_breakdown"]["network"] == 0
-    response = client.post("/risk/assess", json={"user_agent": "vpn-client", "ip_address": "10.0.0.1"}).json()
-    assert response["signal_breakdown"]["network"] == pytest.approx(0.15)
+@pytest.mark.parametrize("signals,expected", [
+    ({}, 0.075),
+    ({"ip_address": "10.0.0.1"}, 0.105),
+    ({"ip_address": "8.8.8.8", "user_agent": "NordVPN"}, 0.12),
+    ({"user_agent": "secure-Tunnel"}, 0.12),
+    ({"user_agent": "Motorola browser"}, 0.12),
+    ({"ip_address": "10.0.0.1", "user_agent": "proxy"}, 0.12),
+])
+def test_network_matches_course_reference(client, signals, expected):
+    response = client.post("/risk/assess", json=signals).json()
+    assert response["signal_breakdown"]["network"] == pytest.approx(expected)
+    if expected > 0.075:
+        assert "Disable VPN for check-in" in response["recommendations"]
 
 
 @pytest.mark.parametrize("signals", [{}, {"liveness_score": .95, "face_match_score": .95}, {"liveness_score": .1, "face_match_score": .2, "device_signature": "bad"}])

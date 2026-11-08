@@ -1,6 +1,6 @@
 {
   "format_version": 1,
-  "policy_id": "weighted_signals_v1",
+  "policy_id": "weighted_signals_v2",
   "description": "Synthetic, independently specified numerical contract cases; no faces/keys/identities, no attendance-approval claims.",
   "cases": [
     {
@@ -92,7 +92,7 @@
       },
       "status": 200,
       "expected": {
-        "risk_score": 1,
+        "risk_score": 0.97,
         "risk_level": "CRITICAL",
         "pass_threshold": false,
         "risk_threshold": 0.5,
@@ -100,7 +100,7 @@
           "liveness": 0.25,
           "face_match": 0.25,
           "device": 0.2,
-          "network": 0.15,
+          "network": 0.12,
           "geolocation": 0.15
         }
       }
@@ -224,7 +224,7 @@
     {
       "id": "below_high",
       "input": {
-        "liveness_score": 0.000004,
+        "liveness_score": 4e-06,
         "face_match_score": 1
       },
       "status": 200,
@@ -277,7 +277,7 @@
         "risk_threshold": 0.5,
         "signal_breakdown": {
           "liveness": 0.25,
-          "face_match": 0.000001,
+          "face_match": 1e-06,
           "device": 0.1,
           "network": 0.075,
           "geolocation": 0.075
@@ -502,7 +502,7 @@
       },
       "status": 200,
       "expected": {
-        "risk_score": 0.5,
+        "risk_score": 0.53,
         "risk_level": "HIGH",
         "pass_threshold": false,
         "risk_threshold": 0.5,
@@ -510,7 +510,7 @@
           "liveness": 0.125,
           "face_match": 0.125,
           "device": 0.1,
-          "network": 0.075,
+          "network": 0.105,
           "geolocation": 0.075
         }
       }
@@ -522,7 +522,7 @@
       },
       "status": 200,
       "expected": {
-        "risk_score": 0.5,
+        "risk_score": 0.53,
         "risk_level": "HIGH",
         "pass_threshold": false,
         "risk_threshold": 0.5,
@@ -530,7 +530,7 @@
           "liveness": 0.125,
           "face_match": 0.125,
           "device": 0.1,
-          "network": 0.075,
+          "network": 0.105,
           "geolocation": 0.075
         }
       }
@@ -542,7 +542,7 @@
       },
       "status": 200,
       "expected": {
-        "risk_score": 0.5,
+        "risk_score": 0.53,
         "risk_level": "HIGH",
         "pass_threshold": false,
         "risk_threshold": 0.5,
@@ -550,7 +550,7 @@
           "liveness": 0.125,
           "face_match": 0.125,
           "device": 0.1,
-          "network": 0.075,
+          "network": 0.105,
           "geolocation": 0.075
         }
       }
@@ -582,7 +582,7 @@
       },
       "status": 200,
       "expected": {
-        "risk_score": 0.5,
+        "risk_score": 0.545,
         "risk_level": "HIGH",
         "pass_threshold": false,
         "risk_threshold": 0.5,
@@ -590,7 +590,7 @@
           "liveness": 0.125,
           "face_match": 0.125,
           "device": 0.1,
-          "network": 0.075,
+          "network": 0.12,
           "geolocation": 0.075
         }
       }
@@ -602,15 +602,15 @@
       },
       "status": 200,
       "expected": {
-        "risk_score": 0.425,
-        "risk_level": "MEDIUM",
-        "pass_threshold": true,
+        "risk_score": 0.545,
+        "risk_level": "HIGH",
+        "pass_threshold": false,
         "risk_threshold": 0.5,
         "signal_breakdown": {
           "liveness": 0.125,
           "face_match": 0.125,
           "device": 0.1,
-          "network": 0,
+          "network": 0.12,
           "geolocation": 0.075
         }
       }
@@ -623,7 +623,7 @@
       },
       "status": 200,
       "expected": {
-        "risk_score": 0.575,
+        "risk_score": 0.545,
         "risk_level": "HIGH",
         "pass_threshold": false,
         "risk_threshold": 0.5,
@@ -631,7 +631,7 @@
           "liveness": 0.125,
           "face_match": 0.125,
           "device": 0.1,
-          "network": 0.15,
+          "network": 0.12,
           "geolocation": 0.075
         }
       }

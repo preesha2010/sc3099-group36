@@ -3,6 +3,28 @@
 Internal FastAPI service on port 8001. No backend, database or Redis is needed
 to run its endpoints or standalone tests. Only files in this module are modified.
 
+**2026-11-08 update:** SimHash is now the default face-template mode. The pinned
+YuNet and SFace ONNX files are included in this module, and startup creates a
+32-byte private key once if the configured key file does not exist. Local runs
+use `models/template.key`; Docker uses `/app/state/template.key`. Preserve and
+back up that key and use the same key across service instances: losing it or
+switching from SHA-256 requires re-enrollment. Docker's image declares a volume
+at `/app/state`; a named volume or bind mount must be configured for durable
+retention across `docker compose down` and deployments. The existing root
+Compose file does not declare such a named volume. Do not commit the key.
+
+The default liveness backend remains the single-image heuristic. The optional
+MiniFASNet backend still needs its model bootstrap as described below. Set
+`FACE_TEMPLATE_MODE=sha256` explicitly for legacy exact-image compatibility.
+Missing or corrupt required models do not trigger a silent mode change: startup
+fails, because existing templates are not interchangeable between modes.
+
+`weighted_signals_v2` updates VPN/user-agent risk; private/loopback IPs yield
+0.7 and `vpn`, `proxy`, `tunnel` or `tor` substrings yield 0.8 (maximum if both).
+These are heuristics, not proof of VPN use. A match includes the documented
+"Disable VPN for check-in" recommendation. Prior dated risk-contract results
+describe v1 and must not be treated as v2 fallback conformance.
+
 **Latest M2 client alignment (2026-10-31):** see `VALIDATION-20261031.md` and
 `MODULE2-INTEGRATION.md`. The actual M2 risk client returns typed FaceCall data
 without `risk_threshold`; the M3 checker validates the complete threshold on
@@ -63,10 +85,10 @@ and classification checks. Read `INTEGRATION-CONTRACT.md` before enabling any
 M2 fallback: required evidence, typed error classification and a matching corpus
 are prerequisites. A numerical risk pass alone does not approve attendance.
 
-## Enable cross-photo recognition and pretrained anti-spoofing
+## Enable pretrained anti-spoofing
 
-The default `uvicorn app.main:app` command remains the repository's SHA-256
-compatibility profile. The lecture's SimHash alternative is an explicit opt-in:
+The default `uvicorn app.main:app` command uses SimHash with bundled face
+models. The following optional bootstrap adds pretrained MiniFASNet:
 
 ```powershell
 # Once, in the API environment: download checked YuNet/SFace weights and create
@@ -90,8 +112,8 @@ The entire synchronous pipeline is also limited to eight concurrent handlers
 (`INFERENCE_CONCURRENCY`, range 1-16), so waiting requests do not all retain
 decoded full-resolution images. Larger model pools are configurable but must
 be measured rather than assumed faster.
-Only bootstrap needs internet access; request inference is entirely local.
-Model weights are not committed. Source commits, original checkpoints and
+Only the optional PAD bootstrap needs internet access; request inference is entirely local.
+YuNet/SFace weights are committed; MiniFASNet weights are bootstrapped. Source commits, original checkpoints and
 exported ONNX checksums are verified; licenses and provenance are described in
 `THIRD_PARTY.md`. PyTorch is only used for one-time offline conversion.
 
@@ -240,14 +262,14 @@ explicit origins. It does not use cookies or wildcard credentialed access.
 
 ## Current limitations and specification conflict
 
-1. **The two specifications describe different template policies.** The default
-   compatibility profile still uses a SHA-256 digest of a normalized grayscale
-   crop and cannot match different photos of the same person. Enhanced SimHash
-   mode now implements and tests cross-photo identity matching using SFace.
+1. **The two specifications describe different template policies.** The legacy
+   compatibility profile uses a SHA-256 digest of a normalized grayscale crop
+   and cannot match different photos of the same person. Default SimHash mode
+   implements cross-photo identity matching using SFace.
    The repository's security requirements mandate SHA-256-only storage while
    the Module 3 slides explain SimHash/similarity-preserving templates. A normal
-   SHA-256 digest does not preserve distances. The separate opt-in profile makes
-   this difference explicit rather than silently changing the existing policy.
+   SHA-256 digest does not preserve distances. SimHash is explicitly identified
+   in response metadata; existing SHA-256 templates require re-enrollment.
 2. **The compatibility profile's passive liveness is a heuristic.** Mesh depth, completeness, sharpness and
    color variation use the documented 30/25/25/20 weights with a quality gate.
    Predicted mesh depth is not measured sensor depth. A sharp photo or screen
@@ -329,13 +351,14 @@ cleanup. See `evaluation/latest.json` for the full measured report.
 
 See `HANDOFF.md` for operational checks and the remaining team decisions. Docker
 and every other module remain out of scope for this phase. Existing business
-endpoints, thresholds, risk weights and the default SHA-256 profile are unchanged.
+endpoints, thresholds and risk weights were unchanged in that historical phase;
+the 2026-11-08 update above changes the default mode and network risk semantics.
 
 ### Configuration, readiness and overload
 
 | Variable | Default | Allowed range / meaning |
 | --- | --- | --- |
-| `FACE_TEMPLATE_MODE` | `sha256` | `sha256` or explicit `simhash` |
+| `FACE_TEMPLATE_MODE` | `simhash` | `simhash` or explicit legacy `sha256` |
 | `LIVENESS_BACKEND` | `heuristic` | `heuristic` or explicit `minifasnet` |
 | `FACE_MODEL_WORKERS` | `4` | 1-8 model slots, not server processes |
 | `INFERENCE_CONCURRENCY` | `8` | 1-16 admitted visual pipelines |

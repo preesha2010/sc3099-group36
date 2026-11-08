@@ -55,6 +55,7 @@ def test_blank_input_does_not_pass_liveness(client):
 
 
 def test_uniform_texture_cannot_pass_even_with_mesh(monkeypatch):
+    monkeypatch.setenv("FACE_TEMPLATE_MODE", "sha256")
     monkeypatch.setattr(liveness, "analyze_face_mesh", lambda _: {
         "face_mesh_complete": True, "nose_tip_z": -.07, "depth_quality": "good", "landmark_count": 468,
     })
@@ -64,6 +65,7 @@ def test_uniform_texture_cannot_pass_even_with_mesh(monkeypatch):
 
 
 def test_missing_depth_cannot_be_outweighed_by_other_cues(monkeypatch):
+    monkeypatch.setenv("FACE_TEMPLATE_MODE", "sha256")
     monkeypatch.setattr(liveness, "analyze_face_mesh", lambda _: {
         "face_mesh_complete": True, "nose_tip_z": 0, "depth_quality": "poor", "landmark_count": 468,
     })
@@ -77,6 +79,7 @@ def test_missing_depth_cannot_be_outweighed_by_other_cues(monkeypatch):
 
 
 def test_multiple_faces_are_rejected(monkeypatch):
+    monkeypatch.setenv("FACE_TEMPLATE_MODE", "sha256")
     class Detector:
         def __init__(self, **_):
             pass

@@ -5,6 +5,17 @@ from fastapi import HTTPException
 from app.services import templates
 
 
+def test_default_mode_and_persistent_key_creation(monkeypatch, tmp_path):
+    monkeypatch.delenv("FACE_TEMPLATE_MODE", raising=False)
+    monkeypatch.setenv("FACE_TEMPLATE_KEY_PATH", str(tmp_path / "state" / "template.key"))
+    assert templates.template_mode() == "simhash"
+    templates.initialize_template_key()
+    key = templates.template_key_path().read_bytes()
+    assert len(key) == 32
+    templates.initialize_template_key()
+    assert templates.template_key_path().read_bytes() == key
+
+
 @pytest.mark.parametrize("mode,expected", [
     ("sha256", "sha256_normalized_face_pixels_v1"), ("simhash", "sface_simhash64_signed_v1")])
 def test_explicit_format_metadata_does_not_select_or_change_template_mode(monkeypatch, mode, expected):

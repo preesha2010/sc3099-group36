@@ -19,8 +19,12 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
 COPY app ./app
+COPY models/sface.onnx models/yunet.onnx ./models/
 
 RUN useradd --uid 10001 --create-home saiv
+RUN mkdir /app/state && chown saiv:saiv /app/state
+ENV FACE_TEMPLATE_KEY_PATH=/app/state/template.key
+VOLUME /app/state
 USER saiv
 
 # Expose port
