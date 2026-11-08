@@ -51,6 +51,7 @@ def test_windows_native_path_failures_are_explained_before_serving():
 def test_enhanced_missing_assets_fail_before_serving(monkeypatch, tmp_path, failure):
     monkeypatch.setenv("FACE_TEMPLATE_MODE", "simhash")
     monkeypatch.setenv("FACE_MODEL_DIR", str(tmp_path))
+    monkeypatch.delenv("FACE_TEMPLATE_KEY_PATH", raising=False)
     if failure == "corrupt_model":
         (tmp_path / "template.key").write_bytes(b"k" * 32)
         (tmp_path / "yunet.onnx").write_bytes(b"invalid-model")
@@ -64,6 +65,7 @@ def test_enhanced_missing_assets_fail_before_serving(monkeypatch, tmp_path, fail
 
 def test_readiness_tracks_immutable_assets_and_key(tmp_path, monkeypatch):
     monkeypatch.setenv("FACE_MODEL_DIR", str(tmp_path))
+    monkeypatch.delenv("FACE_TEMPLATE_KEY_PATH", raising=False)
     instance = Runtime(Settings.load())
     path = tmp_path / "asset"
     path.write_bytes(b"model")
@@ -154,7 +156,9 @@ def test_overload_is_bounded_and_health_stays_responsive(monkeypatch, pending, q
 
     monkeypatch.setattr(api, "decode_base64_image", lambda _: np.zeros((32, 32, 3), np.uint8))
     monkeypatch.setattr(api, "detect_face", slow_detection)
-    payload = {"image": "secret", "reference_template_hash": "0" * 64}
+    from app.services.templates import template_mode, encode_simhash
+    reference = encode_simhash(np.ones(128, dtype=np.float32)) if template_mode() == "simhash" else "0" * 64
+    payload = {"image": "secret", "reference_template_hash": reference}
     with TestClient(app) as client, ThreadPoolExecutor(2) as executor:
         request = executor.submit(client.post, "/face/verify", json=payload)
         try:

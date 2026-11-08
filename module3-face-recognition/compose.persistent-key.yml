@@ -1,0 +1,8 @@
+# Use with the repository's docker-compose.yml for the default SimHash mode.
+services:
+  face-recognition:
+    volumes:
+      - m3_template_state:/app/state
+
+volumes:
+  m3_template_state:

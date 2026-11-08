@@ -1,5 +1,9 @@
 # M2/M3 integration contract, 2026-10-28
 
+**2026-11-08 update:** Default templates now use SimHash and the risk contract
+is `weighted_signals_v2`; see README for models, key persistence and migration.
+The v1 semantics and legacy-mode references below are historical.
+
 **2026-11-04 update:** The check-in API marks the image optional. M2 revision
 `9dd79fe` allows image-less check-ins even when liveness is enabled; the
 conditional policy remains subject to teaching-staff clarification. M3 does

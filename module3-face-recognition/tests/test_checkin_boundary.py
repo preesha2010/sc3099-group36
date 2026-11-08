@@ -7,6 +7,12 @@ import cv2
 from fastapi import HTTPException
 from PIL import Image
 import pytest
+import numpy as np
+
+
+def valid_reference():
+    from app.services.templates import template_mode, encode_simhash
+    return encode_simhash(np.ones(128, dtype=np.float32)) if template_mode() == "simhash" else "a" * 64
 
 
 def blank():
@@ -40,7 +46,7 @@ def test_requested_visual_operation_never_treats_missing_image_as_pass(client, p
 
 
 @pytest.mark.parametrize("path,payload,prefix", [
-    ("/face/verify", lambda: {"image": blank(), "reference_template_hash": "a" * 64}, "match"),
+    ("/face/verify", lambda: {"image": blank(), "reference_template_hash": valid_reference()}, "match"),
     ("/liveness/check", lambda: {"challenge_response": blank()}, "liveness"),
 ])
 def test_valid_no_face_is_negative_decision_not_outage(client, path, payload, prefix):
@@ -51,7 +57,7 @@ def test_valid_no_face_is_negative_decision_not_outage(client, path, payload, pr
 
 @pytest.mark.parametrize("native", [False, True])
 @pytest.mark.parametrize("path,payload,prefix", [
-    ("/face/verify", lambda: {"image": blank(), "reference_template_hash": "a" * 64}, "match"),
+    ("/face/verify", lambda: {"image": blank(), "reference_template_hash": valid_reference()}, "match"),
     ("/liveness/check", lambda: {"challenge_response": blank()}, "liveness"),
 ])
 def test_unavailable_is_redacted_503_and_same_request_can_retry(client, monkeypatch, native, path, payload, prefix):

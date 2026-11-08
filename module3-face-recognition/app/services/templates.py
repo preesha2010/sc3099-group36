@@ -8,6 +8,8 @@ import hashlib
 import hmac
 import math
 import os
+import secrets
+from pathlib import Path
 from functools import lru_cache
 
 import numpy as np
@@ -59,7 +61,7 @@ def match_query_to_template(embedding: np.ndarray, reference: str) -> float:
 
 
 def template_mode() -> str:
-    mode = os.getenv("FACE_TEMPLATE_MODE", "sha256")
+    mode = os.getenv("FACE_TEMPLATE_MODE", "simhash")
     if mode not in {"sha256", "simhash"}:
         raise HTTPException(status_code=503, detail="Invalid face template configuration")
     return mode
@@ -68,8 +70,7 @@ def template_mode() -> str:
 @lru_cache(maxsize=2)
 def _key_for_directory(directory: str) -> bytes:
     try:
-        from pathlib import Path
-        key = (Path(directory) / "template.key").read_bytes()
+        key = Path(directory).read_bytes()
     except OSError as exc:
         raise HTTPException(status_code=503, detail="Private template key is missing; run model bootstrap") from exc
     if len(key) != 32:
@@ -80,7 +81,23 @@ def _key_for_directory(directory: str) -> bytes:
 def template_key() -> bytes:
     # Configuration is immutable during a server run; key rotation requires a
     # restart and fresh enrollments. This caches a key, never a biometric vector.
-    return _key_for_directory(str(model_directory()))
+    return _key_for_directory(str(template_key_path()))
+
+
+def template_key_path() -> Path:
+    return Path(os.getenv("FACE_TEMPLATE_KEY_PATH", str(model_directory() / "template.key"))).resolve()
+
+
+def initialize_template_key() -> None:
+    """Create a private persistent key once; never overwrite an existing key."""
+    path = template_key_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    except FileExistsError:
+        return
+    with os.fdopen(fd, "wb") as stream:
+        stream.write(secrets.token_bytes(32))
 
 
 @lru_cache(maxsize=2)

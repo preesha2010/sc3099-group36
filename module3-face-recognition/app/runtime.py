@@ -10,7 +10,7 @@ import mediapipe as mp
 from app.config import Settings
 from app.model_assets import model_directory
 from app.services.neural import pool, verified_asset
-from app.services.templates import template_key
+from app.services.templates import template_key, template_key_path, initialize_template_key
 from app.services.mesh import validated_config
 
 
@@ -38,6 +38,7 @@ class Runtime:
         required = []
         names = []
         if self.settings.template_mode == "simhash":
+            initialize_template_key()
             self.key_digest = hashlib.sha256(template_key()).digest()
             required += ["yunet.onnx", "sface.onnx"]
             names += ["yunet", "sface"]
@@ -94,7 +95,7 @@ class Runtime:
                     # Model files/config are immutable during a run; restart to re-verify.
                     return False
             if self.key_digest is not None:
-                data = (self.directory / "template.key").read_bytes()
+                data = template_key_path().read_bytes()
                 if hashlib.sha256(data).digest() != self.key_digest:
                     return False
             return True

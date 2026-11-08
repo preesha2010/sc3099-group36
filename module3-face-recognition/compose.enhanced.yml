@@ -7,6 +7,7 @@ services:
       FACE_TEMPLATE_MODE: simhash
       LIVENESS_BACKEND: minifasnet
       FACE_MODEL_DIR: /app/models
+      FACE_TEMPLATE_KEY_PATH: /app/models/template.key
       FACE_MODEL_WORKERS: "4"
       OPENBLAS_NUM_THREADS: "1"
       OMP_NUM_THREADS: "1"
