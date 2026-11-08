@@ -72,6 +72,8 @@ services:
     environment:
       REDIS_URL: redis://redis:6379
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+    volumes:
+      - m3_template_state:/app/state
     depends_on:
       redis:
         condition: service_healthy
@@ -164,3 +166,4 @@ volumes:
   postgres_data:
   prometheus_data:
   grafana_data:
+  m3_template_state:
